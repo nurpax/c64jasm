@@ -1,0 +1,11 @@
+{
+  "license": "MIT",
+  "scripts": {
+    "compile": "tsc --outDir build src/asm.ts",
+    "t": "node build/asm.js test/test.asm"
+  },
+  "dependencies": {
+    "@types/node": "^10.9.4",
+    "typescript": "^3.0.3"
+  }
+}
