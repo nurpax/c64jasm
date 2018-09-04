@@ -3,8 +3,13 @@ import * as process from 'process'
 
 import { readFileSync } from 'fs'
 
+interface SourceLine {
+    lineNo: number,
+    line: string
+}
+
 // this stolen from here: https://github.com/skilldrick/6502js/blob/master/assembler.js
-var opcodes = [
+const opcodes = [
   /* Name, Imm,  ZP,   ZPX,  ZPY,  ABS, ABSX, ABSY,  IND, INDX, INDY, SNGL, BRA */
   ["ADC", 0x69, 0x65, 0x75, null, 0x6d, 0x7d, 0x79, null, 0x61, 0x71, null, null],
   ["AND", 0x29, 0x25, 0x35, null, 0x2d, 0x3d, 0x39, null, 0x21, 0x31, null, null],
@@ -69,6 +74,120 @@ function readLines (fname) {
     return readFileSync(fname).toString().split('\n')
 }
 
+const filterMap = (lst, mf) => {
+    return lst.map((l,i) => mf(l, i)).filter(elt => elt !== null);
+}
+
+function tryParseInt(s): number | null {
+    if (s.length < 1) {
+        return null
+    }
+    if (s[0] == '$') {
+        const v = parseInt(s.slice(1), 16);
+        return isNaN(v) ? null : v
+    } else {
+        const v = parseInt(s, 10);
+        return isNaN(v) ? null : v
+    }
+}
+
+function toHex(num) {
+    const h = num.toString(16)
+    return num < 16 ? `0${h}` : `${h}`
+}
+
+class Assembler {
+    binary: Number[] = []
+
+    emit = (byte: number) => {
+        this.binary.push(byte);
+        console.log(toHex(byte))
+    }
+
+    emit16 = (word: number) => {
+        this.emit(word & 0xff);
+        this.emit((word>>8) & 0xff);
+    }
+
+    // TODO shouldn't have any for opcode
+    checkSingle = (param: String, opcode: any) => {
+        if (opcode === null || param === null) {
+            return false;
+        }
+        this.emit(opcode)
+        return true;
+    }
+
+    checkImm = (param: string, opcode: any) => {
+        if (opcode === null || param === null) {
+            return false;
+        }
+        const argRe = /^#(.*)$/
+        const immArg = argRe.exec(param)[1]
+        if (immArg === undefined) {
+            return false
+        }
+        // TODO labels + expressions
+        const val = tryParseInt(immArg);
+        if (val !== null) {
+            if (val < 0 || val > 255) {
+                return false
+            }
+            this.emit(opcode)
+            this.emit(val)
+            return true
+        }
+        return false;
+    }
+
+    checkAbs = (param: string, opcode: any) => {
+        if (opcode === null || param === null) {
+            return false;
+        }
+        // TODO labels + expressions
+        const val = tryParseInt(param);
+        if (val !== null) {
+            if (val < 0 || val > 0xffff) {
+                return false
+            }
+            this.emit(opcode)
+            this.emit16(val)
+            return true
+        }
+        return false;
+    }
+
+    assemble = ({line, lineNo}) => {
+        console.log(`assembling line ${line}`)
+
+        let command = line.replace(/^(\w+).*$/, "$1").toUpperCase();
+
+        let param = null
+        const paramRe = /^\w+\s+(.*?)$/
+        if (line.match(paramRe)) {
+            param = paramRe.exec(line)[1];
+        } else if (!line.match(/^\w+$/)) {
+            console.error(`Syntax error on line ${lineNo}: ${line}`)
+        }
+
+        for (let i = 0; i < opcodes.length; i++) {
+            if (opcodes[i][0] === command) {
+                if (this.checkSingle(param, opcodes[i][11])) {
+                    return true;
+                }
+                if (this.checkImm(param, opcodes[i][1])) {
+                    return true;
+                }
+                // XXXX must be second to last
+                if (this.checkAbs(param, opcodes[i][5])) {
+                    return true;
+                }
+            }
+        }
+        console.log('error!');
+    }
+}
+
 function main() {
     const trim = (str) => {
         const commentRe = /^([^;]*).*$/
@@ -77,8 +196,20 @@ function main() {
     }
 
     const lastArg = process.argv[process.argv.length-1];
-    const lines = readLines(lastArg).map(trim);
-    console.log(lines);
+    function toSourceLine(str: String, lineNo: number): SourceLine | null {
+        const line = trim(str)
+        if (line == '') {
+            return null
+        }
+        return {
+            line,
+            lineNo
+        }
+    }
+    const lines = filterMap(readLines(lastArg), toSourceLine);
+
+    const asm = new Assembler()
+    lines.forEach(asm.assemble)
 }
 
 main();
