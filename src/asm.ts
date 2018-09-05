@@ -91,23 +91,65 @@ function tryParseInt(s): number | null {
     }
 }
 
+function tryParseSymbol(s): string | null {
+    const m = /^([a-zA-Z_]+[0-9a-zA-Z_]*)$/.exec(s)
+    if (m !== null) {
+        return m[1];
+    }
+    return null
+}
+
 function toHex(num) {
     const h = num.toString(16)
     return num < 16 ? `0${h}` : `${h}`
 }
 
+interface Label {
+    addr: number,
+    lineNo: number
+}
+
+class Labels {
+    labels = {}
+
+    add = (name: string, addr: number, lineNo: number) => {
+        const lbl: Label = {
+            addr,
+            lineNo
+        }
+        this.labels[name] = lbl
+    }
+
+    find = (name: string) => {
+        return this.labels[name]
+    }
+}
+
 class Assembler {
+    // TODO this should be a resizable array instead
     binary: number[] = [];
 
+    currentLineNo = 0;
     codePC = 0;
+    pass = 0;
+    labels = new Labels()
 
     prg = () => {
       // 1,8 is for encoding the $0801 starting address in the .prg file
       return Buffer.from([1, 8].concat(this.binary))
     }
 
-    emitBasicHeader = () => {
+    error = (err: string) => {
+        console.log(`src/foo.asm:${this.currentLineNo} - ${err}`)
+    }
+
+    startPass = (pass: number) => {
       this.codePC = 0x801;
+      this.pass = pass;
+      this.binary = [];
+    }
+
+    emitBasicHeader = () => {
       this.emit(0x0c);
       this.emit(0x08);
       this.emit(0x00);
@@ -166,7 +208,7 @@ class Assembler {
         return false;
     }
 
-    checkAbs = (param: string, opcode: any) => {
+    checkAbs = (param: string, opcode: number | null) => {
         if (opcode === null || param === null) {
             return false;
         }
@@ -180,20 +222,85 @@ class Assembler {
             this.emit16(val)
             return true
         }
+
+        const label = tryParseSymbol(param)
+        if (label !== null) {
+            let addr = 0
+            if (this.pass === 1) {
+                const lbl = this.labels.find(label)
+                if (!lbl) {
+                    this.error(`Undefined label '${label}'`)
+                }
+                this.emit(opcode)
+                this.emit16(lbl.addr)
+                return true
+            } else {
+                // We don't know labal address yet
+                this.emit(opcode)
+                this.emit16(0)
+            }
+        }
+
         return false;
     }
 
+    checkBranch = (param: string, opcode: number | null) => {
+        if (opcode === null || param === null) {
+            return false;
+        }
+        console.log('unimplemented')
+        return false
+/*
+        // TODO labels + expressions
+        const val = tryParseInt(param);
+        if (val !== null) {
+            if (val < 0 || val > 0xffff) {
+                return false
+            }
+            this.emit(opcode)
+            this.emit16(val)
+            return true
+        }
+        return false;
+  */
+    }
+
     assembleLine = ({line, lineNo}) => {
+        this.currentLineNo = lineNo
         console.log(`assembling line ${line}`)
 
-        let command = line.replace(/^(\w+).*$/, "$1").toUpperCase();
+        let insn = null
+
+        let lbl = /^(\w+):\s*(.*)$/.exec(line)
+        if (lbl !== null) {
+            insn = lbl[2]
+            const lblSymbol = lbl[1]
+
+            if (this.pass === 0) {
+                const oldLabel = this.labels.find(lblSymbol)
+                if (oldLabel === undefined) {
+                    this.labels.add(lblSymbol, this.codePC, lineNo);
+                } else {
+                    this.error(`Label '${lblSymbol}' already defined on line ${oldLabel.lineNo}`)
+                    return
+                }
+            }
+        } else {
+            insn = line
+        }
+
+        const command = insn.replace(/^(\w+).*$/, "$1").toUpperCase();
+        // Only label on this line?
+        if (command === '') {
+            return
+        }
 
         let param = null
         const paramRe = /^\w+\s+(.*?)$/
-        if (line.match(paramRe)) {
-            param = paramRe.exec(line)[1];
-        } else if (!line.match(/^\w+$/)) {
-            console.error(`Syntax error on line ${lineNo}: ${line}`)
+        if (insn.match(paramRe)) {
+            param = paramRe.exec(insn)[1];
+        } else if (!insn.match(/^\w+$/)) {
+            this.error(`Syntax error: ${line}`)
         }
 
         const op = opcodes[command]
@@ -219,11 +326,10 @@ class Assembler {
                 return true;
             }
 /*
-          if (checkBranch(param, Opcodes[o][11])) { return true; }
-        }
+            if (this.checkBranch(param, op[11])) {
+                return true;
+            }
 */
-
-            // XXXX must be second to last
         }
         console.log('error!');
     }
@@ -235,14 +341,14 @@ class Assembler {
             return s.replace(/^\s+|\s+$/g, '')
         }
 
-        function toSourceLine(str: String, lineNo: number): SourceLine | null {
+        function toSourceLine(str: String, lineIdx: number): SourceLine | null {
             const line = trim(str)
             if (line == '') {
                 return null
             }
             return {
                 line,
-                lineNo
+                lineNo: lineIdx+1
             }
         }
         const preprocessed = filterMap(lines, toSourceLine);
@@ -251,9 +357,6 @@ class Assembler {
         for (const line of preprocessed) {
             this.assembleLine(line)
         }
-        this.emit(0x4c);//jmp *
-        this.emit(0x12);
-        this.emit(8);
     }
 }
 
@@ -261,7 +364,12 @@ function main() {
     const lastArg = process.argv[process.argv.length-1];
     const asm = new Assembler()
     const lines = readLines(lastArg)
+
+    asm.startPass(0)
     asm.assemble(lines)
+    asm.startPass(1)
+    asm.assemble(lines)
+
     writeFileSync('test.prg', asm.prg(), null)
 }
 
