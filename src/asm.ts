@@ -1,7 +1,7 @@
 
 import * as process from 'process'
 
-import { readFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 
 interface SourceLine {
     lineNo: number,
@@ -97,11 +97,37 @@ function toHex(num) {
 }
 
 class Assembler {
-    binary: Number[] = []
+    binary: number[] = [];
+
+    codePC = 0;
+
+    prg = () => {
+      // 1,8 is for encoding the $0801 starting address in the .prg file
+      return Buffer.from([1, 8].concat(this.binary))
+    }
+
+    emitBasicHeader = () => {
+      this.codePC = 0x801;
+      this.emit(0x0c);
+      this.emit(0x08);
+      this.emit(0x00);
+      this.emit(0x00);
+      this.emit(0x9e);
+      const addr = 0x80d
+      const dividers = [10000, 1000, 100, 10, 1]
+      dividers.forEach(div => {
+        if (addr >= div) {
+          this.emit(0x30 + (addr / div) % 10)
+        }
+      });
+      this.emit(0);
+      this.emit(0);
+      this.emit(0);
+    }
 
     emit = (byte: number) => {
         this.binary.push(byte);
-        console.log(toHex(byte))
+        this.codePC += 1
     }
 
     emit16 = (word: number) => {
@@ -110,7 +136,7 @@ class Assembler {
     }
 
     // TODO shouldn't have any for opcode
-    checkSingle = (param: String, opcode: any) => {
+    checkSingle = (param: String, opcode: number | null) => {
         if (opcode === null || param === null) {
             return false;
         }
@@ -118,7 +144,7 @@ class Assembler {
         return true;
     }
 
-    checkImm = (param: string, opcode: any) => {
+    checkImm = (param: string, opcode: number | null) => {
         if (opcode === null || param === null) {
             return false;
         }
@@ -157,7 +183,7 @@ class Assembler {
         return false;
     }
 
-    assemble = ({line, lineNo}) => {
+    assembleLine = ({line, lineNo}) => {
         console.log(`assembling line ${line}`)
 
         let command = line.replace(/^(\w+).*$/, "$1").toUpperCase();
@@ -178,37 +204,65 @@ class Assembler {
             if (this.checkImm(param, op[0])) {
                 return true;
             }
-            // XXXX must be second to last
+
+/*
+          if (checkZeroPage(param, Opcodes[o][1])) { return true; }
+          if (checkZeroPageX(param, Opcodes[o][2])) { return true; }
+          if (checkZeroPageY(param, Opcodes[o][3])) { return true; }
+          if (checkAbsoluteX(param, Opcodes[o][5])) { return true; }
+          if (checkAbsoluteY(param, Opcodes[o][6])) { return true; }
+          if (checkIndirect(param, Opcodes[o][7])) { return true; }
+          if (checkIndirectX(param, Opcodes[o][8])) { return true; }
+          if (checkIndirectY(param, Opcodes[o][9])) { return true; }
+*/
             if (this.checkAbs(param, op[4])) {
                 return true;
             }
+/*
+          if (checkBranch(param, Opcodes[o][11])) { return true; }
+        }
+*/
+
+            // XXXX must be second to last
         }
         console.log('error!');
+    }
+
+    assemble = (lines) => {
+        const trim = (str) => {
+            const commentRe = /^([^;]*).*$/
+            const s = commentRe.exec(str)[1]
+            return s.replace(/^\s+|\s+$/g, '')
+        }
+
+        function toSourceLine(str: String, lineNo: number): SourceLine | null {
+            const line = trim(str)
+            if (line == '') {
+                return null
+            }
+            return {
+                line,
+                lineNo
+            }
+        }
+        const preprocessed = filterMap(lines, toSourceLine);
+
+        this.emitBasicHeader()
+        for (const line of preprocessed) {
+            this.assembleLine(line)
+        }
+        this.emit(0x4c);//jmp *
+        this.emit(0x12);
+        this.emit(8);
     }
 }
 
 function main() {
-    const trim = (str) => {
-        const commentRe = /^([^;]*).*$/
-        const s = commentRe.exec(str)[1]
-        return s.replace(/^\s+|\s+$/g, '')
-    }
-
     const lastArg = process.argv[process.argv.length-1];
-    function toSourceLine(str: String, lineNo: number): SourceLine | null {
-        const line = trim(str)
-        if (line == '') {
-            return null
-        }
-        return {
-            line,
-            lineNo
-        }
-    }
-    const lines = filterMap(readLines(lastArg), toSourceLine);
-
     const asm = new Assembler()
-    lines.forEach(asm.assemble)
+    const lines = readLines(lastArg)
+    asm.assemble(lines)
+    writeFileSync('test.prg', asm.prg(), null)
 }
 
 main();
