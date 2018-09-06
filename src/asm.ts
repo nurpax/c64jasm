@@ -1,6 +1,8 @@
 
 import * as process from 'process'
 
+let jsep = require('jsep');
+
 import { readFileSync, writeFileSync } from 'fs'
 
 interface SourceLine {
@@ -167,6 +169,61 @@ class Assembler {
       this.emit(0);
     }
 
+    parseImmExpression = (expr) => {
+        const hexConverted = expr.replace(new RegExp('\\$[0-9a-fA-F]+', 'g'), f => parseInt(f.slice(1), 16))
+        const ast = jsep(hexConverted);
+        const evalExpr = (node) => {
+            if (node.type === 'BinaryExpression') {
+                const left = evalExpr(node.left);
+                const right = evalExpr(node.right);
+                if (left === null || right === null) {
+                    return null
+                }
+                switch (node.operator) {
+                    case '+': return left + right
+                    case '-': return left - right
+                    case '*': return left * right
+                    case '/': return left / right
+                    case '%': return left % right
+                    case '&': return left & right
+                    case '|': return left | right
+                    case '^': return left ^ right
+                    case '<<': return left << right
+                    case '>>': return left >> right
+                    default:
+                        this.error(`Unhandled binary operator ${node.operator}`);
+                        return null
+                }
+            }
+            if (node.type === 'UnaryExpression') {
+                const arg = evalExpr(node.argument);
+                switch (node.operator) {
+                    case '-': return -arg
+                    case '~': return ~arg
+                    default:
+                        this.error(`Unhandled unary operator ${node.operator}`);
+                        return null
+                }
+            }
+            if (node.type == 'Literal') {
+                return node.value
+            }
+            if (node.type == 'Identifier') {
+                if (this.pass == 1) {
+                    const label = node.name
+                    const lbl = this.labels.find(label);
+                    if (!lbl) {
+                        this.error(`Undefined label '${label}'`)
+                        return null
+                    }
+                    // TODO can also be a constant
+                    return lbl.addr
+                }
+                return 0
+            }
+        }
+        return evalExpr(ast);
+    }
     emit = (byte: number) => {
         this.binary.push(byte);
         this.codePC += 1
@@ -191,12 +248,13 @@ class Assembler {
             return false;
         }
         const argRe = /^#(.*)$/
-        const immArg = argRe.exec(param)[1]
-        if (immArg === undefined) {
+        const m = argRe.exec(param)
+        if (m === null || m[1] === '') {
             return false
         }
+        const immArg = m[1]
         // TODO labels + expressions
-        const val = tryParseInt(immArg);
+        const val = this.parseImmExpression(immArg);
         if (val !== null) {
             if (val < 0 || val > 255) {
                 return false
@@ -213,7 +271,7 @@ class Assembler {
             return false;
         }
         // TODO labels + expressions
-        const val = tryParseInt(param);
+        const val = this.parseImmExpression(param);
         if (val !== null) {
             if (val < 0 || val > 0xffff) {
                 return false
@@ -235,12 +293,12 @@ class Assembler {
                 this.emit16(lbl.addr)
                 return true
             } else {
-                // We don't know labal address yet
+                // We don't know the label address yet
                 this.emit(opcode)
                 this.emit16(0)
+                return true
             }
         }
-
         return false;
     }
 
@@ -265,9 +323,33 @@ class Assembler {
   */
     }
 
+    checkDirectives = (cmd, arg) => {
+        const tryIntArg = (emit) => {
+            // TODO must handle list of bytes
+            const v = this.parseImmExpression(arg);
+            if (v === null) {
+                this.error(`${cmd} must be followed by at least one argument`);
+                return false
+            }
+            emit(v)
+            return true
+        }
+        switch (cmd) {
+            case "!byte": {
+                return tryIntArg(this.emit)
+            }
+            case "!word": {
+                return tryIntArg(this.emit16)
+            }
+            default:
+                this.error(`Unknown directive ${cmd}`);
+                return false
+        }
+    }
+
     assembleLine = ({line, lineNo}) => {
         this.currentLineNo = lineNo
-        console.log(`assembling line ${line}`)
+        console.log(`pass ${this.pass} - assembling: ${line}`)
 
         let insn = null
 
@@ -289,21 +371,25 @@ class Assembler {
             insn = line
         }
 
-        const command = insn.replace(/^(\w+).*$/, "$1").toUpperCase();
+        const command = insn.replace(/^(!?\w+).*$/, "$1")
         // Only label on this line?
         if (command === '') {
             return
         }
 
         let param = null
-        const paramRe = /^\w+\s+(.*?)$/
+        const paramRe = /^(!?\w+)\s+(.*?)$/
         if (insn.match(paramRe)) {
-            param = paramRe.exec(insn)[1];
+            param = paramRe.exec(insn)[2];
         } else if (!insn.match(/^\w+$/)) {
             this.error(`Syntax error: ${line}`)
         }
 
-        const op = opcodes[command]
+        if (command[0] === '!') {
+            return this.checkDirectives(command, param);
+        }
+
+        const op = opcodes[command.toUpperCase()]
         if (op !== undefined) {
             if (this.checkSingle(param, op[10])) {
                 return true;
@@ -355,7 +441,7 @@ class Assembler {
 
         this.emitBasicHeader()
         for (const line of preprocessed) {
-            this.assembleLine(line)
+            this.assembleLine(line);
         }
     }
 }
