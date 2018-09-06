@@ -236,7 +236,7 @@ class Assembler {
 
     // TODO shouldn't have any for opcode
     checkSingle = (param: String, opcode: number | null) => {
-        if (opcode === null || param === null) {
+        if (opcode === null || param !== null) {
             return false;
         }
         this.emit(opcode)
@@ -247,9 +247,9 @@ class Assembler {
         if (opcode === null || param === null) {
             return false;
         }
-        const argRe = /^#(.*)$/
+        const argRe = /^#(.+)$/
         const m = argRe.exec(param)
-        if (m === null || m[1] === '') {
+        if (m === null) {
             return false
         }
         const immArg = m[1]
@@ -266,62 +266,44 @@ class Assembler {
         return false;
     }
 
-    checkAbs = (param: string, opcode: number | null) => {
+    checkAbs = (param: string, opcode: number | null, bits: number) => {
         if (opcode === null || param === null) {
             return false;
         }
-        // TODO labels + expressions
         const val = this.parseImmExpression(param);
         if (val !== null) {
-            if (val < 0 || val > 0xffff) {
+            if (val < 0 || val >= (1<<bits)) {
                 return false
             }
             this.emit(opcode)
-            this.emit16(val)
+            if (bits === 8) {
+                this.emit(val)
+            } else {
+                this.emit16(val)
+            }
             return true
         }
-
-        const label = tryParseSymbol(param)
-        if (label !== null) {
-            let addr = 0
-            if (this.pass === 1) {
-                const lbl = this.labels.find(label)
-                if (!lbl) {
-                    this.error(`Undefined label '${label}'`)
-                }
-                this.emit(opcode)
-                this.emit16(lbl.addr)
-                return true
-            } else {
-                // We don't know the label address yet
-                this.emit(opcode)
-                this.emit16(0)
-                return true
-            }
-        }
-        return false;
+        return false
     }
 
     checkBranch = (param: string, opcode: number | null) => {
         if (opcode === null || param === null) {
             return false;
         }
-        console.log('unimplemented')
-        return false
-/*
-        // TODO labels + expressions
-        const val = tryParseInt(param);
-        if (val !== null) {
-            if (val < 0 || val > 0xffff) {
-                return false
-            }
-            this.emit(opcode)
-            this.emit16(val)
-            return true
+        if (this.pass === 0) {
+            this.emit(0);
+            this.emit(0);
         }
-        return false;
-  */
-    }
+        const addr = this.parseImmExpression(param);
+        this.emit(opcode);
+        // TODO check 8-bit overflow here!!
+        if (addr < (this.codePC - 0x600)) {  // Backwards?
+          this.emit((0xff - ((this.codePC - 0x600) - addr)) & 0xff);
+          return true;
+        }
+        this.emit((addr - (this.codePC - 0x600) - 1) & 0xff);
+        return true;
+      }
 
     checkDirectives = (cmd, arg) => {
         const tryIntArg = (emit) => {
@@ -397,9 +379,11 @@ class Assembler {
             if (this.checkImm(param, op[0])) {
                 return true;
             }
+            if (this.checkAbs(param, op[1], 8)) {
+                return true;
+            }
 
 /*
-          if (checkZeroPage(param, Opcodes[o][1])) { return true; }
           if (checkZeroPageX(param, Opcodes[o][2])) { return true; }
           if (checkZeroPageY(param, Opcodes[o][3])) { return true; }
           if (checkAbsoluteX(param, Opcodes[o][5])) { return true; }
@@ -408,14 +392,12 @@ class Assembler {
           if (checkIndirectX(param, Opcodes[o][8])) { return true; }
           if (checkIndirectY(param, Opcodes[o][9])) { return true; }
 */
-            if (this.checkAbs(param, op[4])) {
+            if (this.checkAbs(param, op[4], 16)) {
                 return true;
             }
-/*
             if (this.checkBranch(param, op[11])) {
                 return true;
             }
-*/
         }
         console.log('error!');
     }

@@ -2,6 +2,7 @@
   "license": "MIT",
   "scripts": {
     "compile": "tsc --outDir build src/asm.ts",
+    "watch": "tsc --watch --outDir build src/asm.ts",
     "t": "node build/asm.js test/test.asm"
   },
   "dependencies": {
