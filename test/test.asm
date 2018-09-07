@@ -2,7 +2,7 @@
 wait_first_line:
     ldx $d012
     lda $d011
-    and #(1<<7)
+    and #128  ; (1<<7)
     bne wait_first_line
     cpx #0
     bne wait_first_line
@@ -48,7 +48,7 @@ loop:
     lda foo
 
     lda #1+1
-    lda #((1<<4) - 1)
+    lda #33/3
 foo:
-    !byte 0
-    !word 0
+;    !byte 0
+;    !word 0

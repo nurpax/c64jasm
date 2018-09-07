@@ -2,9 +2,6 @@
 import * as process from 'process'
 
 let parser = require('./g_parser.js')
-parser.parse('lda $200')
-
-let jsep = require('jsep');
 
 import { readFileSync, writeFileSync } from 'fs'
 
@@ -172,17 +169,15 @@ class Assembler {
       this.emit(0);
     }
 
-    parseImmExpression = (expr) => {
-        const hexConverted = expr.replace(new RegExp('\\$[0-9a-fA-F]+', 'g'), f => parseInt(f.slice(1), 16))
-        const ast = jsep(hexConverted);
+    evalExpr = (ast) => {
         const evalExpr = (node) => {
-            if (node.type === 'BinaryExpression') {
+            if (node.type === 'binary') {
                 const left = evalExpr(node.left);
                 const right = evalExpr(node.right);
                 if (left === null || right === null) {
                     return null
                 }
-                switch (node.operator) {
+                switch (node.op) {
                     case '+': return left + right
                     case '-': return left - right
                     case '*': return left * right
@@ -208,10 +203,10 @@ class Assembler {
                         return null
                 }
             }
-            if (node.type == 'Literal') {
+            if (node.type == 'literal') {
                 return node.value
             }
-            if (node.type == 'Identifier') {
+            if (node.type == 'ident') {
                 if (this.pass == 1) {
                     const label = node.name
                     const lbl = this.labels.find(label);
@@ -238,26 +233,19 @@ class Assembler {
     }
 
     // TODO shouldn't have any for opcode
-    checkSingle = (param: String, opcode: number | null) => {
-        if (opcode === null || param !== null) {
+    checkSingle = (opcode: number | null) => {
+        if (opcode === null) {
             return false;
         }
         this.emit(opcode)
         return true;
     }
 
-    checkImm = (param: string, opcode: number | null) => {
+    checkImm = (param: any, opcode: number | null) => {
         if (opcode === null || param === null) {
             return false;
         }
-        const argRe = /^#(.+)$/
-        const m = argRe.exec(param)
-        if (m === null) {
-            return false
-        }
-        const immArg = m[1]
-        // TODO labels + expressions
-        const val = this.parseImmExpression(immArg);
+        const val = this.evalExpr(param);
         if (val !== null) {
             if (val < 0 || val > 255) {
                 return false
@@ -269,11 +257,11 @@ class Assembler {
         return false;
     }
 
-    checkAbs = (param: string, opcode: number | null, bits: number) => {
+    checkAbs = (param: any, opcode: number | null, bits: number) => {
         if (opcode === null || param === null) {
             return false;
         }
-        const val = this.parseImmExpression(param);
+        const val = this.evalExpr(param);
         if (val !== null) {
             if (val < 0 || val >= (1<<bits)) {
                 return false
@@ -297,7 +285,7 @@ class Assembler {
             this.emit(0);
             this.emit(0);
         }
-        const addr = this.parseImmExpression(param);
+        const addr = this.evalExpr(param);
         this.emit(opcode);
         // TODO check 8-bit overflow here!!
         if (addr < (this.codePC - 0x600)) {  // Backwards?
@@ -311,7 +299,7 @@ class Assembler {
     checkDirectives = (cmd, arg) => {
         const tryIntArg = (emit) => {
             // TODO must handle list of bytes
-            const v = this.parseImmExpression(arg);
+            const v = this.evalExpr(arg);
             if (v === null) {
                 this.error(`${cmd} must be followed by at least one argument`);
                 return false
@@ -336,12 +324,10 @@ class Assembler {
         this.currentLineNo = lineNo
         console.log(`pass ${this.pass} - assembling: ${line}`)
 
-        let insn = null
+        let ast = parser.parse(line)
 
-        let lbl = /^(\w+):\s*(.*)$/.exec(line)
-        if (lbl !== null) {
-            insn = lbl[2]
-            const lblSymbol = lbl[1]
+        if (ast.label !== null) {
+            const lblSymbol = ast.label
 
             if (this.pass === 0) {
                 const oldLabel = this.labels.find(lblSymbol)
@@ -352,37 +338,29 @@ class Assembler {
                     return
                 }
             }
-        } else {
-            insn = line
         }
 
-        const command = insn.replace(/^(!?\w+).*$/, "$1")
-        // Only label on this line?
-        if (command === '') {
+
+        // TODO
+//        if (command[0] === '!') {
+//            return this.checkDirectives(command, param);
+//        }
+
+        if (ast.insn === null) {
             return
         }
 
-        let param = null
-        const paramRe = /^(!?\w+)\s+(.*?)$/
-        if (insn.match(paramRe)) {
-            param = paramRe.exec(insn)[2];
-        } else if (!insn.match(/^\w+$/)) {
-            this.error(`Syntax error: ${line}`)
-        }
-
-        if (command[0] === '!') {
-            return this.checkDirectives(command, param);
-        }
-
-        const op = opcodes[command.toUpperCase()]
+        const insn = ast.insn
+        const op = opcodes[ast.insn.mnemonic.toUpperCase()]
         if (op !== undefined) {
-            if (this.checkSingle(param, op[10])) {
+            let noArgs = insn.imm === null && insn.abs === null
+            if (noArgs && this.checkSingle(op[10])) {
                 return true;
             }
-            if (this.checkImm(param, op[0])) {
+            if (this.checkImm(insn.imm, op[0])) {
                 return true;
             }
-            if (this.checkAbs(param, op[1], 8)) {
+            if (this.checkAbs(insn.abs, op[1], 8)) {
                 return true;
             }
 
@@ -395,10 +373,10 @@ class Assembler {
           if (checkIndirectX(param, Opcodes[o][8])) { return true; }
           if (checkIndirectY(param, Opcodes[o][9])) { return true; }
 */
-            if (this.checkAbs(param, op[4], 16)) {
+            if (this.checkAbs(insn.abs, op[4], 16)) {
                 return true;
             }
-            if (this.checkBranch(param, op[11])) {
+            if (this.checkBranch(insn.abs, op[11])) {
                 return true;
             }
         }
@@ -446,3 +424,13 @@ function main() {
 
 main();
 
+//console.log(parser.parse('1+3'));
+//console.log(parser.parse('1+( 1 + 3 ) / 2'));
+
+/*
+console.log(parser.parse(' lda #127 '));
+console.log(parser.parse(' lda #foobar'));
+console.log(parser.parse(' lda foobarr'));
+console.log(parser.parse(' jmp jope'));
+console.log(parser.parse(' inc $d020'));
+*/
