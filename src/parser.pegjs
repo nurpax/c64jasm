@@ -10,22 +10,22 @@
 }
 
 insnLine =
-    ws label:label ws instruction:instruction {
-        return {label:label, insn:instruction};
+    __ label:label __ instruction:instruction __ {
+        return { label:label, insn:instruction };
     }
-  / ws label:label ws {
+  / __ label:label __ {
         return { label:label, insn:null };
     }
-  / ws instruction:instruction ws {
-        return {label:null, insn:instruction};
+  / __ instruction:instruction __ {
+        return { label:null, insn:instruction };
     }
 
 label = ident:ident ":" { return ident; }
 
 instruction =
-    ws mnemonic:mnemonic ws imm:imm ws  { return mkinsn(mnemonic, imm, null); }
-  / ws mnemonic:mnemonic ws abs:abs ws  { return mkinsn(mnemonic, null, abs); }
-  / ws mnemonic:mnemonic ws             { return mkinsn(mnemonic, null, null); }
+    mnemonic:mnemonic __ imm:imm  { return mkinsn(mnemonic, imm, null); }
+  / mnemonic:mnemonic __ abs:abs  { return mkinsn(mnemonic, null, abs); }
+  / mnemonic:mnemonic             { return mkinsn(mnemonic, null, null); }
 
 ident = (alpha+ alphanum*)  { return text(); }
 mnemonic = ident:ident      { return ident; }
