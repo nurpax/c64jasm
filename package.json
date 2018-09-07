@@ -1,13 +1,17 @@
 {
   "license": "MIT",
   "scripts": {
-    "compile": "tsc --outDir build src/asm.ts",
-    "watch": "tsc --watch --outDir build src/asm.ts",
+    "gen": "npx pegjs -o src/g_parser.js src/parser.pegjs",
+    "compile": "tsc -p .",
+    "watch": "tsc --watch -p .",
     "t": "node build/asm.js test/test.asm"
   },
   "dependencies": {
     "@types/node": "^10.9.4",
     "jsep": "^0.3.4",
     "typescript": "^3.0.3"
+  },
+  "devDependencies": {
+    "pegjs": "^0.10.0"
   }
 }

@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "removeComments": true,
+        "preserveConstEnums": true,
+        "outDir": "build",
+        "sourceMap": true,
+        "allowJs": true
+    },
+    "files": [
+        "src/asm.ts",
+        "src/g_parser.js"
+    ]
+}

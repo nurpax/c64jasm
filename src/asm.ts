@@ -1,6 +1,9 @@
 
 import * as process from 'process'
 
+let parser = require('./g_parser.js')
+parser.parse('lda $200')
+
 let jsep = require('jsep');
 
 import { readFileSync, writeFileSync } from 'fs'
