@@ -314,7 +314,7 @@ class Assembler {
 }
 
     checkDirectives = (ast) => {
-        const tryIntArg = (exprList, emit) => {
+        const tryIntArg = (exprList, bits) => {
             // TODO must handle list of bytes
             for (let i = 0; i < exprList.length; i++) {
                 const v = this.evalExpr(exprList[i]);
@@ -322,16 +322,23 @@ class Assembler {
                     this.error(`Couldn't evaluate expression value`);
                     return false
                 }
-                emit(v)
+                if (bits === 8) {
+                    this.emit(v);
+                } else {
+                    if (bits !== 16) {
+                        throw 'impossible'
+                    }
+                    this.emit16(v);
+                }
             }
             return true
         }
         switch (ast.directive) {
             case "byte": {
-                return tryIntArg(ast.values, this.emit)
+                return tryIntArg(ast.values, 8)
             }
             case "word": {
-                return tryIntArg(ast.values, this.emit16)
+                return tryIntArg(ast.values, 16)
             }
             case "setpc": {
                 return this.setPC(ast.value);
@@ -372,7 +379,12 @@ class Assembler {
         const insn = ast.insn
         const op = opcodes[ast.insn.mnemonic.toUpperCase()]
         if (op !== undefined) {
-            let noArgs = insn.imm === null && insn.abs === null && insn.absx === null
+            let noArgs =
+                insn.imm === null
+                && insn.abs === null
+                && insn.absx === null
+                && insn.absy === null
+                && insn.absind === null
             if (noArgs && this.checkSingle(op[10])) {
                 return true;
             }
@@ -393,8 +405,11 @@ class Assembler {
             if (this.checkAbs(insn.absy, op[6], 16)) {
                 return true;
             }
+            // Absolute indirect
+            if (this.checkAbs(insn.absind, op[7], 16)) {
+                return true;
+            }
 /*
-          if (checkIndirect(param, Opcodes[o][7])) { return true; }
           if (checkIndirectX(param, Opcodes[o][8])) { return true; }
           if (checkIndirectY(param, Opcodes[o][9])) { return true; }
 */

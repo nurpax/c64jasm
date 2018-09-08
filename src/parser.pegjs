@@ -5,7 +5,8 @@
       imm: null,
       abs: null,
       absx: null,
-      absy: null
+      absy: null,
+      absind: null
   }
   function mkinsn(mnemonic, imm, abs) {
       return {
@@ -27,6 +28,13 @@
           ...emptyInsn,
           mnemonic,
           absy
+      }
+  }
+  function mkabsind(mnemonic, absind) {
+      return {
+          ...emptyInsn,
+          mnemonic,
+          absind
       }
   }
 
@@ -64,13 +72,17 @@ setPC =
 
 directive =
     "!byte" __ values:exprList  { return { directive: "byte", values: values }; }
-  / "!word" __ values:exprList  { return { directive: "byte", values: values }; }
+  / "!word" __ values:exprList  { return { directive: "word", values: values }; }
 
 /* TODO actually make this a list */
 exprList = head:expr tail:(__ "," __ expr)* { return buildList(head, tail, 3); }
 
 instruction =
     mnemonic:mnemonic __ imm:imm  { return mkinsn(mnemonic, imm, null); }
+  / mnemonic:mnemonic __ "(" __ abs:abs ")"  {
+      // absolute indirect.  only possible form: jmp ($fffc)
+      return mkabsind(mnemonic, abs);
+    }
   / mnemonic:mnemonic __ abs:abs __ "," __ r:("x"/"y")  {
       if (r === 'x') {
         return mkabsx(mnemonic, abs);

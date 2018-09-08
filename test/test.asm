@@ -1,6 +1,10 @@
 
 lp:
-jmp lp
+    jmp lp
+
+    jmp (lbl)
+lbl:
+!word wait_first_line
 
     !byte 0, 0, 13, 1+1
     !word 0
