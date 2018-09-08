@@ -10,17 +10,28 @@
 }
 
 insnLine =
-    __ label:label __ instruction:instruction __ {
-        return { label:label, insn:instruction };
+    __ label:label __ insnOrDirective:insnOrDirective __ {
+        return { label:label, ...insnOrDirective };
     }
   / __ label:label __ {
-        return { label:label, insn:null };
+        return { label:label, insn:null, directive:null };
     }
-  / __ instruction:instruction __ {
-        return { label:null, insn:instruction };
+  / __ insnOrDirective:insnOrDirective __ {
+        return { label:null, ...insnOrDirective };
     }
 
+insnOrDirective =
+    instruction:instruction { return { insn: instruction, directive:null }; }
+  / directive:directive     { return { insn: null, directive:directive }; }
+
 label = ident:ident ":" { return ident; }
+
+directive =
+    "!byte" __ values:exprList        { return { directive: "byte", values: values }; }
+  / "!word" __ values:exprList        { return { directive: "byte", values: values }; }
+
+/* TODO actually make this a list */
+exprList = expr:expr { return [expr]; }
 
 instruction =
     mnemonic:mnemonic __ imm:imm  { return mkinsn(mnemonic, imm, null); }

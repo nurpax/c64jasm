@@ -296,26 +296,28 @@ class Assembler {
         return true;
       }
 
-    checkDirectives = (cmd, arg) => {
-        const tryIntArg = (emit) => {
+    checkDirectives = (ast) => {
+        const tryIntArg = (exprList, emit) => {
             // TODO must handle list of bytes
-            const v = this.evalExpr(arg);
-            if (v === null) {
-                this.error(`${cmd} must be followed by at least one argument`);
-                return false
+            for (let i = 0; i < exprList.length; i++) {
+                const v = this.evalExpr(exprList[i]);
+                if (v === null) {
+                    this.error(`Couldn't evaluate expression value`);
+                    return false
+                }
+                emit(v)
             }
-            emit(v)
             return true
         }
-        switch (cmd) {
-            case "!byte": {
-                return tryIntArg(this.emit)
+        switch (ast.directive) {
+            case "byte": {
+                return tryIntArg(ast.values, this.emit)
             }
-            case "!word": {
-                return tryIntArg(this.emit16)
+            case "word": {
+                return tryIntArg(ast.values, this.emit16)
             }
             default:
-                this.error(`Unknown directive ${cmd}`);
+                this.error(`Unknown directive ${ast.directive}`);
                 return false
         }
     }
@@ -341,10 +343,9 @@ class Assembler {
         }
 
 
-        // TODO
-//        if (command[0] === '!') {
-//            return this.checkDirectives(command, param);
-//        }
+        if (ast.directive !== null) {
+            return this.checkDirectives(ast.directive);
+        }
 
         if (ast.insn === null) {
             return

@@ -34,6 +34,12 @@ waste_cycles:
     inc $d020
     jmp wait_first_line
 
+!byte 1
+!byte 2
+!byte 1+3
+!byte 4
+!byte 10/2
+
     lda #0         ; foo
 loop3:
     sta $d020       ; bar
@@ -50,5 +56,5 @@ loop:
     lda #1+1
     lda #33/3
 foo:
-;    !byte 0
-;    !word 0
+    !byte 0
+    !word 0
