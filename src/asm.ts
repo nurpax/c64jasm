@@ -386,7 +386,7 @@ class Assembler {
     assemble = (lines) => {
         const trim = (str) => {
             const commentRe = /^([^;]*).*$/
-            const s = commentRe.exec(str)[1]
+            const s = commentRe.exec(str.trim())[1]
             return s.replace(/^\s+|\s+$/g, '')
         }
 
