@@ -387,11 +387,13 @@ class Assembler {
           if (checkZeroPageX(param, Opcodes[o][2])) { return true; }
           if (checkZeroPageY(param, Opcodes[o][3])) { return true; }
 */
-            if (this.checkAbs(insn.absx, op[5], 16)) { 
+            if (this.checkAbs(insn.absx, op[5], 16)) {
+                return true;
+            }
+            if (this.checkAbs(insn.absy, op[6], 16)) {
                 return true;
             }
 /*
-          if (checkAbsoluteY(param, Opcodes[o][6])) { return true; }
           if (checkIndirect(param, Opcodes[o][7])) { return true; }
           if (checkIndirectX(param, Opcodes[o][8])) { return true; }
           if (checkIndirectY(param, Opcodes[o][9])) { return true; }

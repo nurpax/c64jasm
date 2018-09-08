@@ -38,6 +38,7 @@ loop:
     lda screen_002+2+25*40+$2e8,x
     sta $d800+$2e8,x
     inx
+    iny
     nop
     bne loop
 

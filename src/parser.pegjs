@@ -22,6 +22,13 @@
           absx
       }
   }
+  function mkabsy(mnemonic, absy) {
+      return {
+          ...emptyInsn,
+          mnemonic,
+          absy
+      }
+  }
 
   function extractList(list, index) {
     return list.map(function(element) { return element[index]; });
@@ -64,8 +71,11 @@ exprList = head:expr tail:(__ "," __ expr)* { return buildList(head, tail, 3); }
 
 instruction =
     mnemonic:mnemonic __ imm:imm  { return mkinsn(mnemonic, imm, null); }
-  / mnemonic:mnemonic __ abs:abs __ "," __ "x"  {
-      return mkabsx(mnemonic, abs);
+  / mnemonic:mnemonic __ abs:abs __ "," __ r:("x"/"y")  {
+      if (r === 'x') {
+        return mkabsx(mnemonic, abs);
+      }
+      return mkabsy(mnemonic, abs);
     }
   / mnemonic:mnemonic __ abs:abs  { return mkinsn(mnemonic, null, abs); }
   / mnemonic:mnemonic             { return mkinsn(mnemonic, null, null); }
