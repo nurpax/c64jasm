@@ -4,7 +4,7 @@
     "gen": "npx pegjs -o src/g_parser.js src/parser.pegjs",
     "compile": "tsc -p .",
     "watch": "tsc --watch -p .",
-    "t": "node build/asm.js test/test.asm"
+    "t": "node build/asm.js test/petscii1.asm"
   },
   "dependencies": {
     "@types/node": "^10.9.4",

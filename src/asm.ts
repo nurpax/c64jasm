@@ -10,6 +10,10 @@ interface SourceLine {
     line: string
 }
 
+function toHex16(v: number): string {
+    return v.toString(16).padStart(4, '0');
+}
+
 // this stolen from here: https://github.com/skilldrick/6502js/blob/master/assembler.js
 const opcodes = {
   /* Name, Imm,  ZP,   ZPX,  ZPY,  ABS, ABSX, ABSY,  IND, INDX, INDY, SNGL, BRA */
@@ -277,13 +281,14 @@ class Assembler {
         return false
     }
 
-    checkBranch = (param: string, opcode: number | null) => {
+    checkBranch = (param: any, opcode: number | null) => {
         if (opcode === null || param === null) {
             return false;
         }
         if (this.pass === 0) {
             this.emit(0);
             this.emit(0);
+            return true;
         }
         const addr = this.evalExpr(param);
         this.emit(opcode);
@@ -295,6 +300,18 @@ class Assembler {
         this.emit((addr - (this.codePC - 0x600) - 1) & 0xff);
         return true;
       }
+
+    setPC = (valueExpr) => {
+        const v = this.evalExpr(valueExpr);
+        if (v === null) {
+            this.error(`Couldn't evaluate expression value`);
+            return false
+        }
+        while (this.codePC < v) {
+            this.emit(0);
+        }
+        return true
+}
 
     checkDirectives = (ast) => {
         const tryIntArg = (exprList, emit) => {
@@ -316,6 +333,9 @@ class Assembler {
             case "word": {
                 return tryIntArg(ast.values, this.emit16)
             }
+            case "setpc": {
+                return this.setPC(ast.value);
+            }
             default:
                 this.error(`Unknown directive ${ast.directive}`);
                 return false
@@ -324,7 +344,7 @@ class Assembler {
 
     assembleLine = ({line, lineNo}) => {
         this.currentLineNo = lineNo
-        console.log(`pass ${this.pass} - assembling: ${line}`)
+        console.log(`$${toHex16(this.codePC)}: pass ${this.pass} - assembling: ${line}`)
 
         let ast = parser.parse(line)
 
@@ -342,19 +362,17 @@ class Assembler {
             }
         }
 
-
         if (ast.directive !== null) {
             return this.checkDirectives(ast.directive);
         }
 
         if (ast.insn === null) {
-            return
+            return true
         }
-
         const insn = ast.insn
         const op = opcodes[ast.insn.mnemonic.toUpperCase()]
         if (op !== undefined) {
-            let noArgs = insn.imm === null && insn.abs === null
+            let noArgs = insn.imm === null && insn.abs === null && insn.absx === null
             if (noArgs && this.checkSingle(op[10])) {
                 return true;
             }
@@ -368,12 +386,17 @@ class Assembler {
 /*
           if (checkZeroPageX(param, Opcodes[o][2])) { return true; }
           if (checkZeroPageY(param, Opcodes[o][3])) { return true; }
-          if (checkAbsoluteX(param, Opcodes[o][5])) { return true; }
+*/
+            if (this.checkAbs(insn.absx, op[5], 16)) { 
+                return true;
+            }
+/*
           if (checkAbsoluteY(param, Opcodes[o][6])) { return true; }
           if (checkIndirect(param, Opcodes[o][7])) { return true; }
           if (checkIndirectX(param, Opcodes[o][8])) { return true; }
           if (checkIndirectY(param, Opcodes[o][9])) { return true; }
 */
+
             if (this.checkAbs(insn.abs, op[4], 16)) {
                 return true;
             }
@@ -381,7 +404,8 @@ class Assembler {
                 return true;
             }
         }
-        console.log('error!');
+        console.log('**** ERROR ERROR ERROR ****')
+        return false;
     }
 
     assemble = (lines) => {
@@ -405,7 +429,11 @@ class Assembler {
 
         this.emitBasicHeader()
         for (const line of preprocessed) {
-            this.assembleLine(line);
+            const ok = this.assembleLine(line);
+            if (!ok) {
+                this.error('Breaking out.');
+                break;
+            }
         }
     }
 }

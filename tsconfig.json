@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         "module": "commonjs",
+        "target": "es2017",
         "removeComments": true,
         "preserveConstEnums": true,
         "outDir": "build",

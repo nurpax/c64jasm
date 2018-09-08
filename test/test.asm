@@ -1,4 +1,10 @@
 
+lp:
+jmp lp
+
+    !byte 0, 0, 13, 1+1
+    !word 0
+
 wait_first_line:
     ldx $d012
     lda $d011
@@ -56,5 +62,5 @@ loop:
     lda #1+1
     lda #33/3
 foo:
-    !byte 0
+    !byte 0, 0, 13, 1+1
     !word 0

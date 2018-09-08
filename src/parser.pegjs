@@ -1,11 +1,34 @@
 
 {
+  const emptyInsn = {
+      mnemonic: null,
+      imm: null,
+      abs: null,
+      absx: null,
+      absy: null
+  }
   function mkinsn(mnemonic, imm, abs) {
       return {
+          ...emptyInsn,
           mnemonic,
           imm,
           abs
       }
+  }
+  function mkabsx(mnemonic, absx) {
+      return {
+          ...emptyInsn,
+          mnemonic,
+          absx
+      }
+  }
+
+  function extractList(list, index) {
+    return list.map(function(element) { return element[index]; });
+  }
+
+  function buildList(head, tail, index) {
+    return [head].concat(extractList(tail, index));
   }
 }
 
@@ -19,22 +42,31 @@ insnLine =
   / __ insnOrDirective:insnOrDirective __ {
         return { label:null, ...insnOrDirective };
     }
+  / __ setPC:setPC __ {
+        return { label:null, directive:setPC };
+    }
 
 insnOrDirective =
-    instruction:instruction { return { insn: instruction, directive:null }; }
-  / directive:directive     { return { insn: null, directive:directive }; }
+    instruction:instruction     { return { insn: instruction, directive:null }; }
+  / directive:directive         { return { insn: null, directive:directive }; }
 
 label = ident:ident ":" { return ident; }
 
+setPC =
+  "*" __ "=" __ v:expr { return { directive: "setpc", value: v }; }
+
 directive =
-    "!byte" __ values:exprList        { return { directive: "byte", values: values }; }
-  / "!word" __ values:exprList        { return { directive: "byte", values: values }; }
+    "!byte" __ values:exprList  { return { directive: "byte", values: values }; }
+  / "!word" __ values:exprList  { return { directive: "byte", values: values }; }
 
 /* TODO actually make this a list */
-exprList = expr:expr { return [expr]; }
+exprList = head:expr tail:(__ "," __ expr)* { return buildList(head, tail, 3); }
 
 instruction =
     mnemonic:mnemonic __ imm:imm  { return mkinsn(mnemonic, imm, null); }
+  / mnemonic:mnemonic __ abs:abs __ "," __ "x"  {
+      return mkabsx(mnemonic, abs);
+    }
   / mnemonic:mnemonic __ abs:abs  { return mkinsn(mnemonic, null, abs); }
   / mnemonic:mnemonic             { return mkinsn(mnemonic, null, null); }
 
