@@ -73,6 +73,21 @@ setPC =
 directive =
     "!byte" __ values:exprList  { return { directive: "byte", values: values }; }
   / "!word" __ values:exprList  { return { directive: "word", values: values }; }
+  / "!binary" __ s:string __ extra:("," __ expr? __ "," __ expr __)?  {
+      let size = null
+      let offset = null
+      if (extra !== null) {
+        size = extra[2]
+        offset = extra[6]
+      }
+      return { directive: "binary", filename: s, size, offset };
+    }
+
+string
+  = '"' chars:doubleStringCharacter* '"' { return chars.join(''); }
+
+doubleStringCharacter
+  = !'"' char:. { return char; }
 
 /* TODO actually make this a list */
 exprList = head:expr tail:(__ "," __ expr)* { return buildList(head, tail, 3); }

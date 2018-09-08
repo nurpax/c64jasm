@@ -173,6 +173,24 @@ class Assembler {
       this.emit(0);
     }
 
+    emitBinary = (ast) => {
+        const { filename } = ast
+        const buf: Buffer = readFileSync(filename)
+
+        let offset = ast.offset !== null ? this.evalExpr(ast.offset) : 0;
+        let size = ast.size !== null ? this.evalExpr(ast.size) : buf.byteLength - offset;
+
+        if (offset === null || size === null) {
+            return false;
+        }
+
+        // TODO buffer overflow
+        for (let i = 0; i < size; i++) {
+            this.emit(buf.readUInt8(i + offset));
+        }
+        return true
+    }
+
     evalExpr = (ast) => {
         const evalExpr = (node) => {
             if (node.type === 'binary') {
@@ -342,6 +360,9 @@ class Assembler {
             }
             case "setpc": {
                 return this.setPC(ast.value);
+            }
+            case "binary": {
+                return this.emitBinary(ast);
             }
             default:
                 this.error(`Unknown directive ${ast.directive}`);
