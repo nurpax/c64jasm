@@ -10,6 +10,7 @@
     },
     "files": [
         "src/asm.ts",
+        "src/disasm.ts",
         "src/g_parser.js"
     ]
 }

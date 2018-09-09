@@ -1,6 +1,8 @@
 
-start:
+start: 
     jmp real_start
+
+    bne loop
 
 real_start:
     lda #1            
