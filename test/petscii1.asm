@@ -1,18 +1,10 @@
 
-;; acme --cpu 6510 --format cbm --outfile foo.prg foo.asm
-;* = $0801                             ; BASIC start address (#2049)
-;!byte $0d,$08,$dc,$07,$9e,$20,$34,$39 ; BASIC loader to start at $c000...
-;!byte $31,$35,$32,$00,$00,$00         ; puts BASIC line 2012 SYS 49152
-;* = $c000                             ; start address for 6502 code
-
 start:
     jmp real_start
 
-; * = $c000
 real_start:
-    ;; PLAY MUSIC
-    lda #1              ; subtune
-    jsr music           ; init
+    lda #1            
+    jsr music         
 
     lda #0
     sta $d020

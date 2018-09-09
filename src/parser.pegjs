@@ -47,32 +47,61 @@
   }
 }
 
-insnLine =
-    __ label:label __ insnOrDirective:insnOrDirective __ {
-        return { label:label, ...insnOrDirective };
-    }
-  / __ label:label __ {
-        return { label:label, insn:null, directive:null };
-    }
-  / __ insnOrDirective:insnOrDirective __ {
-        return { label:null, ...insnOrDirective };
-    }
-  / __ setPC:setPC __ {
-        return { label:null, directive:setPC };
+statements = 
+    head:insnLine __ tail:("\n" __ insnLine __)* {
+      return buildList(head, tail, 2);
     }
 
-insnOrDirective =
-    instruction:instruction     { return { insn: instruction, directive:null }; }
-  / directive:directive         { return { insn: null, directive:directive }; }
+insnLine =
+    __ label:label __ stmt:statement {
+      return { label:label, stmt };
+    }
+  / __ label:label {
+      return { label:label, stmt:null };
+    }
+  / __ stmt:statement {
+      return { label:null, stmt };
+    }
+  / __ pc:setPC {
+      return { label: null, stmt:pc }
+    }
+  / __ {
+    // empty line is a no-op
+    return null
+  }
+
+statement =
+    instruction:instruction { 
+      return {
+        type: 'insn',
+        insn: instruction
+      }
+    }
+  / directive:directive { return directive; }
 
 label = ident:ident ":" { return ident; }
 
 setPC =
-  "*" __ "=" __ v:expr { return { directive: "setpc", value: v }; }
+  "*" __ "=" __ pc:expr { 
+    return { 
+      type: 'setpc',
+      pc
+    }; 
+  }
 
 directive =
-    "!byte" __ values:exprList  { return { directive: "byte", values: values }; }
-  / "!word" __ values:exprList  { return { directive: "word", values: values }; }
+    "!byte" __ values:exprList  { 
+      return { 
+        type: 'byte',
+        values
+      }; 
+    }
+  / "!word" __ values:exprList { 
+      return { 
+        type: 'word',
+        values: values 
+      }; 
+    }
   / "!binary" __ s:string __ extra:("," __ expr? __ "," __ expr __)?  {
       let size = null
       let offset = null
@@ -80,7 +109,12 @@ directive =
         size = extra[2]
         offset = extra[6]
       }
-      return { directive: "binary", filename: s, size, offset };
+      return { 
+        type: 'binary',
+        filename: s, 
+        size, 
+        offset 
+      };
     }
 
 string
@@ -146,5 +180,5 @@ alphanum = [a-zA-Z_0-9]
 digit  = [0-9]
 hexdig = [0-9a-f]
 
-ws "whitespace" = [ \t\n\r]*
+ws "whitespace" = [ \t\r]*
 __ = ws

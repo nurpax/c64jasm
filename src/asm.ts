@@ -10,6 +10,21 @@ interface SourceLine {
     line: string
 }
 
+interface StmtEmitBytes {
+    type: "byte" | "word";
+    values: any[];
+}
+
+interface Stmt {
+    type: string,
+
+}
+
+interface LineAst {
+    label: string | null,
+    stmt: Stmt | null
+}
+
 function toHex16(v: number): string {
     return v.toString(16).padStart(4, '0');
 }
@@ -239,6 +254,10 @@ class Assembler {
                     // TODO can also be a constant
                     return lbl.addr
                 }
+                // TODO add a flag to evalExpr that can be used to trigger an
+                // error in this case!  Many operations require that a value can
+                // be computed in the first pass and just returning zero will
+                // totally make stuff like !binary go nuts.
                 return 0
             }
         }
@@ -351,15 +370,14 @@ class Assembler {
             }
             return true
         }
-        switch (ast.directive) {
-            case "byte": {
-                return tryIntArg(ast.values, 8)
-            }
+        switch (ast.type) {
+            case "byte":
             case "word": {
-                return tryIntArg(ast.values, 16)
+                const emitNode: StmtEmitBytes = ast
+                return tryIntArg(emitNode.values, ast.type === 'byte' ? 8 : 16);
             }
             case "setpc": {
-                return this.setPC(ast.value);
+                return this.setPC(ast.pc);
             }
             case "binary": {
                 return this.emitBinary(ast);
@@ -370,14 +388,16 @@ class Assembler {
         }
     }
 
-    assembleLine = ({line, lineNo}) => {
-        this.currentLineNo = lineNo
-        console.log(`$${toHex16(this.codePC)}: pass ${this.pass} - assembling: ${line}`)
+    assembleLine = (line) => {
+        // Empty lines are no-ops
+        if (line === null) {
+            return true;
+        }
+        const lineNo = 13 // TODO stick this in stmt in parser
+        this.currentLineNo = lineNo;
 
-        let ast = parser.parse(line)
-
-        if (ast.label !== null) {
-            const lblSymbol = ast.label
+        if (line.label !== null) {
+            const lblSymbol = line.label
 
             if (this.pass === 0) {
                 const oldLabel = this.labels.find(lblSymbol)
@@ -390,15 +410,17 @@ class Assembler {
             }
         }
 
-        if (ast.directive !== null) {
-            return this.checkDirectives(ast.directive);
-        }
-
-        if (ast.insn === null) {
+        if (line.stmt === null) {
             return true
         }
-        const insn = ast.insn
-        const op = opcodes[ast.insn.mnemonic.toUpperCase()]
+
+        if (line.stmt.type !== 'insn') {
+            return this.checkDirectives(line.stmt);
+        }
+
+        const stmt = line.stmt
+        const insn = stmt.insn
+        const op = opcodes[insn.mnemonic.toUpperCase()]
         if (op !== undefined) {
             let noArgs =
                 insn.imm === null
@@ -446,28 +468,12 @@ class Assembler {
         return false;
     }
 
-    assemble = (lines) => {
-        const trim = (str) => {
-            const commentRe = /^([^;]*).*$/
-            const s = commentRe.exec(str.trim())[1]
-            return s.replace(/^\s+|\s+$/g, '')
-        }
-
-        function toSourceLine(str: String, lineIdx: number): SourceLine | null {
-            const line = trim(str)
-            if (line == '') {
-                return null
-            }
-            return {
-                line,
-                lineNo: lineIdx+1
-            }
-        }
-        const preprocessed = filterMap(lines, toSourceLine);
+    assemble = (source) => {
+        const statements = parser.parse(source)
 
         this.emitBasicHeader()
-        for (const line of preprocessed) {
-            const ok = this.assembleLine(line);
+        for (let i = 0; i < statements.length; i++) {
+            const ok = this.assembleLine(statements[i]);
             if (!ok) {
                 this.error('Breaking out.');
                 break;
@@ -479,13 +485,13 @@ class Assembler {
 function main() {
     const lastArg = process.argv[process.argv.length-1];
     const asm = new Assembler()
-    const lines = readLines(lastArg)
+    const src = readFileSync(lastArg).toString();
 
-    asm.startPass(0)
-    asm.assemble(lines)
-    asm.startPass(1)
-    asm.assemble(lines)
 
+    asm.startPass(0);
+    asm.assemble(src);
+    asm.startPass(1);
+    asm.assemble(src);
     writeFileSync('test.prg', asm.prg(), null)
 }
 
