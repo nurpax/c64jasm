@@ -18,8 +18,7 @@ class Disassembler {
     private opToDecl: object;
     constructor (private buf: Buffer) {
         this.curAddr = buf.readUInt8(0) + (buf.readUInt8(1)<<8);
-        this.curAddr += 12;
-        this.curOffs = 2 + 12;
+        this.curOffs = 2;
 
         this.opToDecl = {}
         Object.keys(opcodes).forEach(key => {
@@ -37,11 +36,9 @@ class Disassembler {
     }
 
     print = (addr, bytes, decoded) => {
-
         const b0 = toHex8(bytes[0]);
         const b1 = bytes.length >= 2 ? toHex8(bytes[1]) : '  ';
         const b2 = bytes.length >= 3 ? toHex8(bytes[2]) : '  ';
-
         process.stdout.write(`${toHex16(addr)}: ${b0} ${b1} ${b2}     ${decoded}\n`);
     }
 
@@ -122,6 +119,10 @@ class Disassembler {
         this.print(addr, [op, lo], `${mnemonic} $${toHex16(tgt)}`)
     }
 
+    disUnknown = (op) => {
+        this.print(this.curAddr, [op], '');
+    }
+
     disassemble = () => {
         const len = this.buf.byteLength;
 
@@ -171,6 +172,10 @@ class Disassembler {
                     this.disIndX(decl.mnemonic, op);
                     continue;
                 }
+                if (decoderIdx === 9) {
+                    this.disIndY(decl.mnemonic, op);
+                    continue;
+                }
                 if (decoderIdx === 10) {
                     this.disSingle(decl.mnemonic, op);
                     continue;
@@ -179,6 +184,7 @@ class Disassembler {
                     this.disBranch(decl.mnemonic, op);
                     continue;
                 }
+                this.disUnknown(op);
             }
         }
     }
