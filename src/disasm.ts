@@ -184,6 +184,7 @@ class Disassembler {
                     this.disBranch(decl.mnemonic, op);
                     continue;
                 }
+            } else {
                 this.disUnknown(op);
             }
         }
