@@ -27,7 +27,7 @@ function main() {
 
             // If the expected file doesn't exist, create it.  This is for new test authoring.
             if (!fs.existsSync(expectedFname)) {
-                fs.writeFileSync(expectedFname, disasmLines.join('\n')+'\n')
+                fs.writeFileSync(expectedFname, disasmLines.join('\n'))
                 console.log(`  DEBUG: wrote ${expectedFname}`);
             } else {
                 const expectedLines = readLines(expectedFname);
