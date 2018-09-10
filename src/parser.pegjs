@@ -132,11 +132,21 @@ directive =
         offset 
       };
     }
-  / "!if" __ "(" __ condition:expr __ ")"  __ "{" __ trueBranch:statements __ "}" {
+  / "!if" __ "(" __ condition:expr __ ")"  __ "{" __ trueBranch:statements __ "}" __
+     "else" __ "{" __ falseBranch:statements __ "}" {
       return {
         type: 'if',
         cond:condition,
-        trueBranch
+        trueBranch,
+        falseBranch:falseBranch
+      };
+    }
+  / "!if" __ "(" __ condition:expr __ ")"  __ "{" __ trueBranch:statements __ "}" __ {
+      return {
+        type: 'if',
+        cond:condition,
+        trueBranch,
+        falseBranch:null
       };
     }
 

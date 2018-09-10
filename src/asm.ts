@@ -337,15 +337,13 @@ class Assembler {
                 return this.emitBinary(ast);
             }
             case "if": {
-                const { cond, trueBranch } = ast
+                const { cond, trueBranch, falseBranch } = ast
                 const condVal = this.evalExpr(ast.cond);
                 let ok = true
                 if (condVal !== 0) {
-                    for (let i = 0; i < trueBranch.length; i++) {
-                        if (!this.assembleLine(trueBranch[i])) {
-                            return false;
-                        }
-                    }
+                    return this.assembleStmtList(trueBranch);
+                } else {
+                    return this.assembleStmtList(falseBranch);
                 }
                 return true;
             }
@@ -355,11 +353,21 @@ class Assembler {
         }
     }
 
+    assembleStmtList = (lst) => {
+        for (let i = 0; i < lst.length; i++) {
+            if (!this.assembleLine(lst[i])) {
+                return false;
+            }
+        }
+        return true
+}
+
     assembleLine = (line) => {
         // Empty lines are no-ops
         if (line === null) {
             return true;
         }
+
         const lineNo = 13 // TODO stick this in stmt in parser
         this.currentLineNo = lineNo;
 
