@@ -4,13 +4,16 @@
     "gen": "npx pegjs -o src/g_parser.js src/parser.pegjs",
     "compile": "tsc -p .",
     "watch": "tsc --watch -p .",
-    "t": "node build/asm.js test/petscii1.asm"
+    "t": "node build/asm.js test/petscii1.asm",
+    "test": "ts-node test/test.ts"
   },
   "dependencies": {
     "@types/node": "^10.9.4",
     "typescript": "^3.0.3"
   },
   "devDependencies": {
-    "pegjs": "^0.10.0"
+    "glob-fs": "^0.1.7",
+    "pegjs": "^0.10.0",
+    "ts-node": "^7.0.1"
   }
 }

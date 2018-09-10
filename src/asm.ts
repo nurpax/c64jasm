@@ -421,28 +421,13 @@ class Assembler {
     }
 }
 
-function main() {
-    const lastArg = process.argv[process.argv.length-1];
-    const asm = new Assembler()
-    const src = readFileSync(lastArg).toString();
-
+export function assemble(filename) {
+    const asm = new Assembler();
+    const src = readFileSync(filename).toString();
 
     asm.startPass(0);
     asm.assemble(src);
     asm.startPass(1);
     asm.assemble(src);
-    writeFileSync('test.prg', asm.prg(), null)
+    return asm.prg();
 }
-
-main();
-
-//console.log(parser.parse('1+3'));
-//console.log(parser.parse('1+( 1 + 3 ) / 2'));
-
-/*
-console.log(parser.parse(' lda #127 '));
-console.log(parser.parse(' lda #foobar'));
-console.log(parser.parse(' lda foobarr'));
-console.log(parser.parse(' jmp jope'));
-console.log(parser.parse(' inc $d020'));
-*/

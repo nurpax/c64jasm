@@ -191,12 +191,7 @@ class Disassembler {
     }
 }
 
-function main () {
-    const lastArg = process.argv[process.argv.length-1];
-    const prg = readFileSync(lastArg);
-
+export function disassemble(prg) {
     let disasm = new Disassembler(prg);
     disasm.disassemble();
 }
-
-main();
