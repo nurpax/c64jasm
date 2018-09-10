@@ -11,6 +11,7 @@
     "files": [
         "src/asm.ts",
         "src/disasm.ts",
+        "test/test.ts",
         "src/g_parser.js"
     ]
 }

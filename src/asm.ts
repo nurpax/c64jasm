@@ -193,15 +193,12 @@ class Assembler {
                     // TODO can also be a constant
                     return lbl.addr
                 }
-                // TODO add a flag to evalExpr that can be used to trigger an
-                // error in this case!  Many operations require that a value can
-                // be computed in the first pass and just returning zero will
-                // totally make stuff like !binary go nuts.
-                return 0
+                return null
             }
         }
         return evalExpr(ast);
     }
+
     emit = (byte: number) => {
         this.binary.push(byte);
         this.codePC += 1
@@ -228,11 +225,18 @@ class Assembler {
         const val = this.evalExpr(param);
         if (val !== null) {
             if (val < 0 || val > 255) {
+                this.error(`Immediate evaluates to ${val} which cannot fit in 8 bits`);
                 return false
             }
             this.emit(opcode)
             this.emit(val)
             return true
+        } else {
+            if (this.pass === 0) {
+                this.emit(opcode)
+                this.emit(val)
+                return true
+            }   
         }
         return false;
     }
@@ -253,6 +257,14 @@ class Assembler {
                 this.emit16(val)
             }
             return true
+        } else {
+            // Don't encode a 8-bit forward reference in first pass but 
+            // fall-back to conservative 16-bits.
+            if (bits == 16) {
+                this.emit(opcode);
+                this.emit16(0);
+                return true
+            }
         }
         return false
     }

@@ -45,6 +45,22 @@
   function buildList(head, tail, index) {
     return [head].concat(extractList(tail, index));
   }
+
+  function binop(op, left, right) {
+    return {
+      type: 'binary',
+      op,
+      left,
+      right
+    }
+  }
+
+  function iconst(value) {
+    return {
+      type: 'literal',
+      value
+    }
+  }
 }
 
 statements = 
@@ -144,7 +160,19 @@ instruction =
 ident = (alpha+ alphanum*)  { return text(); }
 mnemonic = ident:ident      { return ident; }
 
-imm = '#' expr:expr { return expr; }
+imm = '#' lh:loOrHi? __ expr:expr { 
+  if (lh !== null) {
+    if (lh === 'lo') {
+      return binop('&', expr, iconst(255))
+    }
+    return binop('&', binop('>>', expr, iconst(8)), iconst(255));
+  }
+  return expr
+}
+
+loOrHi = 
+    "<" { return 'lo'; }
+  / ">" { return 'hi'; }
 
 abs = expr:expr { return expr; }
 
@@ -152,20 +180,20 @@ expr = additive
 
 additive = first:multiplicative rest:(__ ('+' / '-') __ multiplicative)+ {
     return rest.reduce(function(memo, curr) {
-      return {type: 'binary', op: curr[1], left: memo, right: curr[3]};
+      return binop(curr[1], memo, curr[3]);
     }, first);
 }
 / multiplicative
 
 multiplicative = first:primary rest:(__ ('*' / '/' / '%') __ primary)+ {
     return rest.reduce(function(memo, curr) {
-      return {type: 'binary', op: curr[1], left: memo, right: curr[3]};
+      return binop(curr[1], memo, curr[3]);
     }, first);
 }
 / primary
 
 primary
-  = num:num      { return { type: 'literal', value: num }}
+  = num:num      { return iconst(num); }
   / ident:ident  { return { type: 'ident', name: ident } }
   / "(" __ additive:additive __ ")" { return additive; }
 

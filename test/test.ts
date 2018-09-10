@@ -13,7 +13,7 @@ function readLines(fname) {
 
 function main() {
     let inputs = glob.readdirSync('test/cases/*.input.asm');
-
+    
     for (let testIdx = 0; testIdx < inputs.length; testIdx++) {
         const fname = inputs[testIdx];
         console.log('Testcase:', fname)
