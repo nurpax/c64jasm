@@ -16,7 +16,9 @@ class Disassembler {
     private curAddr: number;
     private curOffs: number;
     private opToDecl: object;
+    private output: string[];
     constructor (private buf: Buffer) {
+        this.output = [];
         this.curAddr = buf.readUInt8(0) + (buf.readUInt8(1)<<8);
         this.curOffs = 2;
 
@@ -39,7 +41,7 @@ class Disassembler {
         const b0 = toHex8(bytes[0]);
         const b1 = bytes.length >= 2 ? toHex8(bytes[1]) : '  ';
         const b2 = bytes.length >= 3 ? toHex8(bytes[2]) : '  ';
-        process.stdout.write(`${toHex16(addr)}: ${b0} ${b1} ${b2}     ${decoded}\n`);
+        this.output.push(`${toHex16(addr)}: ${b0} ${b1} ${b2}     ${decoded}`)
     }
 
     disImm = (mnemonic, op) => {
@@ -188,10 +190,11 @@ class Disassembler {
                 this.disUnknown(op);
             }
         }
+        return this.output;
     }
 }
 
 export function disassemble(prg) {
     let disasm = new Disassembler(prg);
-    disasm.disassemble();
+    return disasm.disassemble();
 }

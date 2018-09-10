@@ -410,7 +410,6 @@ class Assembler {
     assemble = (source) => {
         const statements = parser.parse(source)
 
-        this.emitBasicHeader()
         for (let i = 0; i < statements.length; i++) {
             const ok = this.assembleLine(statements[i]);
             if (!ok) {
