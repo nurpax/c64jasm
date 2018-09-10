@@ -236,7 +236,7 @@ class Assembler {
                 this.emit(opcode)
                 this.emit(val)
                 return true
-            }   
+            }
         }
         return false;
     }
@@ -258,8 +258,13 @@ class Assembler {
             }
             return true
         } else {
-            // Don't encode a 8-bit forward reference in first pass but 
+            // Don't encode a 8-bit forward reference in first pass but
             // fall-back to conservative 16-bits.
+            //
+            // TODO there's a bug here.  If we emitted a 16-bit value in the
+            // first pass and realize we could do it in 8-bits in the second
+            // pass, the above code will encode the value as 8-bit, breaking
+            // label references that were gathered from pass 1.
             if (bits == 16) {
                 this.emit(opcode);
                 this.emit16(0);
@@ -355,6 +360,8 @@ class Assembler {
                 if (oldLabel === undefined) {
                     this.labels.add(lblSymbol, this.codePC, lineNo);
                 } else {
+                    // TODO if any labels changed value in non-zero pass, we need
+                    // one more pass over the source.
                     this.error(`Label '${lblSymbol}' already defined on line ${oldLabel.lineNo}`)
                     return
                 }
