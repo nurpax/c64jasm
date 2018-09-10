@@ -1,11 +1,9 @@
 
-import * as process from 'process'
-
 import opcodes from './opcodes'
 
-let parser = require('./g_parser.js')
-
 import { readFileSync, writeFileSync } from 'fs'
+
+var parser = require('./g_parser')
 
 interface SourceLine {
     lineNo: number,
@@ -338,8 +336,21 @@ class Assembler {
             case "binary": {
                 return this.emitBinary(ast);
             }
+            case "if": {
+                const { cond, trueBranch } = ast
+                const condVal = this.evalExpr(ast.cond);
+                let ok = true
+                if (condVal !== 0) {
+                    for (let i = 0; i < trueBranch.length; i++) {
+                        if (!this.assembleLine(trueBranch[i])) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
             default:
-                this.error(`Unknown directive ${ast.directive}`);
+                this.error(`Unknown directive ${ast.type}`);
                 return false
         }
     }

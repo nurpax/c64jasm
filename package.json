@@ -1,11 +1,11 @@
 {
   "license": "MIT",
   "scripts": {
-    "gen": "npx pegjs -o src/g_parser.js src/parser.pegjs",
+    "gen": "npx pegjs -o build/src/g_parser.js src/parser.pegjs",
     "compile": "tsc -p .",
     "watch": "tsc --watch -p .",
     "t": "node build/asm.js test/petscii1.asm",
-    "test": "ts-node test/test.ts"
+    "test": "node build/test/test.js"
   },
   "dependencies": {
     "@types/node": "^10.9.4",

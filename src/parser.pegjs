@@ -132,6 +132,13 @@ directive =
         offset 
       };
     }
+  / "!if" __ "(" __ condition:expr __ ")"  __ "{" __ trueBranch:statements __ "}" {
+      return {
+        type: 'if',
+        cond:condition,
+        trueBranch
+      };
+    }
 
 string
   = '"' chars:doubleStringCharacter* '"' { return chars.join(''); }
