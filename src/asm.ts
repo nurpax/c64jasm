@@ -164,6 +164,10 @@ class Assembler {
                     case '>>': return left >> right
                     case '==': return left == right
                     case '!=': return left != right
+                    case '<': return left < right
+                    case '<=': return left <= right
+                    case '>': return left > right
+                    case '>=': return left >= right
                     default:
                         this.error(`Unhandled binary operator ${node.op}`);
                         return null
