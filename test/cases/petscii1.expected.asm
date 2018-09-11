@@ -1,0 +1,23 @@
+0801: 4C 06 08     JMP $0806
+0804: D0 0E        BNE $0814
+0806: A9 01        LDA #01
+0808: A9 00        LDA #00
+080A: 8D 20 D0     STA $D020
+080D: A9 00        LDA #00
+080F: 8D 21 D0     STA $D021
+0812: A2 00        LDX #00
+0814: BD 2E 08     LDA $082E,X
+0817: 9D 00 04     STA $0400,X
+081A: BD 16 0C     LDA $0C16,X
+081D: 9D 00 D8     STA $D800,X
+0820: BD 2E 09     LDA $092E,X
+0823: 9D 00 05     STA $0500,X
+0826: BD 16 0D     LDA $0D16,X
+0829: 9D 00 D9     STA $D900,X
+082C: 00           BRK
+082D: 00           BRK
+082E: EA           NOP
+082F: EA           NOP
+0830: EA           NOP
+0831: EA           NOP
+0832: EA           NOP

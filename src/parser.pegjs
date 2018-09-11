@@ -63,22 +63,22 @@
   }
 }
 
-statements = 
-    head:insnLine __ tail:("\n" __ insnLine __)* {
+statements =
+    head:insnLine tail:("\n" __ insnLine)* {
       return buildList(head, tail, 2);
     }
 
 insnLine =
-    __ label:label __ stmt:statement {
+    label:label stmt:statement {
       return { label:label, stmt };
     }
-  / __ label:label {
+  / label:label {
       return { label:label, stmt:null };
     }
-  / __ stmt:statement {
+  / stmt:statement {
       return { label:null, stmt };
     }
-  / __ pc:setPC {
+  / pc:setPC {
       return { label: null, stmt:pc }
     }
   / __ {
@@ -87,7 +87,7 @@ insnLine =
   }
 
 statement =
-    instruction:instruction { 
+    instruction:instruction {
       return {
         type: 'insn',
         insn: instruction
@@ -95,45 +95,45 @@ statement =
     }
   / directive:directive { return directive; }
 
-label = ident:ident ":" { return ident; }
+label = ident:identNoWS ":" __ { return ident; }
 
 setPC =
-  "*" __ "=" __ pc:expr { 
-    return { 
+  STAR EQU pc:expr {
+    return {
       type: 'setpc',
       pc
-    }; 
+    };
   }
 
 directive =
-    "!byte" __ values:exprList  { 
-      return { 
+    PSEUDO_BYTE values:exprList  {
+      return {
         type: 'byte',
         values
-      }; 
+      };
     }
-  / "!word" __ values:exprList { 
-      return { 
+  / PSEUDO_WORD values:exprList {
+      return {
         type: 'word',
-        values: values 
-      }; 
+        values: values
+      };
     }
-  / "!binary" __ s:string __ extra:("," __ expr? __ "," __ expr __)?  {
+  / PSEUDO_BINARY s:string extra:(COMMA expr? COMMA expr)?  {
       let size = null
       let offset = null
       if (extra !== null) {
-        size = extra[2]
-        offset = extra[6]
+        size = extra[1]
+        offset = extra[3]
       }
-      return { 
+      return {
         type: 'binary',
-        filename: s, 
-        size, 
-        offset 
+        filename: s,
+        size,
+        offset
       };
     }
-  / "!if" __ "(" __ condition:expr __ ")"  __ "{" __ trueBranch:statements __ "}" __
-     "else" __ "{" __ falseBranch:statements __ "}" {
+  / PSEUDO_IF LPAR condition:expr RPAR  LWING trueBranch:statements
+    RWING PSEUDO_ELSE LWING falseBranch:statements RWING {
       return {
         type: 'if',
         cond:condition,
@@ -141,7 +141,7 @@ directive =
         falseBranch:falseBranch
       };
     }
-  / "!if" __ "(" __ condition:expr __ ")"  __ "{" __ trueBranch:statements __ "}" __ {
+  / PSEUDO_IF LPAR condition:expr RPAR LWING trueBranch:statements RWING {
       return {
         type: 'if',
         cond:condition,
@@ -151,33 +151,37 @@ directive =
     }
 
 string
-  = '"' chars:doubleStringCharacter* '"' { return chars.join(''); }
+  = '"' chars:doubleStringCharacter* '"' __ { return chars.join(''); }
 
 doubleStringCharacter
   = !'"' char:. { return char; }
 
 /* TODO actually make this a list */
-exprList = head:expr tail:(__ "," __ expr)* { return buildList(head, tail, 3); }
+exprList = head:expr tail:(COMMA expr)* { return buildList(head, tail, 1); }
 
 instruction =
-    mnemonic:mnemonic __ imm:imm  { return mkinsn(mnemonic, imm, null); }
-  / mnemonic:mnemonic __ "(" __ abs:abs ")"  {
+    mnemonic:mnemonic imm:imm  {
+      return mkinsn(mnemonic, imm, null);
+    }
+  / mnemonic:mnemonic  LPAR abs:abs RPAR {
       // absolute indirect.  only possible form: jmp ($fffc)
       return mkabsind(mnemonic, abs);
     }
-  / mnemonic:mnemonic __ abs:abs __ "," __ r:("x"/"y")  {
+  / mnemonic:mnemonic abs:abs COMMA r:("x"/"y") __ {
       if (r === 'x') {
         return mkabsx(mnemonic, abs);
       }
       return mkabsy(mnemonic, abs);
     }
-  / mnemonic:mnemonic __ abs:abs  { return mkinsn(mnemonic, null, abs); }
-  / mnemonic:mnemonic             { return mkinsn(mnemonic, null, null); }
+  / mnemonic:mnemonic abs:abs  { return mkinsn(mnemonic, null, abs); }
+  / mnemonic:mnemonic          { return mkinsn(mnemonic, null, null); }
 
-ident = (alpha+ alphanum*)  { return text(); }
-mnemonic = ident:ident      { return ident; }
+identNoWS = (alpha+ alphanum*) { return text(); }
 
-imm = '#' lh:loOrHi? __ expr:expr { 
+ident = sym:identNoWS __   { return sym; }
+mnemonic = ident:ident     { return ident; }
+
+imm = '#' lh:loOrHi? expr:expr {
   if (lh !== null) {
     if (lh === 'lo') {
       return binop('&', expr, iconst(255))
@@ -187,24 +191,24 @@ imm = '#' lh:loOrHi? __ expr:expr {
   return expr
 }
 
-loOrHi = 
-    "<" { return 'lo'; }
-  / ">" { return 'hi'; }
+loOrHi =
+    LT { return 'lo'; }
+  / GT { return 'hi'; }
 
 abs = expr:expr { return expr; }
 
 expr = additive
 
-additive = first:multiplicative rest:(__ ('+' / '-') __ multiplicative)+ {
+additive = first:multiplicative rest:((PLUS / MINUS) multiplicative)+ {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[1], memo, curr[3]);
+      return binop(curr[0], memo, curr[1]);
     }, first);
 }
 / multiplicative
 
-multiplicative = first:primary rest:(__ ('*' / '/' / '%') __ primary)+ {
+multiplicative = first:primary rest:((STAR / DIV / MOD) primary)+ {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[1], memo, curr[3]);
+      return binop(curr[0], memo, curr[1]);
     }, first);
 }
 / primary
@@ -212,12 +216,12 @@ multiplicative = first:primary rest:(__ ('*' / '/' / '%') __ primary)+ {
 primary
   = num:num      { return iconst(num); }
   / ident:ident  { return { type: 'ident', name: ident } }
-  / "(" __ additive:additive __ ")" { return additive; }
+  / LPAR additive:additive RPAR { return additive; }
 
 
 num =
-   "$"i hex:$hexdig+ { return parseInt(hex, 16); }
- / digs:$digit+      { return parseInt(digs, 10); }
+   "$"i hex:$hexdig+ __ { return parseInt(hex, 16); }
+ / digs:$digit+      __ { return parseInt(digs, 10); }
 
 alpha = [a-zA-Z_]
 alphanum = [a-zA-Z_0-9]
@@ -227,3 +231,58 @@ hexdig = [0-9a-f]
 
 ws "whitespace" = [ \t\r]*
 __ = ws
+
+PSEUDO_BYTE   = "!byte" ws
+PSEUDO_WORD   = "!word" ws
+PSEUDO_BINARY = "!binary" ws
+PSEUDO_IF     = "!if" ws
+PSEUDO_ELSE   = "else" ws
+
+LBRK      =  s:'['         ws { return s; }
+RBRK      =  s:']'         ws { return s; }
+LPAR      =  s:'('         ws { return s; }
+RPAR      =  s:')'         ws { return s; }
+LWING     =  s:'{'         ws { return s; }
+RWING     =  s:'}'         ws { return s; }
+DOT       =  s:'.'         ws { return s; }
+PTR       =  s:'->'        ws { return s; }
+INC       =  s:'++'        ws { return s; }
+DEC       =  s:'--'        ws { return s; }
+AND       =  s:'&'  ![&]   ws { return s; }
+STAR      =  s:'*'  ![=]   ws { return s; }
+PLUS      =  s:'+'  ![+=]  ws { return s; }
+MINUS     =  s:'-'  ![\-=>] ws { return s; }
+TILDA     =  s:'~'         ws { return s; }
+BANG      =  s:'!'  ![=]   ws { return s; }
+DIV       =  s:'/'  ![=]   ws { return s; }
+MOD       =  s:'%'  ![=>]  ws { return s; }
+LEFT      =  s:'<<' ![=]   ws { return s; }
+RIGHT     =  s:'>>' ![=]   ws { return s; }
+LT        =  s:'<'  ![=]   ws { return s; }
+GT        =  s:'>'  ![=]   ws { return s; }
+LE        =  s:'<='        ws { return s; }
+GE        =  s:'>='        ws { return s; }
+EQUEQU    =  s:'=='        ws { return s; }
+BANGEQU   =  s:'!='        ws { return s; }
+HAT       =  s:'^'  ![=]   ws { return s; }
+OR        =  s:'|'  ![=]   ws { return s; }
+ANDAND    =  s:'&&'        ws { return s; }
+OROR      =  s:'||'        ws { return s; }
+QUERY     =  s:'?'         ws { return s; }
+COLON     =  s:':'  ![>]   ws { return s; }
+SEMI      =  s:';'         ws { return s; }
+ELLIPSIS  =  s:'...'       ws { return s; }
+EQU       =  s:'='  !"="   ws { return s; }
+STAREQU   =  s:'*='        ws { return s; }
+DIVEQU    =  s:'/='        ws { return s; }
+MODEQU    =  s:'%='        ws { return s; }
+PLUSEQU   =  s:'+='        ws { return s; }
+MINUSEQU  =  s:'-='        ws { return s; }
+LEFTEQU   =  s:'<<='       ws { return s; }
+RIGHTEQU  =  s:'>>='       ws { return s; }
+ANDEQU    =  s:'&='        ws { return s; }
+HATEQU    =  s:'^='        ws { return s; }
+OREQU     =  s:'|='        ws { return s; }
+COMMA     =  s:','         ws { return s; }
+
+EOT       =  !.
