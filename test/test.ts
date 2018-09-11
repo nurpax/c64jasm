@@ -1,5 +1,6 @@
 
 var glob = require('glob-fs')();
+import { argv } from 'process'
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -14,9 +15,14 @@ function readLines(fname) {
 function main() {
     let inputs = glob.readdirSync('test/cases/*.input.asm');
     
+    const last = argv[argv.length-1];
+    if (path.extname(last) === '.asm') {
+        inputs = [path.join('test/cases', path.basename(last))];
+    }
+
     for (let testIdx = 0; testIdx < inputs.length; testIdx++) {
         const fname = inputs[testIdx];
-        console.log('Testcase:', fname)
+        console.log('Testcase:', fname);
 
         try {
             const prg = assemble(fname);

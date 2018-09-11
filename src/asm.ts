@@ -83,6 +83,58 @@ class Labels {
     }
 }
 
+interface Macro {
+    name: string,
+    args: string[],
+    body: any[];    // AST nodes (TODO types)
+}
+
+interface Constant {
+    name: string,
+    type: 'ref' | 'value',
+    value: number | string  // TODO symbol interface
+}
+
+class SymbolTab<S> {
+    symbols: Map<string, S> = new Map();
+
+    add = (name: string, s: S) => {
+        this.symbols[name] = s
+    }
+
+    find = (name: string) => {
+        return this.symbols[name]
+    }
+}
+
+class ScopeStack<S> {
+    stack: SymbolTab<S>[] = [];
+
+    push = () => {
+        this.stack.push(new SymbolTab<S>());
+    }
+
+    pop = () => {
+        this.stack.pop();
+    }
+
+    find = (name: string) => {
+        const last = this.stack.length-1;
+        for (let idx = last; idx >= 0; idx--) {
+            const elt = this.stack[idx].find(name);
+            if (elt) {
+                return elt;
+            }
+        }
+        return undefined;
+    }
+
+    add = (name: string, sym: S) => {
+        const last = this.stack.length-1;
+        this.stack[last].add(name, sym);
+    }
+}
+
 class Assembler {
     // TODO this should be a resizable array instead
     binary: number[] = [];
@@ -91,6 +143,8 @@ class Assembler {
     codePC = 0;
     pass = 0;
     labels = new Labels()
+    macros = new SymbolTab<Macro>()
+    constants = new ScopeStack<Constant>();
 
     prg = () => {
       // 1,8 is for encoding the $0801 starting address in the .prg file
@@ -188,10 +242,19 @@ class Assembler {
             }
             if (node.type == 'ident') {
                 if (this.pass == 1) {
-                    const label = node.name
+                    let label = node.name
+                    const constant = this.constants.find(label);
+                    if (constant) {
+                        if (constant.type === 'value') {
+                            return constant.value;
+                        }
+                        // TODO name shadowing warning
+                        label = constant.value;
+                    }
+
                     const lbl = this.labels.find(label);
                     if (!lbl) {
-                        this.error(`Undefined label '${label}'`)
+                        this.error(`Undefined symbol '${label}'`)
                         return null
                     }
                     // TODO can also be a constant
@@ -331,18 +394,18 @@ class Assembler {
             return true
         }
         switch (ast.type) {
-            case "byte":
-            case "word": {
+            case 'byte':
+            case 'word': {
                 const emitNode: StmtEmitBytes = ast
                 return tryIntArg(emitNode.values, ast.type === 'byte' ? 8 : 16);
             }
-            case "setpc": {
+            case 'setpc': {
                 return this.setPC(ast.pc);
             }
-            case "binary": {
+            case 'binary': {
                 return this.emitBinary(ast);
             }
-            case "if": {
+            case 'if': {
                 const { cond, trueBranch, falseBranch } = ast
                 const condVal = this.evalExpr(ast.cond);
                 let ok = true
@@ -352,6 +415,60 @@ class Assembler {
                     return this.assembleStmtList(falseBranch);
                 }
                 return true;
+            }
+            case 'macro': {
+                // No need to deal with sticking macros into the symbol table in the later
+                // passes because we only register its body AST.
+                if (this.pass === 0) {
+                    const { name, args, body } = ast;
+                    // TODO check for duplicate arg names!
+                    if (this.macros.find(name) !== undefined) {
+                        this.error(`Macro '${name}' already defined on line XXX TODO`)
+                        return false;
+                    }
+                    this.macros.add(name, {name, args, body });
+                }
+                return true;
+            }
+            case 'callmacro': {
+                let argValues = [];
+                const { name, args } = ast;
+                const macro = this.macros.find(name);
+                if (!macro) {
+                    this.error(`Calling an undefined macro '${name} on line XXX TODO`);
+                    return false;
+                }
+                for (let argIdx = 0; argIdx < args.length; argIdx++) {
+                    const argType = macro.args[argIdx].type;
+                    const arg = args[argIdx];
+                    if (argType === 'ref') {
+                        // pass by named reference
+                        // TODO only accept identifiers here for 'arg'!
+                        argValues.push({type: 'ref', value: arg.name});
+                    } else {
+                        // pass by value, so evaluate
+                        const value = this.evalExpr(args[argIdx]);
+                        if (value === null) {
+                            return false;
+                        }
+                        argValues.push({
+                            type: 'value',
+                            value
+                        });
+                    }
+                }
+                this.constants.push();
+                for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
+                    const argName = macro.args[argIdx];
+                    this.constants.add(argName.name, {
+                        name: argName,
+                        type: argValues[argIdx].type,
+                        value: argValues[argIdx].value
+                    });
+                }
+                const res = this.assembleStmtList(macro.body);
+                this.constants.pop();
+                return res;
             }
             default:
                 this.error(`Unknown directive ${ast.type}`);

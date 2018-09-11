@@ -149,6 +149,21 @@ directive =
         falseBranch:null
       };
     }
+  / PSEUDO_MACRO name:ident LPAR args:macroArgNameList RPAR LWING body:statements RWING {
+      return {
+        type: 'macro',
+        name,
+        args,
+        body
+      };
+    }
+  / "+" name:ident LPAR args:macroArgValueList RPAR  {
+      return {
+        type: 'callmacro',
+        name,
+        args
+      };
+    }
 
 string
   = '"' chars:doubleStringCharacter* '"' __ { return chars.join(''); }
@@ -156,7 +171,23 @@ string
 doubleStringCharacter
   = !'"' char:. { return char; }
 
-/* TODO actually make this a list */
+macroArgNameList = head:macroArgName tail:(COMMA macroArgName)* { return buildList(head, tail, 1); }
+macroArgName =
+  "~" name:ident {
+    return {
+      type: 'ref',
+      name
+    };
+  }
+  / name:ident {
+    return {
+      type: 'value',
+      name
+    };
+  }
+
+macroArgValueList = exprList
+
 exprList = head:expr tail:(COMMA expr)* { return buildList(head, tail, 1); }
 
 instruction =
@@ -288,6 +319,7 @@ __ = ws
 PSEUDO_BYTE   = "!byte" ws
 PSEUDO_WORD   = "!word" ws
 PSEUDO_BINARY = "!binary" ws
+PSEUDO_MACRO = "!macro" ws
 PSEUDO_IF     = "!if" ws
 PSEUDO_ELSE   = "else" ws
 
