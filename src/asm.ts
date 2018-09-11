@@ -162,8 +162,10 @@ class Assembler {
                     case '^': return left ^ right
                     case '<<': return left << right
                     case '>>': return left >> right
+                    case '==': return left == right
+                    case '!=': return left != right
                     default:
-                        this.error(`Unhandled binary operator ${node.operator}`);
+                        this.error(`Unhandled binary operator ${node.op}`);
                         return null
                 }
             }
@@ -173,7 +175,7 @@ class Assembler {
                     case '-': return -arg
                     case '~': return ~arg
                     default:
-                        this.error(`Unhandled unary operator ${node.operator}`);
+                        this.error(`Unhandled unary operator ${node.op}`);
                         return null
                 }
             }
