@@ -167,7 +167,7 @@ instruction =
       // absolute indirect.  only possible form: jmp ($fffc)
       return mkabsind(mnemonic, abs);
     }
-  / mnemonic:mnemonic abs:abs COMMA r:("x"/"y") __ {
+  / mnemonic:mnemonic abs:abs COMMA r:("x" / "y") __ {
       if (r === 'x') {
         return mkabsx(mnemonic, abs);
       }
@@ -197,26 +197,79 @@ loOrHi =
 
 abs = expr:expr { return expr; }
 
-expr = additive
+expr = lastExpr
 
-additive = first:multiplicative rest:((PLUS / MINUS) multiplicative)+ {
+multiplicative = first:primary rest:((STAR / DIV / MOD) primary)* {
     return rest.reduce(function(memo, curr) {
       return binop(curr[0], memo, curr[1]);
     }, first);
-}
-/ multiplicative
-
-multiplicative = first:primary rest:((STAR / DIV / MOD) primary)+ {
-    return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
-    }, first);
-}
+  }
 / primary
+
+additive = first:multiplicative rest:((PLUS / MINUS) multiplicative)* {
+    return rest.reduce(function(memo, curr) {
+      return binop(curr[0], memo, curr[1]);
+    }, first);
+  }
+
+shift = first:additive rest:((LEFT / RIGHT) additive)* {
+    return rest.reduce(function(memo, curr) {
+      return binop(curr[0], memo, curr[1]);
+    }, first);
+  }
+
+relational = first:shift rest:((LE / GE / LT / GT) shift)* {
+    return rest.reduce(function(memo, curr) {
+      return binop(curr[0], memo, curr[1]);
+    }, first);
+  }
+
+equality = first:relational rest:((EQUEQU / BANGEQU) relational)* {
+    return rest.reduce(function(memo, curr) {
+      return binop(curr[0], memo, curr[1]);
+    }, first);
+  }
+
+andExpr = first:equality rest:(AND equality)* {
+    return rest.reduce(function(memo, curr) {
+      return binop(curr[0], memo, curr[1]);
+    }, first);
+  }
+
+xorExpr = first:andExpr rest:(HAT andExpr)* {
+    return rest.reduce(function(memo, curr) {
+      return binop(curr[0], memo, curr[1]);
+    }, first);
+  }
+
+orExpr = first:xorExpr rest:(OR xorExpr)* {
+    return rest.reduce(function(memo, curr) {
+      return binop(curr[0], memo, curr[1]);
+    }, first);
+  }
+
+boolAndExpr = first:orExpr rest:(ANDAND orExpr)* {
+    return rest.reduce(function(memo, curr) {
+      return binop(curr[0], memo, curr[1]);
+    }, first);
+  }
+
+boolOrExpr = first:boolAndExpr rest:(OROR boolAndExpr)* {
+    return rest.reduce(function(memo, curr) {
+      return binop(curr[0], memo, curr[1]);
+    }, first);
+  }
+
+// TODO cond?a:b
+// ConditionalExpression <- LogicalORExpression (QUERY Expression COLON LogicalORExpression)*
+
+lastExpr = boolOrExpr
+
 
 primary
   = num:num      { return iconst(num); }
   / ident:ident  { return { type: 'ident', name: ident } }
-  / LPAR additive:additive RPAR { return additive; }
+  / LPAR e:lastExpr RPAR { return e; }
 
 
 num =
