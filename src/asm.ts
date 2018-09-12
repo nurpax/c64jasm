@@ -455,11 +455,21 @@ class Assembler {
                 let argValues = [];
                 const { name, args } = ast;
                 const macro = this.macros.find(name);
+
                 if (!macro) {
-                    this.error(`Calling an undefined macro '${name} on line XXX TODO`);
+                    if (this.pass === 0) {
+                        this.error(`Calling an undefined macro '${name} on line XXX TODO`);
+                    }
                     return false;
                 }
-                for (let argIdx = 0; argIdx < args.length; argIdx++) {
+                if (macro.args.length !== args.length) {
+                    if (this.pass === 0) {
+                        this.error(`Macro '${name}' declared with ${macro.args.length} args but called here with ${args.length}`);
+                    }
+                    return false;
+                }
+
+                for (let argIdx = 0; argIdx < macro.args.length; argIdx++) {
                     const argType = macro.args[argIdx].type;
                     const arg = args[argIdx];
                     if (argType === 'ref') {
@@ -585,7 +595,6 @@ class Assembler {
                 return true;
             }
         }
-        console.log('**** ERROR ERROR ERROR ****')
         return false;
     }
 
@@ -594,7 +603,6 @@ class Assembler {
         for (let i = 0; i < statements.length; i++) {
             const ok = this.assembleLine(statements[i]);
             if (!ok) {
-                this.error('Breaking out.');
                 break;
             }
         }

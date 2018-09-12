@@ -1,0 +1,1 @@
+foo.asm:1 - Macro 'foo' declared with 2 args but called here with 1
