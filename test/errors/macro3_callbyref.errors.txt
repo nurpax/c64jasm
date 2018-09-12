@@ -1,0 +1,1 @@
+foo.asm:1 - Must pass an identifer for macro 'foo' argument 'a' (call-by-reference argument)

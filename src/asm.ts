@@ -474,7 +474,12 @@ class Assembler {
                     const arg = args[argIdx];
                     if (argType === 'ref') {
                         // pass by named reference
-                        // TODO only accept identifiers here for 'arg'!
+                        if (arg.type !== 'ident') {
+                            if (this.pass === 0) {
+                                this.error(`Must pass an identifer for macro '${name}' argument '${macro.args[argIdx].name}' (call-by-reference argument)`);
+                            }
+                            return false;
+                        }
                         argValues.push({type: 'ref', value: arg.name});
                     } else {
                         // pass by value, so evaluate
