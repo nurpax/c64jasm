@@ -226,7 +226,7 @@ class Assembler {
         return true
     }
 
-    evalExpr = (ast, mustResolveFirstPass) => {
+    evalExpr = (ast, mustResolveFirstPass = false) => {
         const evalExpr = (node) => {
             if (node.type === 'binary') {
                 const left = evalExpr(node.left);
@@ -268,8 +268,7 @@ class Assembler {
                 return node.value
             }
             if (node.type == 'ident') {
-                const mustResolve = mustResolveFirstPass !== undefined && mustResolveFirstPass
-                if (mustResolve || this.pass === 1) {
+                if (mustResolveFirstPass || this.pass === 1) {
                     let label = node.name
                     const constant = this.constants.find(label);
                     if (constant) {
