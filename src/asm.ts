@@ -458,7 +458,7 @@ class Assembler {
 
                 if (!macro) {
                     if (this.pass === 0) {
-                        this.error(`Calling an undefined macro '${name} on line XXX TODO`);
+                        this.error(`Undefined macro '${name}'`);
                     }
                     return false;
                 }

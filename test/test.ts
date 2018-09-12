@@ -109,6 +109,10 @@ ${errorsFname}
 Actual errors written into
 
 ${actualFname}
+
+To gild actual:
+
+cp ${actualFname} ${errorsFname}
                         `);
                     }
                 }
