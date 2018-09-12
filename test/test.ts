@@ -1,5 +1,5 @@
 
-var glob = require('glob-fs')();
+var glob = require('glob-fs');
 import { argv } from 'process'
 import * as path from 'path';
 import * as fs from 'fs';
@@ -12,9 +12,10 @@ function readLines(fname) {
     return lines.map(line => line.trimRight());
 }
 
-function main() {
-    let inputs = glob.readdirSync('test/cases/*.input.asm');
-    
+function outputTest() {
+    const g = glob();
+    let inputs = g.readdirSync('test/cases/*.input.asm');
+
     const last = argv[argv.length-1];
     if (path.extname(last) === '.asm') {
         inputs = [path.join('test/cases', path.basename(last))];
@@ -25,7 +26,7 @@ function main() {
         console.log('Testcase:', fname);
 
         try {
-            const prg = assemble(fname);
+            const { prg, errors } = assemble(fname);
 
             const disasmLines = disassemble(prg).concat('');
             const expectedFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'expected.asm');
@@ -66,4 +67,59 @@ ${disasmLines.join('\n')}
     }
 }
 
-main();
+function testErrors() {
+    const g = glob();
+    let inputs = g.readdirSync('test/errors/*.input.asm');
+
+    const last = argv[argv.length-1];
+    if (path.extname(last) === '.asm') {
+        inputs = [path.join('test/errors', path.basename(last))];
+    }
+
+    for (let testIdx = 0; testIdx < inputs.length; testIdx++) {
+        const fname = inputs[testIdx];
+        console.log('Testcase:', fname);
+
+        try {
+            const { prg, errors } = assemble(fname);
+
+            const errorsFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'errors.txt');
+
+            // If the expected file doesn't exist, create it.  This is for new test authoring.
+            if (!fs.existsSync(errorsFname)) {
+                fs.writeFileSync(errorsFname, errors.join('\n'))
+                console.log(`  DEBUG: wrote ${errorsFname}`);
+            } else {
+                const expectedErrors = readLines(errorsFname);
+                for (let ei in expectedErrors) {
+                    const emsg = /^.*:.* - (.*)$/.exec(expectedErrors[ei]);
+                    const msgOnly = emsg[1];
+
+                    const found = errors.some((msg) => {
+                        const m = /^.*:.* - (.*)$/.exec(msg);
+                        return m ? m[1] == msgOnly : false;
+                    });
+                    if (!found) {
+                        const actualFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'actual_errors.txt');
+                        fs.writeFileSync(actualFname, errors.join('\n'))
+                        console.error(`Assembler output does not contain errors listed in
+
+${errorsFname}
+
+Actual errors written into
+
+${actualFname}
+                        `);
+                    }
+                }
+            }
+        } catch(err) {
+            console.error(err);
+        }
+    }
+}
+
+console.log('Assemble/disassembe tests\n')
+outputTest();
+console.log('\nError reporting tests\n')
+testErrors();

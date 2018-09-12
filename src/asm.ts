@@ -10,6 +10,16 @@ interface SourceLine {
     line: string
 }
 
+interface SourceLoc {
+    lineNo: number,
+    source: string
+}
+
+interface Error {
+    loc: SourceLoc,
+    msg: string
+}
+
 interface StmtEmitBytes {
     type: "byte" | "word";
     values: any[];
@@ -145,14 +155,25 @@ class Assembler {
     labels = new Labels()
     macros = new SymbolTab<Macro>()
     constants = new ScopeStack<Constant>();
+    errorList: Error[] = [];
 
     prg = () => {
       // 1,8 is for encoding the $0801 starting address in the .prg file
       return Buffer.from([1, 8].concat(this.binary))
     }
 
+    errors = () => {
+        return this.errorList.map(({loc, msg}) => {
+            return `${loc.source}:${loc.lineNo} - ${msg}`
+        })
+    }
+
     error = (err: string) => {
-        console.log(`src/foo.asm:${this.currentLineNo} - ${err}`)
+        const loc = { lineNo: 1, source: 'foo.asm' };
+        this.errorList.push({
+            loc,
+            msg: err
+        })
     }
 
     startPass = (pass: number) => {
@@ -588,5 +609,9 @@ export function assemble(filename) {
     asm.assemble(src);
     asm.startPass(1);
     asm.assemble(src);
-    return asm.prg();
+
+    return {
+        prg: asm.prg(),
+        errors: asm.errors()
+    }
 }

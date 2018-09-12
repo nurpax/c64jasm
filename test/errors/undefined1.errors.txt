@@ -1,0 +1,1 @@
+foo.asm:1 - Undefined symbol 'foo'
