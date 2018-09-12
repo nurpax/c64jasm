@@ -87,13 +87,13 @@ insnLine =
   }
 
 statement =
-    instruction:instruction {
+    directive:directive { return directive; }
+  / instruction:instruction {
       return {
         type: 'insn',
         insn: instruction
       }
     }
-  / directive:directive { return directive; }
 
 label = ident:identNoWS ":" __ { return ident; }
 
@@ -164,6 +164,13 @@ directive =
         args
       };
     }
+  / name:ident EQU value:expr  {
+      return {
+        type: 'equ',
+        name,
+        value
+      };
+    }
 
 string
   = '"' chars:doubleStringCharacter* '"' __ { return chars.join(''); }
@@ -194,7 +201,7 @@ instruction =
     mnemonic:mnemonic imm:imm  {
       return mkinsn(mnemonic, imm, null);
     }
-  / mnemonic:mnemonic  LPAR abs:abs RPAR {
+  / mnemonic:mnemonic LPAR abs:abs RPAR {
       // absolute indirect.  only possible form: jmp ($fffc)
       return mkabsind(mnemonic, abs);
     }

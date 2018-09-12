@@ -182,6 +182,14 @@ class Assembler {
       this.binary = [];
     }
 
+    pushConstantScope = () => {
+        this.constants.push();
+    }
+
+    popConstantScope = () => {
+        this.constants.pop();
+    }
+
     emitBasicHeader = () => {
       this.emit(0x0c);
       this.emit(0x08);
@@ -218,7 +226,7 @@ class Assembler {
         return true
     }
 
-    evalExpr = (ast) => {
+    evalExpr = (ast, mustResolveFirstPass) => {
         const evalExpr = (node) => {
             if (node.type === 'binary') {
                 const left = evalExpr(node.left);
@@ -244,8 +252,7 @@ class Assembler {
                     case '>': return left > right
                     case '>=': return left >= right
                     default:
-                        this.error(`Unhandled binary operator ${node.op}`);
-                        return null
+                        throw new Error(`Unhandled binary operator ${node.op}`);
                 }
             }
             if (node.type === 'UnaryExpression') {
@@ -254,15 +261,15 @@ class Assembler {
                     case '-': return -arg
                     case '~': return ~arg
                     default:
-                        this.error(`Unhandled unary operator ${node.op}`);
-                        return null
+                        throw new Error(`Unhandled unary operator ${node.op}`);
                 }
             }
             if (node.type == 'literal') {
                 return node.value
             }
             if (node.type == 'ident') {
-                if (this.pass == 1) {
+                const mustResolve = mustResolveFirstPass !== undefined && mustResolveFirstPass
+                if (mustResolve || this.pass === 1) {
                     let label = node.name
                     const constant = this.constants.find(label);
                     if (constant) {
@@ -278,11 +285,11 @@ class Assembler {
                         this.error(`Undefined symbol '${label}'`)
                         return null
                     }
-                    // TODO can also be a constant
                     return lbl.addr
                 }
                 return null
             }
+            throw new Error(`don't know what to do with node ${node}`)
         }
         return evalExpr(ast);
     }
@@ -407,7 +414,7 @@ class Assembler {
                     this.emit(v);
                 } else {
                     if (bits !== 16) {
-                        throw 'impossible'
+                        throw new Error('impossible');
                     }
                     this.emit16(v);
                 }
@@ -493,7 +500,7 @@ class Assembler {
                         });
                     }
                 }
-                this.constants.push();
+                this.pushConstantScope();
                 for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
                     const argName = macro.args[argIdx];
                     this.constants.add(argName.name, {
@@ -503,12 +510,31 @@ class Assembler {
                     });
                 }
                 const res = this.assembleStmtList(macro.body);
-                this.constants.pop();
+                this.popConstantScope();
                 return res;
             }
+            case 'equ': {
+                const name = ast.name;
+                const prevConstant = this.constants.find(name);
+                if (prevConstant) {
+                    if (this.pass === 0) {
+                        this.error(`Constant ${name} already defined`);
+                    }
+                    return false;
+                }
+                const value = this.evalExpr(ast.value, true);
+                if (value === null) {
+                    return false;
+                }
+                this.constants.add(name, {
+                    name,
+                    type: 'value',
+                    value
+                });
+                return true;
+            }
             default:
-                this.error(`Unknown directive ${ast.type}`);
-                return false
+                throw new Error(`unknown directive ${ast.type}`)
         }
     }
 
@@ -541,7 +567,7 @@ class Assembler {
                     // TODO if any labels changed value in non-zero pass, we need
                     // one more pass over the source.
                     this.error(`Label '${lblSymbol}' already defined on line ${oldLabel.lineNo}`)
-                    return
+                    return false;
                 }
             }
         }
@@ -604,13 +630,8 @@ class Assembler {
     }
 
     assemble = (source) => {
-        const statements = parser.parse(source)
-        for (let i = 0; i < statements.length; i++) {
-            const ok = this.assembleLine(statements[i]);
-            if (!ok) {
-                break;
-            }
-        }
+        const statements = parser.parse(source);
+        return this.assembleStmtList(statements);
     }
 }
 
@@ -618,10 +639,20 @@ export function assemble(filename) {
     const asm = new Assembler();
     const src = readFileSync(filename).toString();
 
+    asm.pushConstantScope();
+
     asm.startPass(0);
-    asm.assemble(src);
+    if (!asm.assemble(src)) {
+        return {
+            errors: asm.errors()
+        }
+    }
+    asm.popConstantScope();
+
+    asm.pushConstantScope();
     asm.startPass(1);
     asm.assemble(src);
+    asm.popConstantScope();
 
     return {
         prg: asm.prg(),

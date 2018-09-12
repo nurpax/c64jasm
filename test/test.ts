@@ -28,6 +28,11 @@ function outputTest() {
         try {
             const { prg, errors } = assemble(fname);
 
+            if (errors.length > 0) {
+                console.error(errors);
+                break;
+            }
+
             const disasmLines = disassemble(prg).concat('');
             const expectedFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'expected.asm');
             const actualFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'actual.asm');
@@ -55,6 +60,11 @@ ${expectedLines.join('\n')}
 Actual disassembly (also written into ${actualFname}):
 
 ${disasmLines.join('\n')}
+
+To gild to actual output:
+
+cp ${actualFname} ${expectedFname}
+
 `
                         );
                         break;
@@ -87,8 +97,10 @@ function testErrors() {
 
             // If the expected file doesn't exist, create it.  This is for new test authoring.
             if (!fs.existsSync(errorsFname)) {
-                fs.writeFileSync(errorsFname, errors.join('\n'))
+                const errLines = errors.join('\n')
+                fs.writeFileSync(errorsFname, errLines)
                 console.log(`  DEBUG: wrote ${errorsFname}`);
+                console.log(errLines + '\n')
             } else {
                 const expectedErrors = readLines(errorsFname);
                 for (let ei in expectedErrors) {
@@ -123,7 +135,7 @@ cp ${actualFname} ${errorsFname}
     }
 }
 
-console.log('Assemble/disassembe tests\n')
+console.log('Assemble/disassemble tests\n')
 outputTest();
 console.log('\nError reporting tests\n')
 testErrors();
