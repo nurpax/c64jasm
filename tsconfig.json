@@ -11,6 +11,7 @@
     "files": [
         "src/asm.ts",
         "src/disasm.ts",
+        "src/cli.ts",
         "test/test.ts"
     ]
 }

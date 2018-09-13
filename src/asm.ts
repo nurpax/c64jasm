@@ -145,6 +145,10 @@ class ScopeStack<S> {
     }
 }
 
+function isTrueVal(cond: number | boolean): boolean {
+    return (cond === true || cond != 0);
+}
+
 class Assembler {
     // TODO this should be a resizable array instead
     binary: number[] = [];
@@ -268,25 +272,24 @@ class Assembler {
                 return node.value
             }
             if (node.type == 'ident') {
-                if (mustResolveFirstPass || this.pass === 1) {
-                    let label = node.name
-                    const constant = this.constants.find(label);
-                    if (constant) {
-                        if (constant.type === 'value') {
-                            return constant.value;
-                        }
-                        // TODO name shadowing warning
-                        label = constant.value;
+                let label = node.name
+                const constant = this.constants.find(label);
+                if (constant) {
+                    if (constant.type === 'value') {
+                        return constant.value;
                     }
-
-                    const lbl = this.labels.find(label);
-                    if (!lbl) {
-                        this.error(`Undefined symbol '${label}'`)
-                        return null
-                    }
-                    return lbl.addr
+                    // TODO name shadowing warning
+                    label = constant.value;
                 }
-                return null
+
+                const lbl = this.labels.find(label);
+                if (!lbl) {
+                    if (mustResolveFirstPass || this.pass === 1) {
+                        this.error(`Undefined symbol '${label}'`)
+                    }
+                    return null
+                }
+                return lbl.addr
             }
             throw new Error(`don't know what to do with node ${node}`)
         }
@@ -405,8 +408,8 @@ class Assembler {
             // TODO must handle list of bytes
             for (let i = 0; i < exprList.length; i++) {
                 const v = this.evalExpr(exprList[i]);
-                if (v === null) {
-                    this.error(`Couldn't evaluate expression value`);
+                if (v === null && this.pass != 0) {
+                    this.error(`Couldn't evaluate expression value for data statement`);
                     return false
                 }
                 if (bits === 8) {
@@ -434,9 +437,8 @@ class Assembler {
             }
             case 'if': {
                 const { cond, trueBranch, falseBranch } = ast
-                const condVal = this.evalExpr(ast.cond);
-                let ok = true
-                if (condVal !== 0) {
+                const condVal = this.evalExpr(ast.cond, true);
+                if (isTrueVal(condVal)) {
                     return this.assembleStmtList(trueBranch);
                 } else {
                     return this.assembleStmtList(falseBranch);
@@ -538,6 +540,9 @@ class Assembler {
     }
 
     assembleStmtList = (lst) => {
+        if (lst === null) {
+            return true;
+        }
         for (let i = 0; i < lst.length; i++) {
             if (!this.assembleLine(lst[i])) {
                 return false;

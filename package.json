@@ -5,10 +5,13 @@
     "compile": "tsc -p .",
     "watch": "tsc --watch -p .",
     "t": "node build/asm.js test/petscii1.asm",
-    "test": "node build/test/test.js"
+    "test": "node build/test/test.js",
+    "asm": "node build/src/cli.js"
   },
   "dependencies": {
+    "@types/argparse": "^1.0.34",
     "@types/node": "^10.9.4",
+    "argparse": "^1.0.10",
     "typescript": "^3.0.3"
   },
   "devDependencies": {

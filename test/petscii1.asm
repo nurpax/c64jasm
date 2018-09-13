@@ -1,8 +1,32 @@
 
+!macro basic_start(~xaddr) {
+* = $801
+    !byte $0c
+    !byte $08
+    !byte $00
+    !byte $00
+    !byte $9e
+addr = $080d
+!if (addr >= 10000) {
+    !byte $30 + (addr/10000)%10
+}
+!if (addr >= 1000) {
+    !byte $30 + (addr/1000)%10
+}
+!if (addr >= 100) {
+    !byte $30 + (addr/100)%10
+}
+!if (addr >= 10) {
+    !byte $30 + (addr/10)%10
+}
+    !byte $30 + addr % 10
+    !byte 0, 0, 0
+}
+
++basic_start(start)
+
 start: 
     jmp real_start
-
-    bne loop
 
 real_start:
     lda #1            
@@ -51,11 +75,11 @@ wait_first_line:
     jsr music+3
     jmp infloop
 
-*=$1000
+* = $1000
 music:
 !binary "test/Bintris_FINAL.sid",,$7c+2
 
-*=$2000
+* = $2000
 screen_002:
 !byte 0,0
 !byte 160,160,160,160,160,160,160,160,160,160,160,160,160,160,160,160,160,160,160,126,193,160,160,160,160,160,160,160,160,160,160,160,160,160,160,160,160,160,160,160

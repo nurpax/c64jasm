@@ -2,6 +2,10 @@
 # yarn lockfile v1
 
 
+"@types/argparse@^1.0.34":
+  version "1.0.34"
+  resolved "https://registry.yarnpkg.com/@types/argparse/-/argparse-1.0.34.tgz#3ee09ced0285c7577d879c51b8cf092125591e68"
+
 "@types/node@^10.9.4":
   version "10.9.4"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-10.9.4.tgz#0f4cb2dc7c1de6096055357f70179043c33e9897"
@@ -15,6 +19,12 @@ ansi-yellow@^0.1.1:
   resolved "https://registry.yarnpkg.com/ansi-yellow/-/ansi-yellow-0.1.1.tgz#cb9356f2f46c732f0e3199e6102955a77da83c1d"
   dependencies:
     ansi-wrap "0.1.0"
+
+argparse@^1.0.10:
+  version "1.0.10"
+  resolved "https://registry.yarnpkg.com/argparse/-/argparse-1.0.10.tgz#bcd6791ea5ae09725e17e5ad988134cd40b3d911"
+  dependencies:
+    sprintf-js "~1.0.2"
 
 arr-diff@^1.0.1:
   version "1.1.0"
@@ -621,6 +631,10 @@ source-map-support@^0.5.6:
 source-map@^0.6.0:
   version "0.6.1"
   resolved "https://registry.yarnpkg.com/source-map/-/source-map-0.6.1.tgz#74722af32e9614e9c287a8d0bbde48b5e2f1a263"
+
+sprintf-js@~1.0.2:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/sprintf-js/-/sprintf-js-1.0.3.tgz#04e6926f662895354f3dd015203633b857297e2c"
 
 starts-with@^1.0.0, starts-with@^1.0.2:
   version "1.0.2"
