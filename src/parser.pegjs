@@ -149,19 +149,19 @@ directive =
         falseBranch:null
       };
     }
-  / PSEUDO_MACRO name:ident LPAR args:macroArgNameList RPAR LWING body:statements RWING {
+  / PSEUDO_MACRO name:ident LPAR args:macroArgNameList? RPAR LWING body:statements RWING {
       return {
         type: 'macro',
         name,
-        args,
+        args: args === null ? [] : args,
         body
       };
     }
-  / "+" name:ident LPAR args:macroArgValueList RPAR  {
+  / "+" name:ident LPAR args:macroArgValueList? RPAR  {
       return {
         type: 'callmacro',
         name,
-        args
+        args: args === null ? [] : args
       };
     }
   / name:ident EQU value:expr  {
