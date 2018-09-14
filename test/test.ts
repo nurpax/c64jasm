@@ -44,7 +44,7 @@ function outputTest() {
             } else {
                 const expectedLines = readLines(expectedFname);
                 for (let lineIdx = 0; lineIdx < expectedLines.length; lineIdx++) {
-                    if (expectedLines[lineIdx].trim() != disasmLines[lineIdx].trim() {
+                    if (expectedLines[lineIdx].trim() != disasmLines[lineIdx].trim()) {
                         fs.writeFileSync(actualFname, disasmLines.join('\n'));
                         console.error(`Test failed.
 Input .asm:

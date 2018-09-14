@@ -77,6 +77,22 @@ interface Label {
     lineNo: number
 }
 
+class SeenLabels {
+    seenLabels = new Map();
+
+    clear () {
+        this.seenLabels.clear();
+    }
+
+    find = (name) => {
+        return this.seenLabels.get(name);
+    }
+
+    declare = (name, sym) => {
+        this.seenLabels.set(name, sym);
+    }
+}
+
 class Labels {
     labels = {}
 
@@ -156,6 +172,8 @@ class Assembler {
     currentLineNo = 0;
     codePC = 0;
     pass = 0;
+    needPass = false;
+    seenLabels = new SeenLabels();
     labels = new Labels()
     macros = new SymbolTab<Macro>()
     constants = new ScopeStack<Constant>();
@@ -165,6 +183,8 @@ class Assembler {
       // 1,8 is for encoding the $0801 starting address in the .prg file
       return Buffer.from([1, 8].concat(this.binary))
     }
+
+    anyErrors = () => this.errorList.length !== 0
 
     errors = () => {
         return this.errorList.map(({loc, msg}) => {
@@ -183,7 +203,9 @@ class Assembler {
     startPass = (pass: number) => {
       this.codePC = 0x801;
       this.pass = pass;
+      this.needPass = false;
       this.binary = [];
+      this.seenLabels.clear();
     }
 
     pushConstantScope = () => {
@@ -230,7 +252,7 @@ class Assembler {
         return true
     }
 
-    evalExpr = (ast, mustResolveFirstPass = false) => {
+    evalExpr = (ast) => {
         const evalExpr = (node) => {
             if (node.type === 'binary') {
                 const left = evalExpr(node.left);
@@ -284,9 +306,10 @@ class Assembler {
 
                 const lbl = this.labels.find(label);
                 if (!lbl) {
-                    if (mustResolveFirstPass || this.pass === 1) {
+                    if (this.pass === 1) {
                         this.error(`Undefined symbol '${label}'`)
                     }
+                    this.needPass = true;
                     return null
                 }
                 return lbl.addr
@@ -355,14 +378,11 @@ class Assembler {
             }
             return true
         } else {
-            // Don't encode a 8-bit forward reference in first pass but
-            // fall-back to conservative 16-bits.
-            //
-            // TODO there's a bug here.  If we emitted a 16-bit value in the
-            // first pass and realize we could do it in 8-bits in the second
-            // pass, the above code will encode the value as 8-bit, breaking
-            // label references that were gathered from pass 1.
-            if (bits == 16) {
+            if (bits === 8) {
+                this.emit(opcode);
+                this.emit(0);
+                return true
+            } else {
                 this.emit(opcode);
                 this.emit16(0);
                 return true
@@ -375,13 +395,12 @@ class Assembler {
         if (opcode === null || param === null) {
             return false;
         }
-        if (this.pass === 0) {
-            this.emit(0);
+        const addr = this.evalExpr(param);
+        this.emit(opcode);
+        if (addr === null) {
             this.emit(0);
             return true;
         }
-        const addr = this.evalExpr(param);
-        this.emit(opcode);
         // TODO check 8-bit overflow here!!
         if (addr < (this.codePC - 0x600)) {  // Backwards?
           this.emit((0xff - ((this.codePC - 0x600) - addr)) & 0xff);
@@ -408,7 +427,7 @@ class Assembler {
             // TODO must handle list of bytes
             for (let i = 0; i < exprList.length; i++) {
                 const v = this.evalExpr(exprList[i]);
-                if (v === null && this.pass != 0) {
+                if (v === null && this.pass !== 0) {
                     this.error(`Couldn't evaluate expression value for data statement`);
                     return false
                 }
@@ -437,7 +456,7 @@ class Assembler {
             }
             case 'if': {
                 const { cond, trueBranch, falseBranch } = ast
-                const condVal = this.evalExpr(ast.cond, true);
+                const condVal = this.evalExpr(ast.cond);
                 if (isTrueVal(condVal)) {
                     return this.assembleStmtList(trueBranch);
                 } else {
@@ -492,12 +511,9 @@ class Assembler {
                     } else {
                         // pass by value, so evaluate
                         const value = this.evalExpr(args[argIdx]);
-                        if (value === null) {
-                            return false;
-                        }
                         argValues.push({
                             type: 'value',
-                            value
+                            value: value === null ? 0 : value
                         });
                     }
                 }
@@ -523,7 +539,7 @@ class Assembler {
                     }
                     return false;
                 }
-                const value = this.evalExpr(ast.value, true);
+                const value = this.evalExpr(ast.value);
                 if (value === null) {
                     return false;
                 }
@@ -563,15 +579,23 @@ class Assembler {
         if (line.label !== null) {
             const lblSymbol = line.label
 
-            if (this.pass === 0) {
+            const seen = this.seenLabels.find(lblSymbol);
+            if (seen) {
+                const lineNo = 13; // TODO
+                this.error(`Label '${lblSymbol}' already defined on line ${lineNo}`)
+                return false;
+            } else {
+                const lblName = lblSymbol
+                this.seenLabels.declare(lblName, lblSymbol);
                 const oldLabel = this.labels.find(lblSymbol)
                 if (oldLabel === undefined) {
                     this.labels.add(lblSymbol, this.codePC, lineNo);
                 } else {
-                    // TODO if any labels changed value in non-zero pass, we need
-                    // one more pass over the source.
-                    this.error(`Label '${lblSymbol}' already defined on line ${oldLabel.lineNo}`)
-                    return false;
+                    // If label address has changed change, need one more pass
+                    if (oldLabel.addr !== this.codePC) {
+                        this.needPass = true;
+                        this.labels.add(lblSymbol, this.codePC, lineNo);
+                    }
                 }
             }
         }
@@ -643,20 +667,23 @@ export function assemble(filename) {
     const asm = new Assembler();
     const src = readFileSync(filename).toString();
 
-    asm.pushConstantScope();
-
-    asm.startPass(0);
-    if (!asm.assemble(src)) {
-        return {
-            errors: asm.errors()
+    let pass = 0;
+    do {
+        asm.pushConstantScope();
+        asm.startPass(pass);
+        if (!asm.assemble(src)) {
+            return {
+                errors: asm.errors()
+            }
         }
-    }
-    asm.popConstantScope();
-
-    asm.pushConstantScope();
-    asm.startPass(1);
-    asm.assemble(src);
-    asm.popConstantScope();
+        asm.popConstantScope();
+        const maxPass = 10;
+        if (pass > maxPass) {
+            console.error(`Exceeded max pass limit ${maxPass}`);
+            return;
+        }
+        pass += 1;
+    } while(asm.needPass && !asm.anyErrors());
 
     return {
         prg: asm.prg(),
