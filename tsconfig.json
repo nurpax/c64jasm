@@ -6,7 +6,8 @@
         "preserveConstEnums": true,
         "outDir": "build",
         "sourceMap": true,
-        "allowJs": true
+        "allowJs": true,
+        "lib": ["es2017"]
     },
     "files": [
         "src/asm.ts",

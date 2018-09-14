@@ -1,22 +1,38 @@
 {
+  "name": "c64jasm",
+  "version": "0.0.1",
+  "description": "A C64 macro assembler",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nurpax/c64jasm.git"
+  },
+  "homepage": "https://github.com/nurpax/c64jasm#README.md",
+  "author": {
+    "email": "jjhellst@gmail.com",
+    "name": "Janne Hellsten"
+  },
+  "bin": {
+    "c64jasm": "./dist/src/cli.js"
+  },
   "scripts": {
     "gen": "npx pegjs -o build/src/g_parser.js src/parser.pegjs",
     "compile": "tsc -p .",
     "watch": "tsc --watch -p .",
     "t": "node build/asm.js test/petscii1.asm",
     "test": "node build/test/test.js",
-    "asm": "node build/src/cli.js"
+    "asm": "node build/src/cli.js",
+    "dist": "rm -rf dist && mkdir -p build/src dist/src && npm run gen && cp build/src/g_parser.js dist/src && tsc -p tsconfig.dist.json"
   },
   "dependencies": {
     "@types/argparse": "^1.0.34",
     "@types/node": "^10.9.4",
     "argparse": "^1.0.10",
-    "typescript": "^3.0.3"
+    "glob-fs": "^0.1.7"
   },
   "devDependencies": {
-    "glob-fs": "^0.1.7",
     "pegjs": "^0.10.0",
-    "ts-node": "^7.0.1"
+    "ts-node": "^7.0.1",
+    "typescript": "^3.0.3"
   }
 }

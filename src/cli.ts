@@ -1,13 +1,17 @@
+#!/usr/bin/env node
 
 import * as process from 'process'
 import { writeFileSync } from 'fs'
 import { assemble } from './asm'
 import { ArgumentParser } from 'argparse'
 
+const version = require('../../package.json').version
+
 const parser = new ArgumentParser({
-    version: '0.0.1',
+    version,
     addHelp: true,
-    description: 'c64jasm'
+    prog: 'c64jasm',
+    description: 'C64 macro assembler'
 });
 
 parser.addArgument('--out', {help: 'Output .prg filename'})
