@@ -367,13 +367,14 @@ class Assembler {
         }
         const val = this.evalExpr(param);
         if (val !== null) {
-            if (val < 0 || val >= (1<<bits)) {
-                return false
-            }
-            this.emit(opcode)
             if (bits === 8) {
+                if (val < 0 || val >= (1<<bits)) {
+                    return false
+                }
+                this.emit(opcode)
                 this.emit(val)
             } else {
+                this.emit(opcode)
                 this.emit16(val)
             }
             return true
