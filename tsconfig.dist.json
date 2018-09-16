@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es5",
+        "removeComments": true,
+        "preserveConstEnums": true,
+        "outDir": "./dist",
+        "sourceMap": true,
+        "allowJs": true,
+        "lib": ["es2017"]
+    },
+    "files": [
+        "src/asm.ts",
+        "src/disasm.ts",
+        "src/cli.ts",
+        "test/test.ts"
+    ]
+}

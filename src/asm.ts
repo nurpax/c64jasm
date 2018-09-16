@@ -95,17 +95,48 @@ class SeenLabels {
 
 class Labels {
     labels = {}
+    macroCount = 0
+    labelPrefix = []
+
+    startPass(): void {
+        this.macroCount = 0;
+    }
+
+    pushMacroExpandScope(macroName): void {
+        this.labelPrefix.push(`${macroName}/${this.macroCount}/`)
+        this.macroCount++;
+    }
+
+    popMacroExpandScope(): void {
+        this.labelPrefix.pop();
+    }
+
+    currentScopePrefix(): string {
+        if (this.labelPrefix.length === 0) {
+            return ''
+        }
+        return this.labelPrefix.join('/');
+    }
+
+    prefixName(name: string): string {
+        const prefix = this.currentScopePrefix();
+        if (name[0] === '.') {
+            return `${prefix}${name}`
+        }
+        return name
+    }
 
     add = (name: string, addr: number, lineNo: number) => {
         const lbl: Label = {
             addr,
             lineNo
         }
-        this.labels[name] = lbl
+        const prefixedName = this.prefixName(name)
+        this.labels[prefixedName] = lbl
     }
 
     find = (name: string) => {
-        return this.labels[name]
+        return this.labels[this.prefixName(name)]
     }
 }
 
@@ -206,6 +237,7 @@ class Assembler {
       this.needPass = false;
       this.binary = [];
       this.seenLabels.clear();
+      this.labels.startPass();
     }
 
     pushConstantScope = () => {
@@ -519,6 +551,7 @@ class Assembler {
                     }
                 }
                 this.pushConstantScope();
+                this.labels.pushMacroExpandScope(name);
                 for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
                     const argName = macro.args[argIdx];
                     this.constants.add(argName.name, {
@@ -528,6 +561,7 @@ class Assembler {
                     });
                 }
                 const res = this.assembleStmtList(macro.body);
+                this.labels.popMacroExpandScope();
                 this.popConstantScope();
                 return res;
             }
@@ -580,14 +614,14 @@ class Assembler {
         if (line.label !== null) {
             const lblSymbol = line.label
 
-            const seen = this.seenLabels.find(lblSymbol);
+            const seen = this.seenLabels.find(this.labels.prefixName(lblSymbol));
             if (seen) {
                 const lineNo = 13; // TODO
                 this.error(`Label '${lblSymbol}' already defined on line ${lineNo}`)
                 return false;
             } else {
                 const lblName = lblSymbol
-                this.seenLabels.declare(lblName, lblSymbol);
+                this.seenLabels.declare(this.labels.prefixName(lblName), lblSymbol);
                 const oldLabel = this.labels.find(lblSymbol)
                 if (oldLabel === undefined) {
                     this.labels.add(lblSymbol, this.codePC, lineNo);

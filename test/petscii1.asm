@@ -1,12 +1,11 @@
 
-!macro basic_start(~xaddr) {
+!macro basic_start(addr) {
 * = $801
     !byte $0c
     !byte $08
     !byte $00
     !byte $00
     !byte $9e
-addr = $080d
 !if (addr >= 10000) {
     !byte $30 + (addr/10000)%10
 }

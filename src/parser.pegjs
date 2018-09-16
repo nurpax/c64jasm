@@ -68,7 +68,7 @@ statements =
       return buildList(head, tail, 2);
     }
 
-insnLineWithComment = 
+insnLineWithComment =
   insn:insnLine (';' (!'\n' .)*)? {
     return insn
   }
@@ -100,7 +100,8 @@ statement =
       }
     }
 
-label = ident:identNoWS ":" __ { return ident; }
+label =
+    lbl:labelIdent ":" __  { return lbl; }
 
 setPC =
   STAR EQU pc:expr {
@@ -221,8 +222,12 @@ instruction =
 
 identNoWS = (alpha+ alphanum*) { return text(); }
 
-ident = sym:identNoWS __   { return sym; }
-mnemonic = ident:ident     { return ident; }
+labelIdent =
+    ident:identNoWS __         { return ident; }
+  / ident:("." identNoWS) __   { return ident.join(''); }
+
+ident = sym:identNoWS __       { return sym; }
+mnemonic = ident:identNoWS __  { return ident; }
 
 imm = '#' lh:loOrHi? expr:expr {
   if (lh !== null) {
@@ -308,10 +313,9 @@ boolOrExpr = first:boolAndExpr rest:(OROR boolAndExpr)* {
 
 lastExpr = boolOrExpr
 
-
 primary
-  = num:num      { return iconst(num); }
-  / ident:ident  { return { type: 'ident', name: ident } }
+  = num:num              { return iconst(num); }
+  / ident:labelIdent     { return { type: 'ident', name: ident } }
   / LPAR e:lastExpr RPAR { return e; }
 
 
