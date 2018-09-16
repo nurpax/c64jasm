@@ -64,9 +64,14 @@
 }
 
 statements =
-    head:insnLine tail:("\n" __ insnLine)* {
+    head:insnLineWithComment tail:("\n" __ insnLineWithComment)* {
       return buildList(head, tail, 2);
     }
+
+insnLineWithComment = 
+  insn:insnLine (';' (!'\n' .)*)? {
+    return insn
+  }
 
 insnLine =
     label:label stmt:statement {
