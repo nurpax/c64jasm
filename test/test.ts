@@ -91,7 +91,7 @@ function testErrors() {
         console.log('Testcase:', fname);
 
         try {
-            const { prg, errors } = assemble(fname);
+            const { errors } = assemble(fname);
 
             const errorsFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'errors.txt');
 

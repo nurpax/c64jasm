@@ -659,8 +659,17 @@ class Assembler {
     }
 
     assemble = (source) => {
-        const statements = parser.parse(source);
-        return this.assembleStmtList(statements);
+        try {
+            const statements = parser.parse(source);
+            return this.assembleStmtList(statements);
+        } catch(err) {
+            if ('name' in err && err.name == 'SyntaxError') {
+                this.error(`Syntax error: ${err.message}`)
+                return false;
+            }
+            console.error('Internal compiler error.');
+            return false;
+        }
     }
 }
 
