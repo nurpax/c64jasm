@@ -612,7 +612,15 @@ class Assembler {
         this.currentLineNo = lineNo;
 
         if (line.label !== null) {
-            const lblSymbol = line.label
+            let lblSymbol = line.label;
+            const constant = this.constants.find(line.label);
+            // If there's a label 'ref' in the constants table, rewrite the current line's
+            // label name to that.  This is used for passing label names via macro parameters.
+            if (constant) {
+                if (constant.type === 'ref') {
+                    lblSymbol = constant.value;
+                }
+            }
 
             const seen = this.seenLabels.find(this.labels.prefixName(lblSymbol));
             if (seen) {
