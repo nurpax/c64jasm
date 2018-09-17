@@ -25,15 +25,6 @@ interface StmtEmitBytes {
     values: any[];
 }
 
-interface Stmt {
-    type: string,
-}
-
-interface LineAst {
-    label: string | null,
-    stmt: Stmt | null
-}
-
 function toHex16(v: number): string {
     return v.toString(16).padStart(4, '0');
 }
@@ -453,7 +444,16 @@ class Assembler {
             this.emit(0);
         }
         return true
-}
+    }
+
+    withScope = (name, compileScope) => {
+        this.pushConstantScope();
+        this.labels.pushMacroExpandScope(name);
+        const res = compileScope();
+        this.labels.popMacroExpandScope();
+        this.popConstantScope();
+        return res;
+    }
 
     checkDirectives = (ast) => {
         const tryIntArg = (exprList, bits) => {
@@ -550,20 +550,17 @@ class Assembler {
                         });
                     }
                 }
-                this.pushConstantScope();
-                this.labels.pushMacroExpandScope(name);
-                for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
-                    const argName = macro.args[argIdx];
-                    this.constants.add(argName.name, {
-                        name: argName,
-                        type: argValues[argIdx].type,
-                        value: argValues[argIdx].value
-                    });
-                }
-                const res = this.assembleStmtList(macro.body);
-                this.labels.popMacroExpandScope();
-                this.popConstantScope();
-                return res;
+                return this.withScope(name, () => {
+                    for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
+                        const argName = macro.args[argIdx];
+                        this.constants.add(argName.name, {
+                            name: argName,
+                            type: argValues[argIdx].type,
+                            value: argValues[argIdx].value
+                        });
+                    }
+                    return this.assembleStmtList(macro.body);
+                })
             }
             case 'equ': {
                 const name = ast.name;
@@ -641,6 +638,12 @@ class Assembler {
                     }
                 }
             }
+        }
+
+        if (line.scopedStmts) {
+            return this.withScope(line.label, () => {
+                return this.assembleStmtList(line.scopedStmts);
+            })
         }
 
         if (line.stmt === null) {

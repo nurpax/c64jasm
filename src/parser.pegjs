@@ -74,11 +74,14 @@ insnLineWithComment =
   }
 
 insnLine =
-    label:label stmt:statement {
-      return { label:label, stmt };
+    label:label LWING scopedStmts:statements RWING {
+      return { label, stmt:null, scopedStmts };
+  }
+  / label:label stmt:statement {
+      return { label, stmt };
     }
   / label:label {
-      return { label:label, stmt:null };
+      return { label, stmt:null };
     }
   / stmt:statement {
       return { label:null, stmt };

@@ -1,0 +1,1 @@
+foo.asm:1 - Label '.local_label' already defined on line 13
