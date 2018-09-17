@@ -5,13 +5,15 @@ import { readFileSync, writeFileSync } from 'fs'
 
 var parser = require('./g_parser')
 
-interface SourceLine {
-    lineNo: number,
-    line: string
+interface Loc {
+    offset: number,
+    line: number,
+    column: number
 }
 
 interface SourceLoc {
-    lineNo: number,
+    start: Loc,
+    end: Loc,
     source: string
 }
 
@@ -65,11 +67,16 @@ function toHex(num) {
 
 interface Label {
     addr: number,
-    lineNo: number
+    loc: SourceLoc
+}
+
+interface ExprVal {
+    val: number | null;
+    loc: SourceLoc;
 }
 
 class SeenLabels {
-    seenLabels = new Map();
+    seenLabels = new Map<string, LabelSym>();
 
     clear () {
         this.seenLabels.clear();
@@ -117,30 +124,35 @@ class Labels {
         return name
     }
 
-    add = (name: string, addr: number, lineNo: number) => {
+    add(name: string, addr: number, loc: SourceLoc): void {
         const lbl: Label = {
             addr,
-            lineNo
+            loc
         }
         const prefixedName = this.prefixName(name)
         this.labels[prefixedName] = lbl
     }
 
-    find = (name: string) => {
+    find(name: string):Label {
         return this.labels[this.prefixName(name)]
     }
 }
 
-interface Macro {
+interface LabelSym {
     name: string,
+    loc: any
+}
+
+interface Macro {
+    name: LabelSym,
     args: string[],
     body: any[];    // AST nodes (TODO types)
 }
 
 interface Constant {
-    name: string,
+    name: LabelSym,
     type: 'ref' | 'value',
-    value: number | string  // TODO symbol interface
+    value: number | string
 }
 
 class SymbolTab<S> {
@@ -166,7 +178,7 @@ class ScopeStack<S> {
         this.stack.pop();
     }
 
-    find = (name: string) => {
+    find (name: string): S {
         const last = this.stack.length-1;
         for (let idx = last; idx >= 0; idx--) {
             const elt = this.stack[idx].find(name);
@@ -192,6 +204,7 @@ class Assembler {
     binary: number[] = [];
 
     currentLineNo = 0;
+    inputFilename = undefined;
     codePC = 0;
     pass = 0;
     needPass = false;
@@ -206,16 +219,22 @@ class Assembler {
       return Buffer.from([1, 8].concat(this.binary))
     }
 
+    setSourceFilename(fname) {
+        this.inputFilename = fname;
+    }
+
     anyErrors = () => this.errorList.length !== 0
 
     errors = () => {
         return this.errorList.map(({loc, msg}) => {
-            return `${loc.source}:${loc.lineNo} - ${msg}`
+            if (loc) {
+                return `${loc.source}:${loc.start.line} - ${msg}`
+            }
+            return `<unknown>: ${msg}`
         })
     }
 
-    error = (err: string) => {
-        const loc = { lineNo: 1, source: 'foo.asm' };
+    error = (err: string, loc: SourceLoc) => {
         this.errorList.push({
             loc,
             msg: err
@@ -261,8 +280,10 @@ class Assembler {
         const { filename } = ast
         const buf: Buffer = readFileSync(filename)
 
-        let offset = ast.offset !== null ? this.evalExpr(ast.offset) : 0;
-        let size = ast.size !== null ? this.evalExpr(ast.size) : buf.byteLength - offset;
+        const offsetExpr = this.evalExpr(ast.offset);
+        let offset = ast.offset !== null && offsetExpr ? offsetExpr.val : 0;
+        const sizeExpr = this.evalExpr(ast.size);
+        let size = ast.size !== null && sizeExpr ? sizeExpr.val : buf.byteLength - offset;
 
         if (offset === null || size === null) {
             return false;
@@ -275,7 +296,13 @@ class Assembler {
         return true
     }
 
-    evalExpr = (ast) => {
+    evalExpr (ast): ExprVal {
+        const runBinop = (a, b, f) => {
+            return {
+                val: f(a.val, b.val),
+                loc: a.loc // TODO combine a, b
+            }
+        }
         const evalExpr = (node) => {
             if (node.type === 'binary') {
                 const left = evalExpr(node.left);
@@ -284,44 +311,44 @@ class Assembler {
                     return null
                 }
                 switch (node.op) {
-                    case '+': return left + right
-                    case '-': return left - right
-                    case '*': return left * right
-                    case '/': return left / right
-                    case '%': return left % right
-                    case '&': return left & right
-                    case '|': return left | right
-                    case '^': return left ^ right
-                    case '<<': return left << right
-                    case '>>': return left >> right
-                    case '==': return left == right
-                    case '!=': return left != right
-                    case '<': return left < right
-                    case '<=': return left <= right
-                    case '>': return left > right
-                    case '>=': return left >= right
+                    case '+': return  runBinop(left, right, (a,b) => a + b)
+                    case '-': return  runBinop(left, right, (a,b) => a - b)
+                    case '*': return  runBinop(left, right, (a,b) => a * b)
+                    case '/': return  runBinop(left, right, (a,b) => a / b)
+                    case '%': return  runBinop(left, right, (a,b) => a % b)
+                    case '&': return  runBinop(left, right, (a,b) => a & b)
+                    case '|': return  runBinop(left, right, (a,b) => a | b)
+                    case '^': return  runBinop(left, right, (a,b) => a ^ b)
+                    case '<<': return runBinop(left, right, (a,b) => a << b)
+                    case '>>': return runBinop(left, right, (a,b) => a >> b)
+                    case '==': return runBinop(left, right, (a,b) => a == b)
+                    case '!=': return runBinop(left, right, (a,b) => a != b)
+                    case '<':  return runBinop(left, right, (a,b) => a <  b)
+                    case '<=': return runBinop(left, right, (a,b) => a <= b)
+                    case '>':  return runBinop(left, right, (a,b) => a >  b)
+                    case '>=': return runBinop(left, right, (a,b) => a >= b)
                     default:
                         throw new Error(`Unhandled binary operator ${node.op}`);
                 }
             }
             if (node.type === 'UnaryExpression') {
-                const arg = evalExpr(node.argument);
+                const { val, loc } = evalExpr(node.argument);
                 switch (node.operator) {
-                    case '-': return -arg
-                    case '~': return ~arg
+                    case '-': return { val: -val, loc: node.loc };
+                    case '~': return { val: ~val, loc: node.loc };
                     default:
                         throw new Error(`Unhandled unary operator ${node.op}`);
                 }
             }
             if (node.type == 'literal') {
-                return node.value
+                return { val: node.value, loc: node.loc };
             }
             if (node.type == 'ident') {
                 let label = node.name
                 const constant = this.constants.find(label);
                 if (constant) {
                     if (constant.type === 'value') {
-                        return constant.value;
+                        return { val: constant.value, loc: node.loc };
                     }
                     // TODO name shadowing warning
                     label = constant.value;
@@ -330,12 +357,12 @@ class Assembler {
                 const lbl = this.labels.find(label);
                 if (!lbl) {
                     if (this.pass === 1) {
-                        this.error(`Undefined symbol '${label}'`)
+                        this.error(`Undefined symbol '${label}'`, node.loc)
                     }
                     this.needPass = true;
                     return null
                 }
-                return lbl.addr
+                return { val: lbl.addr, loc: lbl.loc } as ExprVal;
             }
             throw new Error(`don't know what to do with node ${node}`)
         }
@@ -365,10 +392,11 @@ class Assembler {
         if (opcode === null || param === null) {
             return false;
         }
-        const val = this.evalExpr(param);
-        if (val !== null) {
+        const eres = this.evalExpr(param);
+        if (eres !== null) {
+            const { val, loc } = eres
             if (val < 0 || val > 255) {
-                this.error(`Immediate evaluates to ${val} which cannot fit in 8 bits`);
+                this.error(`Immediate evaluates to ${val} which cannot fit in 8 bits`, loc);
                 return false
             }
             this.emit(opcode)
@@ -377,7 +405,7 @@ class Assembler {
         } else {
             if (this.pass === 0) {
                 this.emit(opcode)
-                this.emit(val)
+                this.emit(0)
                 return true
             }
         }
@@ -388,8 +416,9 @@ class Assembler {
         if (opcode === null || param === null) {
             return false;
         }
-        const val = this.evalExpr(param);
-        if (val !== null) {
+        const eres = this.evalExpr(param);
+        if (eres !== null) {
+            const { val, loc } = eres
             if (bits === 8) {
                 if (val < 0 || val >= (1<<bits)) {
                     return false
@@ -419,12 +448,13 @@ class Assembler {
         if (opcode === null || param === null) {
             return false;
         }
-        const addr = this.evalExpr(param);
+        const eres = this.evalExpr(param);
         this.emit(opcode);
-        if (addr === null) {
+        if (eres === null) {
             this.emit(0);
             return true;
         }
+        const { val: addr, loc } = eres
         // TODO check 8-bit overflow here!!
         if (addr < (this.codePC - 0x600)) {  // Backwards?
           this.emit((0xff - ((this.codePC - 0x600) - addr)) & 0xff);
@@ -435,12 +465,13 @@ class Assembler {
       }
 
     setPC = (valueExpr) => {
-        const v = this.evalExpr(valueExpr);
-        if (v === null) {
-            this.error(`Couldn't evaluate expression value`);
+        const eres = this.evalExpr(valueExpr);
+        if (eres === null) {
+            this.error(`Couldn't evaluate expression value`, eres.loc);
             return false
         }
-        while (this.codePC < v) {
+        const { val, loc } = eres
+        while (this.codePC < val) {
             this.emit(0);
         }
         return true
@@ -459,18 +490,20 @@ class Assembler {
         const tryIntArg = (exprList, bits) => {
             // TODO must handle list of bytes
             for (let i = 0; i < exprList.length; i++) {
-                const v = this.evalExpr(exprList[i]);
-                if (v === null && this.pass !== 0) {
-                    this.error(`Couldn't evaluate expression value for data statement`);
+                const eres = this.evalExpr(exprList[i]);
+                if (eres === null && this.pass !== 0) {
+                    // TODO what location to report here??  Probably there will be another error reported by evalExpr, so maybe no need for an error here?
+                    this.error(`Couldn't evaluate expression value for data statement`, undefined);
                     return false
                 }
+                const { val } = eres
                 if (bits === 8) {
-                    this.emit(v);
+                    this.emit(val);
                 } else {
                     if (bits !== 16) {
                         throw new Error('impossible');
                     }
-                    this.emit16(v);
+                    this.emit16(val);
                 }
             }
             return true
@@ -489,7 +522,11 @@ class Assembler {
             }
             case 'if': {
                 const { cond, trueBranch, falseBranch } = ast
-                const condVal = this.evalExpr(ast.cond);
+                const eres = this.evalExpr(ast.cond);
+                if (!eres) {
+                    return false;
+                }
+                const { val: condVal } = eres
                 if (isTrueVal(condVal)) {
                     return this.assembleStmtList(trueBranch);
                 } else {
@@ -503,28 +540,31 @@ class Assembler {
                 if (this.pass === 0) {
                     const { name, args, body } = ast;
                     // TODO check for duplicate arg names!
-                    if (this.macros.find(name) !== undefined) {
-                        this.error(`Macro '${name}' already defined on line XXX TODO`)
+                    const prevMacro = this.macros.find(name.name);
+                    if (prevMacro !== undefined) {
+                        // TODO previous declaration from prevMacro
+                        this.error(`Macro '${name}' already defined`, name.loc);
                         return false;
                     }
-                    this.macros.add(name, {name, args, body });
+                    this.macros.add(name.name, { name, args, body });
                 }
                 return true;
             }
             case 'callmacro': {
                 let argValues = [];
                 const { name, args } = ast;
-                const macro = this.macros.find(name);
+                const macro = this.macros.find(name.name);
 
                 if (!macro) {
                     if (this.pass === 0) {
-                        this.error(`Undefined macro '${name}'`);
+                        this.error(`Undefined macro '${name.name}'`, name.loc);
                     }
                     return false;
                 }
                 if (macro.args.length !== args.length) {
                     if (this.pass === 0) {
-                        this.error(`Macro '${name}' declared with ${macro.args.length} args but called here with ${args.length}`);
+                        this.error(`Macro '${name.name}' declared with ${macro.args.length} args but called here with ${args.length}`,
+                            name.loc);
                     }
                     return false;
                 }
@@ -536,17 +576,18 @@ class Assembler {
                         // pass by named reference
                         if (arg.type !== 'ident') {
                             if (this.pass === 0) {
-                                this.error(`Must pass an identifer for macro '${name}' argument '${macro.args[argIdx].name}' (call-by-reference argument)`);
+                                const arg = macro.args[argIdx];
+                                this.error(`Must pass an identifer for macro '${name.name}' argument '${arg.name}' (call-by-reference argument)`, arg.loc);
                             }
                             return false;
                         }
                         argValues.push({type: 'ref', value: arg.name});
                     } else {
                         // pass by value, so evaluate
-                        const value = this.evalExpr(args[argIdx]);
+                        const eres = this.evalExpr(args[argIdx]);
                         argValues.push({
                             type: 'value',
-                            value: value === null ? 0 : value
+                            value: eres === null ? 0 : eres.val
                         });
                     }
                 }
@@ -567,18 +608,18 @@ class Assembler {
                 const prevConstant = this.constants.find(name);
                 if (prevConstant) {
                     if (this.pass === 0) {
-                        this.error(`Constant ${name} already defined`);
+                        this.error(`Constant ${name} already defined`, ast.loc);
                     }
                     return false;
                 }
-                const value = this.evalExpr(ast.value);
-                if (value === null) {
+                const eres = this.evalExpr(ast.value);
+                if (eres === null) {
                     return false;
                 }
                 this.constants.add(name, {
                     name,
                     type: 'value',
-                    value
+                    value: eres.val
                 });
                 return true;
             }
@@ -610,31 +651,35 @@ class Assembler {
 
         if (line.label !== null) {
             let lblSymbol = line.label;
-            const constant = this.constants.find(line.label);
+            const constant = this.constants.find(line.label.name);
             // If there's a label 'ref' in the constants table, rewrite the current line's
             // label name to that.  This is used for passing label names via macro parameters.
             if (constant) {
                 if (constant.type === 'ref') {
-                    lblSymbol = constant.value;
+                    lblSymbol = {
+                        ...lblSymbol,
+                        name: constant.value
+                    };
                 }
             }
 
-            const seen = this.seenLabels.find(this.labels.prefixName(lblSymbol));
-            if (seen) {
-                const lineNo = 13; // TODO
-                this.error(`Label '${lblSymbol}' already defined on line ${lineNo}`)
+            const seenSymbol = this.seenLabels.find(this.labels.prefixName(lblSymbol.name));
+            if (seenSymbol) {
+                this.error(`Label '${seenSymbol.name}' already defined`, lblSymbol.loc);
+                // this.note
+                // on line ${lineNo}`)
                 return false;
             } else {
-                const lblName = lblSymbol
+                const lblName = lblSymbol.name;
                 this.seenLabels.declare(this.labels.prefixName(lblName), lblSymbol);
-                const oldLabel = this.labels.find(lblSymbol)
+                const oldLabel = this.labels.find(lblName);
                 if (oldLabel === undefined) {
-                    this.labels.add(lblSymbol, this.codePC, lineNo);
+                    this.labels.add(lblName, this.codePC, lblSymbol.loc);
                 } else {
                     // If label address has changed change, need one more pass
                     if (oldLabel.addr !== this.codePC) {
                         this.needPass = true;
-                        this.labels.add(lblSymbol, this.codePC, lineNo);
+                        this.labels.add(lblName, this.codePC, lblSymbol.loc);
                     }
                 }
             }
@@ -705,14 +750,14 @@ class Assembler {
 
     assemble = (source) => {
         try {
-            const statements = parser.parse(source);
+            const statements = parser.parse(source, { source: this.inputFilename });
             return this.assembleStmtList(statements);
         } catch(err) {
             if ('name' in err && err.name == 'SyntaxError') {
-                this.error(`Syntax error: ${err.message}`)
+                this.error(`Syntax error: ${err.message}`, err.location)
                 return false;
             }
-            console.error('Internal compiler error.');
+            console.error('Internal compiler error.', err);
             return false;
         }
     }
@@ -721,6 +766,7 @@ class Assembler {
 export function assemble(filename) {
     const asm = new Assembler();
     const src = readFileSync(filename).toString();
+    asm.setSourceFilename(filename);
 
     let pass = 0;
     do {

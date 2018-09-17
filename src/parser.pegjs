@@ -8,33 +8,37 @@
       absy: null,
       absind: null
   }
-  function mkinsn(mnemonic, imm, abs) {
+  function mkinsn(mnemonic, imm, abs, loc) {
       return {
           ...emptyInsn,
           mnemonic,
           imm,
-          abs
+          abs,
+          loc
       }
   }
-  function mkabsx(mnemonic, absx) {
+  function mkabsx(mnemonic, absx, loc) {
       return {
           ...emptyInsn,
           mnemonic,
-          absx
+          absx,
+          loc
       }
   }
-  function mkabsy(mnemonic, absy) {
+  function mkabsy(mnemonic, absy, loc) {
       return {
           ...emptyInsn,
           mnemonic,
-          absy
+          absy,
+          loc
       }
   }
-  function mkabsind(mnemonic, absind) {
+  function mkabsind(mnemonic, absind, loc) {
       return {
           ...emptyInsn,
           mnemonic,
-          absind
+          absind,
+          loc
       }
   }
 
@@ -55,11 +59,16 @@
     }
   }
 
-  function iconst(value) {
+  function iconst(value, loc) {
     return {
       type: 'literal',
-      value
+      value,
+      loc
     }
+  }
+
+  function loc() {
+    return { ...location(), source: options.source }
   }
 }
 
@@ -99,18 +108,25 @@ statement =
   / instruction:instruction {
       return {
         type: 'insn',
-        insn: instruction
+        insn: instruction,
+        loc: loc()
       }
     }
 
 label =
-    lbl:labelIdent ":" __  { return lbl; }
+    lbl:labelIdent ":" __  {
+      return {
+        name: lbl,
+        loc: loc()
+      }
+    }
 
 setPC =
   STAR EQU pc:expr {
     return {
       type: 'setpc',
-      pc
+      pc,
+      loc: loc()
     };
   }
 
@@ -118,13 +134,15 @@ directive =
     PSEUDO_BYTE values:exprList  {
       return {
         type: 'byte',
-        values
+        values,
+        loc: loc()
       };
     }
   / PSEUDO_WORD values:exprList {
       return {
         type: 'word',
-        values: values
+        values: values,
+        loc: loc()
       };
     }
   / PSEUDO_BINARY s:string extra:(COMMA expr? COMMA expr)?  {
@@ -138,7 +156,8 @@ directive =
         type: 'binary',
         filename: s,
         size,
-        offset
+        offset,
+        loc: loc()
       };
     }
   / PSEUDO_IF LPAR condition:expr RPAR  LWING trueBranch:statements
@@ -147,7 +166,8 @@ directive =
         type: 'if',
         cond:condition,
         trueBranch,
-        falseBranch:falseBranch
+        falseBranch:falseBranch,
+        loc: loc()
       };
     }
   / PSEUDO_IF LPAR condition:expr RPAR LWING trueBranch:statements RWING {
@@ -155,29 +175,33 @@ directive =
         type: 'if',
         cond:condition,
         trueBranch,
-        falseBranch:null
+        falseBranch:null,
+        loc: loc()
       };
     }
-  / PSEUDO_MACRO name:ident LPAR args:macroArgNameList? RPAR LWING body:statements RWING {
+  / PSEUDO_MACRO name:macroName LPAR args:macroArgNameList? RPAR LWING body:statements RWING {
       return {
         type: 'macro',
         name,
         args: args === null ? [] : args,
-        body
+        body,
+        loc: loc()
       };
     }
-  / "+" name:ident LPAR args:macroArgValueList? RPAR  {
+  / "+" name:macroName LPAR args:macroArgValueList? RPAR  {
       return {
         type: 'callmacro',
         name,
-        args: args === null ? [] : args
+        args: args === null ? [] : args,
+        loc: loc()
       };
     }
   / name:ident EQU value:expr  {
       return {
         type: 'equ',
         name,
-        value
+        value,
+        loc: loc()
       };
     }
 
@@ -187,18 +211,27 @@ string
 doubleStringCharacter
   = !'"' char:. { return char; }
 
+macroName = name:ident {
+  return {
+    name,
+    loc: loc()
+  }
+}
+
 macroArgNameList = head:macroArgName tail:(COMMA macroArgName)* { return buildList(head, tail, 1); }
 macroArgName =
   "~" name:ident {
     return {
       type: 'ref',
-      name
+      name,
+      loc: loc()
     };
   }
   / name:ident {
     return {
       type: 'value',
-      name
+      name,
+      loc: loc()
     };
   }
 
@@ -208,20 +241,20 @@ exprList = head:expr tail:(COMMA expr)* { return buildList(head, tail, 1); }
 
 instruction =
     mnemonic:mnemonic imm:imm  {
-      return mkinsn(mnemonic, imm, null);
+      return mkinsn(mnemonic, imm, null, loc());
     }
   / mnemonic:mnemonic LPAR abs:abs RPAR {
       // absolute indirect.  only possible form: jmp ($fffc)
-      return mkabsind(mnemonic, abs);
+      return mkabsind(mnemonic, abs, loc());
     }
   / mnemonic:mnemonic abs:abs COMMA r:("x" / "y") __ {
       if (r === 'x') {
-        return mkabsx(mnemonic, abs);
+        return mkabsx(mnemonic, abs, loc());
       }
-      return mkabsy(mnemonic, abs);
+      return mkabsy(mnemonic, abs, loc());
     }
-  / mnemonic:mnemonic abs:abs  { return mkinsn(mnemonic, null, abs); }
-  / mnemonic:mnemonic          { return mkinsn(mnemonic, null, null); }
+  / mnemonic:mnemonic abs:abs  { return mkinsn(mnemonic, null, abs, loc()); }
+  / mnemonic:mnemonic          { return mkinsn(mnemonic, null, null, loc()); }
 
 identNoWS = (alpha+ alphanum*) { return text(); }
 
@@ -317,8 +350,8 @@ boolOrExpr = first:boolAndExpr rest:(OROR boolAndExpr)* {
 lastExpr = boolOrExpr
 
 primary
-  = num:num              { return iconst(num); }
-  / ident:labelIdent     { return { type: 'ident', name: ident } }
+  = num:num              { return iconst(num, loc()); }
+  / ident:labelIdent     { return { type: 'ident', name: ident, loc:loc() } }
   / LPAR e:lastExpr RPAR { return e; }
 
 

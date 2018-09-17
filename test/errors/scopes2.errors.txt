@@ -1,1 +1,1 @@
-foo.asm:1 - Label '.local_label' already defined on line 13
+test/errors/scopes2.input.asm:7 - Label '.local_label' already defined

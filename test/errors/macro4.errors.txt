@@ -1,1 +1,1 @@
-foo.asm:1 - Label 'lbl1' already defined on line 13
+test/errors/macro4.input.asm:7 - Label 'lbl1' already defined
