@@ -18,6 +18,8 @@ import {
 	TextDocumentPositionParams
 } from 'vscode-languageserver';
 
+var foo = require('c64jasm');
+
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
 let connection = createConnection(ProposedFeatures.all);

@@ -57,13 +57,13 @@
 				"configuration": "./language-configuration.json"
 			}
 		],
-        "grammars": [
-            {
-                "language": "asm",
-                "scopeName": "source.asm.c64",
-                "path": "./syntaxes/c64jasm.tmLanguage.json"
-            }
-        ]
+		"grammars": [
+			{
+				"language": "asm",
+				"scopeName": "source.asm.c64",
+				"path": "./syntaxes/c64jasm.tmLanguage.json"
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "cd client && npm run update-vscode && cd .. && npm run compile",
