@@ -21,14 +21,6 @@
 			"match": ";[^\n]*\n"
 		},
 		{
-			"name": "comment.block.asterisk",
-			"match": "(^|[ \t]+)\\*(?![+-,])[^\n]*\n"
-		},
-		{
-			"name": "comment.block.documentation",
-			"match": ";\\*[^\n]*\n"
-		},
-		{
 			"name": "meta.equate.c64",
 			"match": "(?i)^([a-zA-Z0-9_][a-zA-Z0-9_\\.]*)(?=([ \t]*=|[ \t]+equ[ \t]+))",
 			"captures": {
@@ -49,6 +41,20 @@
 				}
 			}
 		},
+
+		{
+			"name": "meta.other.c64",
+			"match": "(?i)^[ \t]*(!if)[ \t]*\\(",
+			"captures": {
+				"1": {
+					"name": "variable.other.macro.c64"
+				},
+				"2": {
+					"name": "meta.macro.name.c64"
+				}
+			}
+		},
+
 		{
 			"name": "meta.section.c64",
 			"match": "(?i)\bsection\\s+(.[^,]*)\\s*,\\s*(.[^;]+)",
@@ -101,34 +107,6 @@
 		{
 			"name": "keyword.control.section.c64",
 			"match": "(?i)\\b(section|bss(_[cf])?|cseg|code(_[cf])?|data(_[cf])?|dseg)\\b"
-		},
-		{
-			"name": "keyword.control.condition.c64",
-			"match": "(?i)\\b(if(eq|ne|gt|ge|lt|le|b|nb|c|nc|d|nd|macrod|macrond)|else|end|endif)\\b"
-		},
-		{
-			"name": "keyword.control.other.c64",
-			"match": "(?i)\\b(align|cargs|clrfo|clrso|cnop|comm|comment|echo|einline|end[cmfpr]?|erem|even|fail|fpu|idnt|inline|jumpptr|list|llen|load|machine|mexit|mmu|nolist|nopage|nref|odd|offset|opword|org|output|page|plen|print[tv]|public|record|rem|rept|rorg|rsreset|rsset|set|setfo|setso|spc|text|ttl|weak|xdef|xref)\\b"
-		},
-		{
-			"name": "keyword.operator.assignment.c64",
-			"match": "(?i)\\b(equ(\\.[sdxp])|set)\\b"
-		},
-		{
-			"name": "keyword.operator.assignment.phxass.c64",
-			"match": "(?i)\\b((fequ|=)(\\.[sdxp]))\\b"
-		},
-		{
-			"name": "keyword.operator.assignment.stack.fo.c64",
-			"match": "(?i)\\b(fo(\\.[bwlqsdxp]))\\b"
-		},
-		{
-			"name": "keyword.operator.assignment.stack.so.c64",
-			"match": "(?i)\\b(so(\\.[bwlqsdxp]))\\b"
-		},
-		{
-			"name": "keyword.operator.assignment.stack.rs.c64",
-			"match": "(?i)\\b(rs(\\.[bwlqsdxp]))\\b"
 		},
 		{
 			"name": "invalid.illegal.opcode.c64",
