@@ -1,13 +1,13 @@
 {
-	"name": "lsp-sample-client",
-	"description": "VSCode part of a language server",
-	"author": "Microsoft Corporation",
+	"name": "c64jasm-client",
+	"description": "c64jasm language support",
+	"author": "Janne Hellsten",
 	"license": "MIT",
 	"version": "0.0.1",
-	"publisher": "vscode",
+	"publisher": "nurpax",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/Microsoft/vscode-extension-samples"
+		"url": "https://github.com/nurpax/c64jasm"
 	},
 	"engines": {
 		"vscode": "^1.23.0"
