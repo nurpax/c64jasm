@@ -1,6 +1,6 @@
 {
     "comments": {
-        "lineComment": ";",
+        "lineComment": ";"
     },
     "brackets": [
         ["{", "}"],
@@ -9,11 +9,12 @@
     "autoClosingPairs": [
         ["{", "}"],
         ["(", ")"],
-        { "open": "'", "close": "'", "notIn": ["string", "comment"] }
+        { "open": "'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "\"", "close": "\"", "notIn": ["string"] }
     ],
     "surroundingPairs": [
         ["{", "}"],
-        ["(", ")"],
+        ["(", ")"]
     ],
     "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)"
 }
