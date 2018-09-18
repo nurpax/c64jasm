@@ -2,137 +2,137 @@
 	"name": "c64",
 	"scopeName": "source.asm.c64",
 	"fileTypes": [
-	  "s",
-	  "i",
-	  "asm"
+		"s",
+		"i",
+		"asm"
 	],
 	"uuid": "fe8dd09c-dc33-41eb-83d4-4cc6ed720ad2",
 	"patterns": [
-	  {
-		"name": "string.quoted.double.c64",
-		"match": "\"[^\"]*\""
-	  },
-	  {
-		"name": "string.quoted.single.c64",
-		"match": "'[^']*'"
-	  },
-	  {
-		"name": "comment.line.semicolon",
-		"match": ";[^\n]*\n"
-	  },
-	  {
-		"name": "comment.block.asterisk",
-		"match": "(^|[ \t]+)\\*(?![+-,])[^\n]*\n"
-	  },
-	  {
-		"name": "comment.block.documentation",
-		"match": ";\\*[^\n]*\n"
-	  },
-	  {
-		"name": "meta.equate.c64",
-		"match": "(?i)^([a-zA-Z0-9_][a-zA-Z0-9_\\.]*)(?=([ \t]*=|[ \t]+equ[ \t]+))",
-		"captures": {
-		  "1": {
-			"name": "variable.other.constant.c64"
-		  }
-		}
-	  },
-	  {
-		"name": "meta.macro.c64",
-		"match": "(?i)^[ \t]*(!macro)[ \t]+([a-zA-Z0-9_\\.]+)",
-		"captures": {
-		  "1": {
-			"name": "variable.other.macro.c64"
-		  },
-		  "2": {
-				"name": "meta.macro.name.c64"
+		{
+			"name": "string.quoted.double.c64",
+			"match": "\"[^\"]*\""
+		},
+		{
+			"name": "string.quoted.single.c64",
+			"match": "'[^']*'"
+		},
+		{
+			"name": "comment.line.semicolon",
+			"match": ";[^\n]*\n"
+		},
+		{
+			"name": "comment.block.asterisk",
+			"match": "(^|[ \t]+)\\*(?![+-,])[^\n]*\n"
+		},
+		{
+			"name": "comment.block.documentation",
+			"match": ";\\*[^\n]*\n"
+		},
+		{
+			"name": "meta.equate.c64",
+			"match": "(?i)^([a-zA-Z0-9_][a-zA-Z0-9_\\.]*)(?=([ \t]*=|[ \t]+equ[ \t]+))",
+			"captures": {
+				"1": {
+					"name": "variable.other.constant.c64"
 				}
 			}
-	  },
-	  {
-		"name": "meta.section.c64",
-		"match": "(?i)\bsection\\s+(.[^,]*)\\s*,\\s*(.[^;]+)",
-		"captures": {
-		  "1": {
-			"name": "meta.section.name.c64"
-		  },
-		  "2": {
-			"name": "meta.section.type.c64"
-		  }
+		},
+		{
+			"name": "meta.macro.c64",
+			"match": "(?i)^[ \t]*(!macro)[ \t]+([a-zA-Z0-9_\\.]+)",
+			"captures": {
+				"1": {
+					"name": "variable.other.macro.c64"
+				},
+				"2": {
+					"name": "meta.macro.name.c64"
+				}
+			}
+		},
+		{
+			"name": "meta.section.c64",
+			"match": "(?i)\bsection\\s+(.[^,]*)\\s*,\\s*(.[^;]+)",
+			"captures": {
+				"1": {
+					"name": "meta.section.name.c64"
+				},
+				"2": {
+					"name": "meta.section.type.c64"
+				}
+			}
+		},
+		{
+			"name": "meta.include.c64",
+			"match": "(?i)\binclude[ \t]+(\"[^\"]+\"|'[^']+'|[^,]+)",
+			"captures": {
+				"1": {
+					"name": "meta.include.name.c64"
+				}
+			}
+		},
+		{
+			"name": "meta.label.global.c64",
+			"match": "^[a-zA-Z_]([a-zA-Z0-9_]*|[a-zA-Z0-9_\\.%\\$]*[a-zA-Z0-9_])(?=$|[ \t:])"
+		},
+		{
+			"name": "constant.numeric.hex.c64",
+			"match": "(?<![a-zA-Z])\\$[0-9A-Fa-f]+\\b"
+		},
+		{
+			"name": "constant.numeric.octal.c64",
+			"match": "(?<![a-zA-Z])@[0-7]+\\b"
+		},
+		{
+			"name": "constant.numeric.binary.c64",
+			"match": "(?<![a-zA-Z])%[01]+\\b"
+		},
+		{
+			"name": "constant.numeric.decimal.c64",
+			"match": "(?<![a-zA-Z])[+-]?[0-9]+\\b"
+		},
+		{
+			"name": "keyword.other.opcode.cpu.c64",
+			"match": "(?i)\\b(adc|and|asl|bit|bpl|bmi|bvc|bvs|bcc|bcs|bne|beq|brk|cmp|cpx|cpy|dec|eor|clc|sec|cli|sei|clv|cld|sed|inc|jmp|jsr|lda|ldx|ldy|lsr|nop|ora|tax|txa|dex|inx|tay|tya|dey|iny|ror|rol|rti|rts|sbc|sta|txs|tsx|pha|pla|php|plp|stx|sty)\\b"
+		},
+		{
+			"name": "keyword.control.import.c64",
+			"match": "(?i)\\b(include|incdir|incbin)\\b"
+		},
+		{
+			"name": "keyword.control.section.c64",
+			"match": "(?i)\\b(section|bss(_[cf])?|cseg|code(_[cf])?|data(_[cf])?|dseg)\\b"
+		},
+		{
+			"name": "keyword.control.condition.c64",
+			"match": "(?i)\\b(if(eq|ne|gt|ge|lt|le|b|nb|c|nc|d|nd|macrod|macrond)|else|end|endif)\\b"
+		},
+		{
+			"name": "keyword.control.other.c64",
+			"match": "(?i)\\b(align|cargs|clrfo|clrso|cnop|comm|comment|echo|einline|end[cmfpr]?|erem|even|fail|fpu|idnt|inline|jumpptr|list|llen|load|machine|mexit|mmu|nolist|nopage|nref|odd|offset|opword|org|output|page|plen|print[tv]|public|record|rem|rept|rorg|rsreset|rsset|set|setfo|setso|spc|text|ttl|weak|xdef|xref)\\b"
+		},
+		{
+			"name": "keyword.operator.assignment.c64",
+			"match": "(?i)\\b(equ(\\.[sdxp])|set)\\b"
+		},
+		{
+			"name": "keyword.operator.assignment.phxass.c64",
+			"match": "(?i)\\b((fequ|=)(\\.[sdxp]))\\b"
+		},
+		{
+			"name": "keyword.operator.assignment.stack.fo.c64",
+			"match": "(?i)\\b(fo(\\.[bwlqsdxp]))\\b"
+		},
+		{
+			"name": "keyword.operator.assignment.stack.so.c64",
+			"match": "(?i)\\b(so(\\.[bwlqsdxp]))\\b"
+		},
+		{
+			"name": "keyword.operator.assignment.stack.rs.c64",
+			"match": "(?i)\\b(rs(\\.[bwlqsdxp]))\\b"
+		},
+		{
+			"name": "invalid.illegal.opcode.c64",
+			"match": "(?i)\\billegal\\b"
 		}
-	  },
-	  {
-		"name": "meta.include.c64",
-		"match": "(?i)\binclude[ \t]+(\"[^\"]+\"|'[^']+'|[^,]+)",
-		"captures": {
-		  "1": {
-			"name": "meta.include.name.c64"
-		  }
-		}
-	  },
-	  {
-		"name": "meta.label.global.c64",
-		"match": "^[a-zA-Z_]([a-zA-Z0-9_]*|[a-zA-Z0-9_\\.%\\$]*[a-zA-Z0-9_])(?=$|[ \t:])"
-	  },
-	  {
-		"name": "constant.numeric.hex.c64",
-		"match": "(?<![a-zA-Z])\\$[0-9A-Fa-f]+\\b"
-	  },
-	  {
-		"name": "constant.numeric.octal.c64",
-		"match": "(?<![a-zA-Z])@[0-7]+\\b"
-	  },
-	  {
-		"name": "constant.numeric.binary.c64",
-		"match": "(?<![a-zA-Z])%[01]+\\b"
-	  },
-	  {
-		"name": "constant.numeric.decimal.c64",
-		"match": "(?<![a-zA-Z])[+-]?[0-9]+\\b"
-	  },
-	  {
-		"name": "keyword.other.opcode.cpu.c64",
-		"match": "(?i)\\b(adc|and|asl|bit|bpl|bmi|bvc|bvs|bcc|bcs|bne|beq|brk|cmp|cpx|cpy|dec|eor|clc|sec|cli|sei|clv|cld|sed|inc|jmp|jsr|lda|ldx|ldy|lsr|nop|ora|tax|txa|dex|inx|tay|tya|dey|iny|ror|rol|rti|rts|sbc|sta|txs|tsx|pha|pla|php|plp|stx|sty)\\b"
-	  },
-	  {
-		"name": "keyword.control.import.c64",
-		"match": "(?i)\\b(include|incdir|incbin)\\b"
-	  },
-	  {
-		"name": "keyword.control.section.c64",
-		"match": "(?i)\\b(section|bss(_[cf])?|cseg|code(_[cf])?|data(_[cf])?|dseg)\\b"
-	  },
-	  {
-		"name": "keyword.control.condition.c64",
-		"match": "(?i)\\b(if(eq|ne|gt|ge|lt|le|b|nb|c|nc|d|nd|macrod|macrond)|else|end|endif)\\b"
-	  },
-	  {
-		"name": "keyword.control.other.c64",
-		"match": "(?i)\\b(align|cargs|clrfo|clrso|cnop|comm|comment|echo|einline|end[cmfpr]?|erem|even|fail|fpu|idnt|inline|jumpptr|list|llen|load|machine|mexit|mmu|nolist|nopage|nref|odd|offset|opword|org|output|page|plen|print[tv]|public|record|rem|rept|rorg|rsreset|rsset|set|setfo|setso|spc|text|ttl|weak|xdef|xref)\\b"
-	  },
-	  {
-		"name": "keyword.operator.assignment.c64",
-		"match": "(?i)\\b(equ(\\.[sdxp])|set)\\b"
-	  },
-	  {
-		"name": "keyword.operator.assignment.phxass.c64",
-		"match": "(?i)\\b((fequ|=)(\\.[sdxp]))\\b"
-	  },
-	  {
-		"name": "keyword.operator.assignment.stack.fo.c64",
-		"match": "(?i)\\b(fo(\\.[bwlqsdxp]))\\b"
-	  },
-	  {
-		"name": "keyword.operator.assignment.stack.so.c64",
-		"match": "(?i)\\b(so(\\.[bwlqsdxp]))\\b"
-	  },
-	  {
-		"name": "keyword.operator.assignment.stack.rs.c64",
-		"match": "(?i)\\b(rs(\\.[bwlqsdxp]))\\b"
-	  },
-	  {
-		"name": "invalid.illegal.opcode.c64",
-		"match": "(?i)\\billegal\\b"
-	  }
 	]
-  }
+}
