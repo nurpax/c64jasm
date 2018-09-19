@@ -1,6 +1,6 @@
 {
   "name": "c64jasm",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A C64 macro assembler",
   "license": "MIT",
   "repository": {
@@ -26,14 +26,14 @@
     "dist": "rm -rf dist && mkdir -p build/src dist/src && npm run gen && cp build/src/g_parser.js dist/src && tsc -p tsconfig.dist.json"
   },
   "dependencies": {
-    "@types/argparse": "^1.0.34",
-    "@types/node": "^10.9.4",
     "argparse": "^1.0.10",
     "glob-fs": "^0.1.7"
   },
   "devDependencies": {
     "pegjs": "^0.10.0",
     "ts-node": "^7.0.1",
-    "typescript": "^3.0.3"
+    "typescript": "^3.0.3",
+    "@types/argparse": "^1.0.34",
+    "@types/node": "^10.9.4"
   }
 }

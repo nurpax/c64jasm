@@ -32,7 +32,7 @@ let documents: TextDocuments = new TextDocuments();
 
 let hasConfigurationCapability: boolean = false;
 let hasWorkspaceFolderCapability: boolean = false;
-let hasDiagnosticRelatedInformationCapability: boolean = false;
+//let hasDiagnosticRelatedInformationCapability: boolean = false;
 
 connection.onInitialize((params: InitializeParams) => {
 	let capabilities = params.capabilities;
@@ -43,10 +43,11 @@ connection.onInitialize((params: InitializeParams) => {
 		capabilities.workspace && !!capabilities.workspace.configuration;
 	hasWorkspaceFolderCapability =
 		capabilities.workspace && !!capabilities.workspace.workspaceFolders;
-	hasDiagnosticRelatedInformationCapability =
-		capabilities.textDocument &&
-		capabilities.textDocument.publishDiagnostics &&
-		capabilities.textDocument.publishDiagnostics.relatedInformation;
+
+	// hasDiagnosticRelatedInformationCapability =
+	// 	capabilities.textDocument &&
+	// 	capabilities.textDocument.publishDiagnostics &&
+	// 	capabilities.textDocument.publishDiagnostics.relatedInformation;
 
 	return {
 		capabilities: {
@@ -124,7 +125,7 @@ documents.onDidClose(e => {
 
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
-documents.onDidChangeContent(change => {
+documents.onDidChangeContent(_change => {
 //	validateTextDocument(change.document);
 });
 

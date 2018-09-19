@@ -1,10 +1,11 @@
 FALSE=0
 TRUE=1
 
+asd
 irq0_line = 100
 irq1_line = 150
 
-!sd macro basic_start(addr) {
+!macro basic_start(addr) {
 * = $801
     !byte $0c
     !byte $08
