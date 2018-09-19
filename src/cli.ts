@@ -28,7 +28,7 @@ const { errors, prg } = assemble(args.source);
 
 if (errors.length !== 0) {
     errors.forEach(err => {
-        console.log(err);
+        console.log(err.formatted);
     })
     process.exit(1);
 }

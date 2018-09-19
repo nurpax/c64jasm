@@ -227,10 +227,15 @@ class Assembler {
 
     errors = () => {
         return this.errorList.map(({loc, msg}) => {
+            let formatted = `<unknown>: ${msg}`
             if (loc) {
-                return `${loc.source}:${loc.start.line} - ${msg}`
+                formatted = `${loc.source}:${loc.start.line} - ${msg}`
             }
-            return `<unknown>: ${msg}`
+            return {
+                loc,
+                msg,
+                formatted
+            }
         })
     }
 
@@ -750,11 +755,16 @@ class Assembler {
 
     assemble = (source) => {
         try {
-            const statements = parser.parse(source, { source: this.inputFilename });
+            const statements = parser.parse(source, {
+                source: this.inputFilename
+            });
             return this.assembleStmtList(statements);
         } catch(err) {
             if ('name' in err && err.name == 'SyntaxError') {
-                this.error(`Syntax error: ${err.message}`, err.location)
+                this.error(`Syntax error: ${err.message}`, {
+                    ...err.location,
+                    source: this.inputFilename
+                })
                 return false;
             }
             console.error('Internal compiler error.', err);

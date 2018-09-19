@@ -91,13 +91,14 @@ function testErrors() {
         console.log('Testcase:', fname);
 
         try {
+            const x = assemble(fname);
             const { errors } = assemble(fname);
-
+            const errorMessages = errors.map(e => e.formatted);
             const errorsFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'errors.txt');
 
             // If the expected file doesn't exist, create it.  This is for new test authoring.
             if (!fs.existsSync(errorsFname)) {
-                const errLines = errors.join('\n')
+                const errLines = errorMessages.join('\n')
                 fs.writeFileSync(errorsFname, errLines)
                 console.log(`  DEBUG: wrote ${errorsFname}`);
                 console.log(errLines + '\n')
@@ -107,13 +108,13 @@ function testErrors() {
                     const emsg = /^.*:.* - (.*)$/.exec(expectedErrors[ei]);
                     const msgOnly = emsg[1];
 
-                    const found = errors.some((msg) => {
+                    const found = errorMessages.some((msg) => {
                         const m = /^.*:.* - (.*)$/.exec(msg);
                         return m ? m[1] == msgOnly : false;
                     });
                     if (!found) {
                         const actualFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'actual_errors.txt');
-                        fs.writeFileSync(actualFname, errors.join('\n'))
+                        fs.writeFileSync(actualFname, errorMessages.join('\n'))
                         console.error(`Assembler output does not contain errors listed in
 
 ${errorsFname}
