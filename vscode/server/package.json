@@ -12,8 +12,9 @@
 		"url": "https://github.com/nurpax/c64jasm"
 	},
 	"dependencies": {
+		"c64jasm": "file:../..",
 		"vscode-languageserver": "^4.1.3",
-		"c64jasm": "file:../.."
+		"vscode-uri": "^1.0.6"
 	},
 	"scripts": {}
 }

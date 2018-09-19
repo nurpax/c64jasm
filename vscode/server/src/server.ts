@@ -18,7 +18,9 @@ import {
 	TextDocumentPositionParams
 } from 'vscode-languageserver';
 
-var foo = require('c64jasm');
+import Uri from 'vscode-uri'
+
+var c64jasm = require('c64jasm');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -73,26 +75,26 @@ connection.onInitialized(() => {
 });
 
 // The example settings
-interface ExampleSettings {
+interface C64jasmSettings {
 	maxNumberOfProblems: number;
 }
 
 // The global settings, used when the `workspace/configuration` request is not supported by the client.
 // Please note that this is not the case when using this server with the client provided in this example
 // but could happen with other clients.
-const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000 };
-let globalSettings: ExampleSettings = defaultSettings;
+const defaultSettings: C64jasmSettings = { maxNumberOfProblems: 1000 };
+let globalSettings: C64jasmSettings = defaultSettings;
 
 // Cache the settings of all open documents
-let documentSettings: Map<string, Thenable<ExampleSettings>> = new Map();
+let documentSettings: Map<string, Thenable<C64jasmSettings>> = new Map();
 
 connection.onDidChangeConfiguration(change => {
 	if (hasConfigurationCapability) {
 		// Reset all cached document settings
 		documentSettings.clear();
 	} else {
-		globalSettings = <ExampleSettings>(
-			(change.settings.languageServerExample || defaultSettings)
+		globalSettings = <C64jasmSettings>(
+			(change.settings.languageServerC64jasm || defaultSettings)
 		);
 	}
 
@@ -100,7 +102,7 @@ connection.onDidChangeConfiguration(change => {
 	documents.all().forEach(validateTextDocument);
 });
 
-function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
+function getDocumentSettings(resource: string): Thenable<C64jasmSettings> {
 	if (!hasConfigurationCapability) {
 		return Promise.resolve(globalSettings);
 	}
@@ -108,7 +110,7 @@ function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
 	if (!result) {
 		result = connection.workspace.getConfiguration({
 			scopeUri: resource,
-			section: 'languageServerExample'
+			section: 'languageServerC64jasm'
 		});
 		documentSettings.set(resource, result);
 	}
@@ -123,31 +125,47 @@ documents.onDidClose(e => {
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
+//	validateTextDocument(change.document);
+});
+
+// The content of a text document has changed. This event is emitted
+// when the text document first opened or when its content has changed.
+documents.onDidOpen(change => {
 	validateTextDocument(change.document);
+});
+
+documents.onDidSave((event) => {
+	// TODO settings onSave vs onChange
+	validateTextDocument(event.document);
 });
 
 async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 	// In this simple example we get the settings for every validate run.
 	let settings = await getDocumentSettings(textDocument.uri);
 
-	// The validator creates diagnostics for all uppercase words length 2 and more
-	let text = textDocument.getText();
-	let pattern = /\b[A-Z]{2,}\b/g;
-	let m: RegExpExecArray;
+	const sourceFname = Uri.parse(textDocument.uri).fsPath;
+	const { errors } = c64jasm.assemble(sourceFname);
 
-	let problems = 0;
 	let diagnostics: Diagnostic[] = [];
-	while ((m = pattern.exec(text)) && problems < settings.maxNumberOfProblems) {
-		problems++;
-		let diagnosic: Diagnostic = {
-			severity: DiagnosticSeverity.Warning,
+	for (let errIdx = 0; errIdx < errors.length; errIdx++) {
+		if (errIdx >= settings.maxNumberOfProblems) {
+			break;
+		}
+		const err = errors[errIdx];
+		connection.console.log(`error from asm=${JSON.stringify(err)}`);
+
+		const loc = err.loc
+		let diagnostic: Diagnostic = {
+			severity: DiagnosticSeverity.Error,
 			range: {
-				start: textDocument.positionAt(m.index),
-				end: textDocument.positionAt(m.index + m[0].length)
+				start: textDocument.positionAt(loc.start.offset),
+				end: textDocument.positionAt(loc.end.offset)
 			},
-			message: `${m[0]} is all uppercase.`,
-			source: 'ex'
+			message: err.msg,
+			source: 'c64jasm'
 		};
+		diagnostics.push(diagnostic);
+		/*
 		if (hasDiagnosticRelatedInformationCapability) {
 			diagnosic.relatedInformation = [
 				{
@@ -166,7 +184,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 				}
 			];
 		}
-		diagnostics.push(diagnosic);
+*/
 	}
 
 	// Send the computed diagnostics to VSCode.
