@@ -105,12 +105,12 @@ function testErrors() {
             } else {
                 const expectedErrors = readLines(errorsFname);
                 for (let ei in expectedErrors) {
-                    const emsg = /^.*:.* - (.*)$/.exec(expectedErrors[ei]);
-                    const msgOnly = emsg[1];
+                    const emsg = /^(.*:.* - |.*: error: )(.*)$/.exec(expectedErrors[ei]);
+                    const msgOnly = emsg[2];
 
                     const found = errorMessages.some((msg) => {
-                        const m = /^.*:.* - (.*)$/.exec(msg);
-                        return m ? m[1] == msgOnly : false;
+                        const m = /^(.*:.* - |.*: error: )(.*)$/.exec(msg);
+                        return m ? m[2] == msgOnly : false;
                     });
                     if (!found) {
                         const actualFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'actual_errors.txt');

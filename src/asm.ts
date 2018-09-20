@@ -229,7 +229,7 @@ class Assembler {
         return this.errorList.map(({loc, msg}) => {
             let formatted = `<unknown>: ${msg}`
             if (loc) {
-                formatted = `${loc.source}:${loc.start.line} - ${msg}`
+                formatted = `${loc.source}:${loc.start.line}:${loc.start.column}: error: ${msg}`
             }
             return {
                 loc,
