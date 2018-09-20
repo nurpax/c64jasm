@@ -1,7 +1,6 @@
 FALSE=0
 TRUE=1
 
-asd
 irq0_line = 100
 irq1_line = 150
 
