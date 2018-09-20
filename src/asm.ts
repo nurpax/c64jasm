@@ -1,5 +1,6 @@
 
 import opcodes from './opcodes'
+import * as path from 'path'
 
 import { readFileSync, writeFileSync } from 'fs'
 
@@ -203,8 +204,7 @@ class Assembler {
     // TODO this should be a resizable array instead
     binary: number[] = [];
 
-    currentLineNo = 0;
-    inputFilename = undefined;
+    includeStack: string[] = [];
     codePC = 0;
     pass = 0;
     needPass = false;
@@ -219,8 +219,17 @@ class Assembler {
       return Buffer.from([1, 8].concat(this.binary))
     }
 
-    setSourceFilename(fname) {
-        this.inputFilename = fname;
+    peekSourceStack () {
+        const len = this.includeStack.length;
+        return this.includeStack[len-1];
+    }
+
+    pushSource (fname) {
+        this.includeStack.push(fname);
+    }
+
+    popSource () {
+        this.includeStack.pop();
     }
 
     anyErrors = () => this.errorList.length !== 0
@@ -482,6 +491,15 @@ class Assembler {
         return true
     }
 
+    fileInclude = (ast) => {
+        const fname = path.join(path.dirname(this.peekSourceStack()), ast.filename);
+        const src = readFileSync(fname).toString();
+        this.pushSource(fname);
+        const res = this.assemble(src);
+        this.popSource();
+        return res;
+    }
+
     withScope = (name, compileScope) => {
         this.pushConstantScope();
         this.labels.pushMacroExpandScope(name);
@@ -524,6 +542,9 @@ class Assembler {
             }
             case 'binary': {
                 return this.emitBinary(ast);
+            }
+            case 'include': {
+                return this.fileInclude(ast);
             }
             case 'if': {
                 const { cond, trueBranch, falseBranch } = ast
@@ -643,16 +664,13 @@ class Assembler {
             }
         }
         return true
-}
+    }
 
     assembleLine = (line) => {
         // Empty lines are no-ops
         if (line === null) {
             return true;
         }
-
-        const lineNo = 13 // TODO stick this in stmt in parser
-        this.currentLineNo = lineNo;
 
         if (line.label !== null) {
             let lblSymbol = line.label;
@@ -756,14 +774,14 @@ class Assembler {
     assemble = (source) => {
         try {
             const statements = parser.parse(source, {
-                source: this.inputFilename
+                source: this.peekSourceStack()
             });
             return this.assembleStmtList(statements);
         } catch(err) {
             if ('name' in err && err.name == 'SyntaxError') {
                 this.error(`Syntax error: ${err.message}`, {
                     ...err.location,
-                    source: this.inputFilename
+                    source: this.peekSourceStack()
                 })
                 return false;
             }
@@ -776,7 +794,7 @@ class Assembler {
 export function assemble(filename) {
     const asm = new Assembler();
     const src = readFileSync(filename).toString();
-    asm.setSourceFilename(filename);
+    asm.pushSource(filename);
 
     let pass = 0;
     do {
@@ -795,6 +813,8 @@ export function assemble(filename) {
         }
         pass += 1;
     } while(asm.needPass && !asm.anyErrors());
+
+    asm.popSource();
 
     return {
         prg: asm.prg(),

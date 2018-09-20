@@ -145,6 +145,13 @@ directive =
         loc: loc()
       };
     }
+  / PSEUDO_INCLUDE s:string {
+      return {
+        type: 'include',
+        filename: s,
+        loc: loc()
+      };
+    }
   / PSEUDO_BINARY s:string extra:(COMMA expr? COMMA expr)?  {
       let size = null
       let offset = null
@@ -374,6 +381,7 @@ PSEUDO_BINARY = "!binary" ws
 PSEUDO_MACRO = "!macro" ws
 PSEUDO_IF     = "!if" ws
 PSEUDO_ELSE   = "else" ws
+PSEUDO_INCLUDE= "!include" ws
 
 LBRK      =  s:'['         ws { return s; }
 RBRK      =  s:']'         ws { return s; }
