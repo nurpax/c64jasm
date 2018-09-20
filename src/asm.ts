@@ -742,10 +742,13 @@ class Assembler {
                 return true;
             }
 
-/*
-          if (checkZeroPageX(param, Opcodes[o][2])) { return true; }
-          if (checkZeroPageY(param, Opcodes[o][3])) { return true; }
-*/
+            if (this.checkAbs(insn.absx, op[2], 8)) {
+                return true;
+            }
+            if (this.checkAbs(insn.absy, op[3], 8)) {
+                return true;
+            }
+
             if (this.checkAbs(insn.absx, op[5], 16)) {
                 return true;
             }
