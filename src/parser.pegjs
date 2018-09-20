@@ -6,7 +6,9 @@
       abs: null,
       absx: null,
       absy: null,
-      absind: null
+      absind: null,
+      indx: null,
+      indy: null
   }
   function mkinsn(mnemonic, imm, abs, loc) {
       return {
@@ -33,6 +35,24 @@
           loc
       }
   }
+
+  function mkindx(mnemonic, indx, loc) {
+      return {
+          ...emptyInsn,
+          mnemonic,
+          indx,
+          loc
+      }
+  }
+  function mkindy(mnemonic, indy, loc) {
+      return {
+          ...emptyInsn,
+          mnemonic,
+          indy,
+          loc
+      }
+  }
+
   function mkabsind(mnemonic, absind, loc) {
       return {
           ...emptyInsn,
@@ -249,6 +269,14 @@ exprList = head:expr tail:(COMMA expr)* { return buildList(head, tail, 1); }
 instruction =
     mnemonic:mnemonic imm:imm  {
       return mkinsn(mnemonic, imm, null, loc());
+    }
+  / mnemonic:mnemonic LPAR abs:abs COMMA "x" __ RPAR {
+      // lda ($zp,x) indirect indexed
+      return mkindx(mnemonic, abs, loc());
+    }
+  / mnemonic:mnemonic LPAR abs:abs RPAR COMMA "y" __ {
+      // lda ($zp),y indirect indexed
+      return mkindy(mnemonic, abs, loc());
     }
   / mnemonic:mnemonic LPAR abs:abs RPAR {
       // absolute indirect.  only possible form: jmp ($fffc)

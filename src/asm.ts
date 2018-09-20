@@ -759,10 +759,13 @@ class Assembler {
             if (this.checkAbs(insn.absind, op[7], 16)) {
                 return true;
             }
-/*
-          if (checkIndirectX(param, Opcodes[o][8])) { return true; }
-          if (checkIndirectY(param, Opcodes[o][9])) { return true; }
-*/
+
+            if (this.checkAbs(insn.indx, op[8], 8)) {
+                return true;
+            }
+            if (this.checkAbs(insn.indy, op[9], 8)) {
+                return true;
+            }
 
             if (this.checkAbs(insn.abs, op[4], 16)) {
                 return true;
