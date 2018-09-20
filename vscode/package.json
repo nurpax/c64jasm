@@ -57,6 +57,21 @@
 				"configuration": "./language-configuration.json"
 			}
 		],
+		"problemMatchers": [
+			{
+				"name": "c64jasm",
+				"owner": "c64jasm",
+				"fileLocation": ["relative", "${workspaceFolder}"],
+				"pattern": {
+					"regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+					"file": 1,
+					"line": 2,
+					"column": 3,
+					"severity": 4,
+					"message": 5
+				}
+			}
+		],
 		"grammars": [
 			{
 				"language": "asm",
