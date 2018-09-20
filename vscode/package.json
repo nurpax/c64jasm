@@ -3,7 +3,7 @@
 	"description": "c64jasm extension",
 	"author": "Janne Hellsten",
 	"license": "MIT",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/nurpax/c64jasm"
@@ -61,7 +61,10 @@
 			{
 				"name": "c64jasm",
 				"owner": "c64jasm",
-				"fileLocation": ["relative", "${workspaceFolder}"],
+				"fileLocation": [
+					"relative",
+					"${workspaceFolder}"
+				],
 				"pattern": {
 					"regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
 					"file": 1,
