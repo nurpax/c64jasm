@@ -542,7 +542,7 @@ class Assembler {
                 return []
             }
             if (endv < startv) {
-                this.error(`range(start, end) expression end must be greater than start, start=${start}, end=${end} given`)
+                this.error(`range(start, end) expression end must be greater than start, start=${start}, end=${end} given`, listExpr.loc)
                 return null;
             }
             return Array(endv-startv).fill(null).map((_,idx) => idx + startv);
