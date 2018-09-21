@@ -507,7 +507,6 @@ class Assembler {
     }
 
     fillBytes = (n: StmtFillBytes) => {
-        console.log(n);
         const numVals   = this.evalExpr(n.numBytes);
         if (!numVals) {
             return false;
@@ -527,6 +526,30 @@ class Assembler {
         return true;
     }
 
+    evalListExpr = (listExpr) => {
+        if (listExpr.type === 'list-range') {
+            const start = this.evalExpr(listExpr.start);
+            if (!start) {
+                return null;
+            }
+            const end = this.evalExpr(listExpr.end);
+            if (!end) {
+                return null;
+            }
+            const startv = start.val
+            const endv = end.val
+            if (endv == startv) {
+                return []
+            }
+            if (endv < startv) {
+                this.error(`range(start, end) expression end must be greater than start, start=${start}, end=${end} given`)
+                return null;
+            }
+            return Array(endv-startv).fill(null).map((_,idx) => idx + startv);
+        }
+        this.error(`ICE: unknown list expression type: ${listExpr.type}`, listExpr.loc);
+        return null
+    }
 
     withScope = (name, compileScope) => {
         this.pushConstantScope();
@@ -591,6 +614,30 @@ class Assembler {
                     return this.assembleStmtList(falseBranch);
                 }
                 return true;
+            }
+            case 'for': {
+                const { index, listExpr, body, loc } = ast
+                const lst = this.evalListExpr(listExpr);
+                if (!lst) {
+                    return false;
+                }
+
+                return this.withScope('forloop', () => {
+                    const loopVar: Constant = {
+                        name: index,
+                        type: 'value',
+                        value: 0
+                    };
+                    this.constants.add(index.name, loopVar);
+
+                    for (let i = 0; i < lst.length; i++) {
+                        loopVar.value = lst[i];
+                        if (!this.assembleStmtList(body)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
             }
             case 'macro': {
                 // No need to deal with sticking macros into the symbol table in the later
@@ -839,6 +886,10 @@ export function assemble(filename) {
         asm.pushConstantScope();
         asm.startPass(pass);
         if (!asm.assemble(src)) {
+            // Ddin't get an error but returned anyway?  Add ICE
+            if (asm.anyErrors()) {
+                asm.error('Internal compiler error.', undefined)
+            }
             return {
                 errors: asm.errors()
             }

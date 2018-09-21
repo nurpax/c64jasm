@@ -79,6 +79,14 @@
     }
   }
 
+  function mkident(name, loc) {
+    return {
+      type: 'ident',
+      name,
+      loc
+    };
+  }
+
   function iconst(value, loc) {
     return {
       type: 'literal',
@@ -214,6 +222,15 @@ directive =
         loc: loc()
       };
     }
+  / PSEUDO_FOR index:labelIdent "in" __ listExpr:listExpr LWING body:statements RWING {
+      return {
+        type: 'for',
+        index: mkident(index),
+        listExpr,
+        body,
+        loc: loc()
+      };
+    }
   / PSEUDO_MACRO name:macroName LPAR args:macroArgNameList? RPAR LWING body:statements RWING {
       return {
         type: 'macro',
@@ -268,6 +285,16 @@ macroArgName =
       name,
       loc: loc()
     };
+  }
+
+listExpr =
+  "range" __ LPAR start:expr COMMA end:expr RPAR {
+    return {
+      type: 'list-range',
+      start,
+      end,
+      loc: loc()
+    }
   }
 
 macroArgValueList = exprList
@@ -394,9 +421,8 @@ lastExpr = boolOrExpr
 
 primary
   = num:num              { return iconst(num, loc()); }
-  / ident:labelIdent     { return { type: 'ident', name: ident, loc:loc() } }
+  / ident:labelIdent     { return mkident(ident, loc()); }
   / LPAR e:lastExpr RPAR { return e; }
-
 
 num =
    "$"i hex:$hexdig+ __ { return parseInt(hex, 16); }
@@ -417,6 +443,7 @@ PSEUDO_BINARY  = "!binary" ws
 PSEUDO_MACRO   = "!macro" ws
 PSEUDO_IF      = "!if" ws
 PSEUDO_ELSE    = "else" ws
+PSEUDO_FOR     = "!for" ws
 PSEUDO_INCLUDE = "!include" ws
 PSEUDO_FILL    = "!fill" ws
 
