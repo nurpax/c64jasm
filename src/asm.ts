@@ -542,7 +542,7 @@ class Assembler {
                 return []
             }
             if (endv < startv) {
-                this.error(`range(start, end) expression end must be greater than start, start=${start}, end=${end} given`, listExpr.loc)
+                this.error(`range(start, end) expression end must be greater than start, start=${startv}, end=${endv} given`, listExpr.loc)
                 return null;
             }
             return Array(endv-startv).fill(null).map((_,idx) => idx + startv);
@@ -887,8 +887,8 @@ export function assemble(filename) {
         asm.startPass(pass);
         if (!asm.assemble(src)) {
             // Ddin't get an error but returned anyway?  Add ICE
-            if (asm.anyErrors()) {
-                asm.error('Internal compiler error.', undefined)
+            if (!asm.anyErrors()) {
+                asm.error('Internal compiler error x.', undefined)
             }
             return {
                 errors: asm.errors()
