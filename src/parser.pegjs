@@ -165,6 +165,14 @@ directive =
         loc: loc()
       };
     }
+  / PSEUDO_FILL numBytes:expr COMMA fillValue:expr {
+      return {
+        type: 'fill',
+        numBytes,
+        fillValue,
+        loc: loc()
+      };
+    }
   / PSEUDO_INCLUDE s:string {
       return {
         type: 'include',
@@ -403,13 +411,14 @@ hexdig = [0-9a-f]
 ws "whitespace" = [ \t\r]*
 __ = ws
 
-PSEUDO_BYTE   = "!byte" ws
-PSEUDO_WORD   = "!word" ws
-PSEUDO_BINARY = "!binary" ws
-PSEUDO_MACRO = "!macro" ws
-PSEUDO_IF     = "!if" ws
-PSEUDO_ELSE   = "else" ws
-PSEUDO_INCLUDE= "!include" ws
+PSEUDO_BYTE    = "!byte" ws
+PSEUDO_WORD    = "!word" ws
+PSEUDO_BINARY  = "!binary" ws
+PSEUDO_MACRO   = "!macro" ws
+PSEUDO_IF      = "!if" ws
+PSEUDO_ELSE    = "else" ws
+PSEUDO_INCLUDE = "!include" ws
+PSEUDO_FILL    = "!fill" ws
 
 LBRK      =  s:'['         ws { return s; }
 RBRK      =  s:']'         ws { return s; }

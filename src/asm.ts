@@ -28,6 +28,12 @@ interface StmtEmitBytes {
     values: any[];
 }
 
+interface StmtFillBytes {
+    numBytes: any[];
+    fillValue: any[];
+    loc: SourceLoc;
+}
+
 function toHex16(v: number): string {
     return v.toString(16).padStart(4, '0');
 }
@@ -500,6 +506,28 @@ class Assembler {
         return res;
     }
 
+    fillBytes = (n: StmtFillBytes) => {
+        console.log(n);
+        const numVals   = this.evalExpr(n.numBytes);
+        if (!numVals) {
+            return false;
+        }
+        const fillValue = this.evalExpr(n.fillValue);
+        if (!fillValue) {
+            return false;
+        }
+        const fv = fillValue.val;
+        if (fv < 0 || fv >= 256) {
+            this.error(`!fill value to repeat must be in 8-bit range, '${fv}' given`, fillValue.loc);
+            return false;
+        }
+        for (let i = 0; i < numVals.val; i++) {
+            this.emit(fv);
+        }
+        return true;
+    }
+
+
     withScope = (name, compileScope) => {
         this.pushConstantScope();
         this.labels.pushMacroExpandScope(name);
@@ -536,6 +564,10 @@ class Assembler {
             case 'word': {
                 const emitNode: StmtEmitBytes = ast
                 return tryIntArg(emitNode.values, ast.type === 'byte' ? 8 : 16);
+            }
+            case 'fill': {
+                const n: StmtFillBytes = ast
+                return this.fillBytes(n);
             }
             case 'setpc': {
                 return this.setPC(ast.pc);
