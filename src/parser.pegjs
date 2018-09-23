@@ -330,7 +330,7 @@ identNoWS = (alpha+ alphanum*) { return text(); }
 
 labelIdent =
     ident:identNoWS __         { return ident; }
-  / ident:("." identNoWS) __   { return ident.join(''); }
+  / ident:("_" identNoWS) __   { return ident.join(''); }
 
 ident = sym:identNoWS __       { return sym; }
 mnemonic = ident:identNoWS __  { return ident; }

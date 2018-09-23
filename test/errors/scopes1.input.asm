@@ -2,7 +2,7 @@
 * = $801
 
 foo: {
-    jmp .local_labelx
-.local_label:
+    jmp _local_labelx
+_local_label:
     rts
 }

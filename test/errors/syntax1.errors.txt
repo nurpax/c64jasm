@@ -1,1 +1,1 @@
-foo.asm:1 - Syntax error: Expected "#", "$", "(", ".", ":", ";", "=", "\n", [0-9], [a-zA-Z_], or end of input but "-" found.
+test/errors/syntax1.input.asm:2:9: error: Syntax error: Expected "#", "$", "(", ":", ";", "=", "\n", "_", [0-9], [a-zA-Z_], or end of input but "-" found.

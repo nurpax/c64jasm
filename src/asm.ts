@@ -125,7 +125,7 @@ class Labels {
 
     prefixName(name: string): string {
         const prefix = this.currentScopePrefix();
-        if (name[0] === '.') {
+        if (name[0] === '_') {
             return `${prefix}${name}`
         }
         return name
@@ -242,7 +242,7 @@ class Assembler {
 
     errors = () => {
         return this.errorList.map(({loc, msg}) => {
-            let formatted = `<unknown>: ${msg}`
+            let formatted = `<unknown>:1:1: error: ${msg}`
             if (loc) {
                 formatted = `${loc.source}:${loc.start.line}:${loc.start.column}: error: ${msg}`
             }

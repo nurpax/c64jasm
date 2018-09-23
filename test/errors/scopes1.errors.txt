@@ -1,1 +1,1 @@
-foo.asm:1 - Undefined symbol '.local_labelx'
+foo.asm:1 - Undefined symbol '_local_labelx'

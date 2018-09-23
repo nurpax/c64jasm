@@ -2,14 +2,14 @@
 * = $801
 
 foo: {
-    jmp .local_label
-.local_label:
+    jmp _local_label
+_local_label:
     rts
 }
 
 foo2: {
-    jmp .local_label
-.local_label:
+    jmp _local_label
+_local_label:
     rts
 }
 
