@@ -98,6 +98,34 @@
   function loc() {
     return { ...location(), source: options.source }
   }
+
+  // Convert a Javascript object to AST nodes
+  function objectToAst(o, loc) {
+    if (Array.isArray(o)) {
+      return {
+        type: 'array',
+        values: o.map(e => objectToAst(e)),
+        loc
+      }
+    }
+    if (typeof o === 'object') {
+      return {
+        type: 'object',
+        props: Object.keys(o).map(k => {
+          return { key: k, val: objectToAst(o[k]) };
+        }),
+        loc
+      }
+    }
+    if (typeof o === 'number') {
+      return {
+        type: 'literal',
+        value: o,
+        loc
+      }
+    }
+    return undefined;
+  }
 }
 
 statements =
@@ -222,11 +250,11 @@ directive =
         loc: loc()
       };
     }
-  / PSEUDO_FOR index:labelIdent "in" __ listExpr:listExpr LWING body:statements RWING {
+  / PSEUDO_FOR index:labelIdent "in" __ list:expr LWING body:statements RWING {
       return {
         type: 'for',
         index: mkident(index),
-        listExpr,
+        list,
         body,
         loc: loc()
       };
@@ -287,12 +315,21 @@ macroArgName =
     };
   }
 
-listExpr =
+rangeExpr =
   "range" __ LPAR start:expr COMMA end:expr RPAR {
     return {
       type: 'list-range',
       start,
       end,
+      loc: loc()
+    }
+  }
+
+objectExpr =
+  "`obj" __ {
+    return {
+      type: 'object',
+      object: objectToAst({test: [0,1,2], xyz:13}, loc()),
       loc: loc()
     }
   }
@@ -353,7 +390,7 @@ abs = expr:expr { return expr; }
 
 expr = lastExpr
 
-multiplicative = first:primary rest:((STAR / DIV / MOD) primary)* {
+multiplicative = first:unaryExpression rest:((STAR / DIV / MOD) primary)* {
     return rest.reduce(function(memo, curr) {
       return binop(curr[0], memo, curr[1]);
     }, first);
@@ -419,10 +456,31 @@ boolOrExpr = first:boolAndExpr rest:(OROR boolAndExpr)* {
 
 lastExpr = boolOrExpr
 
+unaryExpression =
+  head:primary tail:(
+      LBRK property:lastExpr RBRK {
+        return { property, computed: true };
+      }
+    / DOT property:labelIdent {
+        return { property, computed: false };
+      }
+  )* {
+      return tail.reduce(function(result, element) {
+        return {
+          type: "member",
+          object: result,
+          property: element.property,
+          computed: element.computed
+        };
+      }, head);
+  }
+
 primary
   = num:num              { return iconst(num, loc()); }
+  / rangeExpr
   / ident:labelIdent     { return mkident(ident, loc()); }
   / LPAR e:lastExpr RPAR { return e; }
+  / o:objectExpr         { return o}
 
 num =
    "$"i hex:$hexdig+ __ { return parseInt(hex, 16); }

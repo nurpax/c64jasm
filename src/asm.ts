@@ -78,7 +78,7 @@ interface Label {
 }
 
 interface ExprVal {
-    val: number | null;
+    val: number | null | any;
     loc: SourceLoc;
 }
 
@@ -384,7 +384,34 @@ class Assembler {
                 }
                 return { val: lbl.addr, loc: lbl.loc } as ExprVal;
             }
-            throw new Error(`don't know what to do with node ${node}`)
+            if (node.type == 'member') {
+                const { object, property, computed } = node
+                if (!computed) {
+                    if (object.type !== 'object') {
+                        this.error('The dot . operator can only operate on objects', node.loc)
+                    }
+                    const obj = object.object
+                    for (let pi = 0; pi < obj.props.length; pi++) {
+                        const p = obj.props[pi]
+                        if (p.key === property) {
+                            return p.val;
+                        }
+                    }
+                    this.error(`Object has no property named '${property}'`, node.loc)
+                    return null
+                } else {
+                    const o: any = this.evalExpr(node.object);
+                    if (o.type !== 'array') {
+                        this.error('Cannot index a non-array object', node.loc)
+                    }
+                    const idx = this.evalExpr(node.property);
+                    return this.evalExpr(o.values[idx.val]);
+                }
+            }
+            if (node.type == 'list-range') {
+                return this.evalListRange(node);
+            }
+            throw new Error(`don't know what to do with node '${node.type}'`)
         }
         return evalExpr(ast);
     }
@@ -526,7 +553,7 @@ class Assembler {
         return true;
     }
 
-    evalListExpr = (listExpr) => {
+    evalListRange = (listExpr) => {
         if (listExpr.type === 'list-range') {
             const start = this.evalExpr(listExpr.start);
             if (!start) {
@@ -545,7 +572,18 @@ class Assembler {
                 this.error(`range(start, end) expression end must be greater than start, start=${startv}, end=${endv} given`, listExpr.loc)
                 return null;
             }
-            return Array(endv-startv).fill(null).map((_,idx) => idx + startv);
+            const arr = Array(endv-startv).fill(null).map((_,idx) => idx + startv);
+            return {
+                type: 'array',
+                values: arr.map(v => {
+                    return {
+                        type: 'literal',
+                        value: v,
+                        loc: listExpr.loc
+                    }
+                }),
+                loc: listExpr.loc
+            }
         }
         this.error(`ICE: unknown list expression type: ${listExpr.type}`, listExpr.loc);
         return null
@@ -616,8 +654,8 @@ class Assembler {
                 return true;
             }
             case 'for': {
-                const { index, listExpr, body, loc } = ast
-                const lst = this.evalListExpr(listExpr);
+                const { index, list, body, loc } = ast
+                const lst = this.evalExpr(list);
                 if (!lst) {
                     return false;
                 }
@@ -630,8 +668,10 @@ class Assembler {
                     };
                     this.constants.add(index.name, loopVar);
 
-                    for (let i = 0; i < lst.length; i++) {
-                        loopVar.value = lst[i];
+                    const elts = lst.values
+                    for (let i = 0; i < elts.length; i++) {
+                        const val = this.evalExpr(elts[i])
+                        loopVar.value = val.val;
                         if (!this.assembleStmtList(body)) {
                             return false;
                         }
