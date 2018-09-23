@@ -77,6 +77,14 @@ cp ${actualFname} ${expectedFname}
     }
 }
 
+function cleanSyntaxError(msg) {
+    const m = /(((.*): error:) (Syntax error: )).*$/.exec(msg);
+    if (m) {
+        return m[1];
+    }
+    return msg;
+}
+
 function testErrors() {
     const g = glob();
     let inputs = g.readdirSync('test/errors/*.input.asm');
@@ -93,7 +101,7 @@ function testErrors() {
         try {
             const x = assemble(fname);
             const { errors } = assemble(fname);
-            const errorMessages = errors.map(e => e.formatted);
+            const errorMessages = errors.map(e => cleanSyntaxError(e.formatted));
             const errorsFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'errors.txt');
 
             // If the expected file doesn't exist, create it.  This is for new test authoring.
@@ -105,7 +113,8 @@ function testErrors() {
             } else {
                 const expectedErrors = readLines(errorsFname);
                 for (let ei in expectedErrors) {
-                    const emsg = /^(.*:.* - |.*: error: )(.*)$/.exec(expectedErrors[ei]);
+                    const cleanedExpected = cleanSyntaxError(expectedErrors[ei])
+                    const emsg = /^(.*:.* - |.*: error: )(.*)$/.exec(cleanedExpected);
                     const msgOnly = emsg[2];
 
                     const found = errorMessages.some((msg) => {
