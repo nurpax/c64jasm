@@ -387,29 +387,51 @@ class Assembler {
                 return { type: 'literal', ival: lbl.addr, loc: lbl.loc };
             }
             if (node.type == 'member') {
-                const { object, property, computed } = node
+                function findObjectField(props, prop) {
+                    for (let pi = 0; pi < props.length; pi++) {
+                        const p = props[pi]
+                        // TODO THIS IS SUPER MESSY!! and doesn't handle errors
+                        if (typeof prop == 'object') {
+                            if (p.key === prop.string) {
+                                return p.val
+                            }
+                        } else {
+                            if (p.key === prop) {
+                                return p.val;
+                            }
+                        }
+                    }
+                }
+                const object = this.evalExpr(node.object);
+                if (!object) {
+                    return null;
+                }
+                const { property, computed } = node
                 if (!computed) {
                     if (object.type !== 'object') {
-                        this.error('The dot . operator can only operate on objects', node.loc)
+                        this.error(`The dot . operator can only operate on objects. Got ${object.type}.`, node.loc)
                         return null;
                     }
-                    const obj = object.object
-                    for (let pi = 0; pi < obj.props.length; pi++) {
-                        const p = obj.props[pi]
-                        if (p.key === property) {
-                            return p.val;
-                        }
+                    const elt = findObjectField(object.props, property);
+                    if (elt) {
+                        return elt;
                     }
                     this.error(`Object has no property named '${property}'`, node.loc)
                     return null
                 } else {
-                    const o: any = this.evalExpr(node.object);
-                    if (o.type !== 'array') {
-                        this.error('Cannot index a non-array object', node.loc)
-                        return null;
-                    }
                     const idx = this.evalExpr(node.property);
-                    return this.evalExpr(o.values[idx.ival]);
+                    if (object.type === 'array') {
+                        return this.evalExpr(object.values[idx.ival]);
+                    } else if (object.type === 'object') {
+                        const elt = findObjectField(object.props, idx);
+                        if (elt) {
+                            return elt;
+                        }
+                        this.error(`Object has no property named '${property}'`, node.loc)
+                        return null
+                    }
+                    this.error('Cannot index a non-array object', node.loc)
+                    return null;
                 }
             }
             if (node.type == 'callfunc') {

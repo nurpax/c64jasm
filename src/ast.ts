@@ -23,5 +23,12 @@ export function objectToAst(o, loc) {
         loc
       }
     }
+    if (typeof o === 'string') {
+      return {
+        type: 'string',
+        string: o,
+        loc
+      }
+    }
     return undefined;
 }
