@@ -12,6 +12,7 @@
     "files": [
         "src/index.ts",
         "src/asm.ts",
+        "src/ast.ts",
         "src/disasm.ts",
         "src/cli.ts",
         "test/test.ts"

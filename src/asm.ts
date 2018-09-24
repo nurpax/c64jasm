@@ -3,7 +3,7 @@ import opcodes from './opcodes'
 import * as path from 'path'
 
 import { readFileSync, writeFileSync } from 'fs'
-
+import * as ast from './ast'
 var parser = require('./g_parser')
 
 interface Loc {
@@ -75,11 +75,6 @@ function toHex(num) {
 interface Label {
     addr: number,
     loc: SourceLoc
-}
-
-interface ExprVal {
-    val: number | null | any;
-    loc: SourceLoc;
 }
 
 class SeenLabels {
@@ -159,7 +154,7 @@ interface Macro {
 interface Constant {
     name: LabelSym,
     type: 'ref' | 'value',
-    value: number | string
+    value: any
 }
 
 class SymbolTab<S> {
@@ -301,9 +296,9 @@ class Assembler {
         const buf: Buffer = readFileSync(filename)
 
         const offsetExpr = this.evalExpr(ast.offset);
-        let offset = ast.offset !== null && offsetExpr ? offsetExpr.val : 0;
+        let offset = ast.offset !== null && offsetExpr ? offsetExpr.ival : 0;
         const sizeExpr = this.evalExpr(ast.size);
-        let size = ast.size !== null && sizeExpr ? sizeExpr.val : buf.byteLength - offset;
+        let size = ast.size !== null && sizeExpr ? sizeExpr.ival : buf.byteLength - offset;
 
         if (offset === null || size === null) {
             return false;
@@ -316,10 +311,11 @@ class Assembler {
         return true
     }
 
-    evalExpr (ast): ExprVal {
+    evalExpr (ast) {
         const runBinop = (a, b, f) => {
             return {
-                val: f(a.val, b.val),
+                type: 'literal',
+                ival: f(a.ival, b.ival),
                 loc: a.loc // TODO combine a, b
             }
         }
@@ -352,23 +348,29 @@ class Assembler {
                 }
             }
             if (node.type === 'UnaryExpression') {
-                const { val, loc } = evalExpr(node.argument);
+                const { ival, loc } = evalExpr(node.argument);
                 switch (node.operator) {
-                    case '-': return { val: -val, loc: node.loc };
-                    case '~': return { val: ~val, loc: node.loc };
+                    case '-': return { type: 'literal', ival: -ival, loc: node.loc };
+                    case '~': return { type: 'literal', ival: ~ival, loc: node.loc };
                     default:
                         throw new Error(`Unhandled unary operator ${node.op}`);
                 }
             }
             if (node.type == 'literal') {
-                return { val: node.value, loc: node.loc };
+                return node;
+            }
+            if (node.type == 'string') {
+                return node;
+            }
+            if (node.type == 'array') {
+                return node;
             }
             if (node.type == 'ident') {
                 let label = node.name
                 const constant = this.constants.find(label);
                 if (constant) {
                     if (constant.type === 'value') {
-                        return { val: constant.value, loc: node.loc };
+                        return constant.value;
                     }
                     // TODO name shadowing warning
                     label = constant.value;
@@ -382,13 +384,14 @@ class Assembler {
                     this.needPass = true;
                     return null
                 }
-                return { val: lbl.addr, loc: lbl.loc } as ExprVal;
+                return { type: 'literal', ival: lbl.addr, loc: lbl.loc };
             }
             if (node.type == 'member') {
                 const { object, property, computed } = node
                 if (!computed) {
                     if (object.type !== 'object') {
                         this.error('The dot . operator can only operate on objects', node.loc)
+                        return null;
                     }
                     const obj = object.object
                     for (let pi = 0; pi < obj.props.length; pi++) {
@@ -403,13 +406,36 @@ class Assembler {
                     const o: any = this.evalExpr(node.object);
                     if (o.type !== 'array') {
                         this.error('Cannot index a non-array object', node.loc)
+                        return null;
                     }
                     const idx = this.evalExpr(node.property);
-                    return this.evalExpr(o.values[idx.val]);
+                    return this.evalExpr(o.values[idx.ival]);
                 }
             }
-            if (node.type == 'list-range') {
-                return this.evalListRange(node);
+            if (node.type == 'callfunc') {
+                const sym = this.constants.find(node.name);
+                if (!sym) {
+                    this.error(`Calling an unknown function '${node.name}'`, node.loc);
+                    return null;
+                }
+                if (sym.type != 'value') {
+                    this.error(`Cannot call a macro argument reference.`, node.loc);
+                    return null;
+                }
+                const callee = sym.value;
+                if (callee.type !== 'function') {
+                    this.error(`Callee must be a function type.  Got '${callee.type}'`, node.loc);
+                    return null;
+                }
+                const argValues = [];
+                for (let argIdx = 0; argIdx < node.args.length; argIdx++) {
+                    const e = this.evalExpr(node.args[argIdx]);
+                    if (!e) {
+                        return null;
+                    }
+                    argValues.push(e);
+                }
+                return callee.func(argValues);
             }
             throw new Error(`don't know what to do with node '${node.type}'`)
         }
@@ -441,13 +467,13 @@ class Assembler {
         }
         const eres = this.evalExpr(param);
         if (eres !== null) {
-            const { val, loc } = eres
-            if (val < 0 || val > 255) {
-                this.error(`Immediate evaluates to ${val} which cannot fit in 8 bits`, loc);
+            const { ival, loc } = eres
+            if (ival < 0 || ival > 255) {
+                this.error(`Immediate evaluates to ${ival} which cannot fit in 8 bits`, loc);
                 return false
             }
             this.emit(opcode)
-            this.emit(val)
+            this.emit(ival)
             return true
         } else {
             if (this.pass === 0) {
@@ -465,16 +491,16 @@ class Assembler {
         }
         const eres = this.evalExpr(param);
         if (eres !== null) {
-            const { val, loc } = eres
+            const { ival, loc } = eres
             if (bits === 8) {
-                if (val < 0 || val >= (1<<bits)) {
+                if (ival < 0 || ival >= (1<<bits)) {
                     return false
                 }
                 this.emit(opcode)
-                this.emit(val)
+                this.emit(ival)
             } else {
                 this.emit(opcode)
-                this.emit16(val)
+                this.emit16(ival)
             }
             return true
         } else {
@@ -501,7 +527,7 @@ class Assembler {
             this.emit(0);
             return true;
         }
-        const { val: addr, loc } = eres
+        const { ival: addr, loc } = eres
         // TODO check 8-bit overflow here!!
         if (addr < (this.codePC - 0x600)) {  // Backwards?
           this.emit((0xff - ((this.codePC - 0x600) - addr)) & 0xff);
@@ -517,8 +543,8 @@ class Assembler {
             this.error(`Couldn't evaluate expression value`, eres.loc);
             return false
         }
-        const { val, loc } = eres
-        while (this.codePC < val) {
+        const { ival, loc } = eres
+        while (this.codePC < ival) {
             this.emit(0);
         }
         return true
@@ -542,51 +568,15 @@ class Assembler {
         if (!fillValue) {
             return false;
         }
-        const fv = fillValue.val;
+        const fv = fillValue.ival;
         if (fv < 0 || fv >= 256) {
             this.error(`!fill value to repeat must be in 8-bit range, '${fv}' given`, fillValue.loc);
             return false;
         }
-        for (let i = 0; i < numVals.val; i++) {
+        for (let i = 0; i < numVals.ival; i++) {
             this.emit(fv);
         }
         return true;
-    }
-
-    evalListRange = (listExpr) => {
-        if (listExpr.type === 'list-range') {
-            const start = this.evalExpr(listExpr.start);
-            if (!start) {
-                return null;
-            }
-            const end = this.evalExpr(listExpr.end);
-            if (!end) {
-                return null;
-            }
-            const startv = start.val
-            const endv = end.val
-            if (endv == startv) {
-                return []
-            }
-            if (endv < startv) {
-                this.error(`range(start, end) expression end must be greater than start, start=${startv}, end=${endv} given`, listExpr.loc)
-                return null;
-            }
-            const arr = Array(endv-startv).fill(null).map((_,idx) => idx + startv);
-            return {
-                type: 'array',
-                values: arr.map(v => {
-                    return {
-                        type: 'literal',
-                        value: v,
-                        loc: listExpr.loc
-                    }
-                }),
-                loc: listExpr.loc
-            }
-        }
-        this.error(`ICE: unknown list expression type: ${listExpr.type}`, listExpr.loc);
-        return null
     }
 
     withScope = (name, compileScope) => {
@@ -608,14 +598,14 @@ class Assembler {
                     this.error(`Couldn't evaluate expression value for data statement`, undefined);
                     return false
                 }
-                const { val } = eres
+                const { ival } = eres
                 if (bits === 8) {
-                    this.emit(val);
+                    this.emit(ival);
                 } else {
                     if (bits !== 16) {
                         throw new Error('impossible');
                     }
-                    this.emit16(val);
+                    this.emit16(ival);
                 }
             }
             return true
@@ -645,7 +635,7 @@ class Assembler {
                 if (!eres) {
                     return false;
                 }
-                const { val: condVal } = eres
+                const { ival: condVal } = eres
                 if (isTrueVal(condVal)) {
                     return this.assembleStmtList(trueBranch);
                 } else {
@@ -655,7 +645,7 @@ class Assembler {
             }
             case 'for': {
                 const { index, list, body, loc } = ast
-                const lst = this.evalExpr(list);
+                const lst: any = this.evalExpr(list);
                 if (!lst) {
                     return false;
                 }
@@ -664,14 +654,17 @@ class Assembler {
                     const loopVar: Constant = {
                         name: index,
                         type: 'value',
-                        value: 0
+                        value: {
+                            type: 'literal',
+                            ival: 0
+                        }
                     };
                     this.constants.add(index.name, loopVar);
 
                     const elts = lst.values
                     for (let i = 0; i < elts.length; i++) {
                         const val = this.evalExpr(elts[i])
-                        loopVar.value = val.val;
+                        loopVar.value = val;
                         if (!this.assembleStmtList(body)) {
                             return false;
                         }
@@ -732,7 +725,7 @@ class Assembler {
                         const eres = this.evalExpr(args[argIdx]);
                         argValues.push({
                             type: 'value',
-                            value: eres === null ? 0 : eres.val
+                            value: eres
                         });
                     }
                 }
@@ -764,7 +757,7 @@ class Assembler {
                 this.constants.add(name, {
                     name,
                     type: 'value',
-                    value: eres.val
+                    value: eres
                 });
                 return true;
             }
@@ -914,12 +907,63 @@ class Assembler {
             return false;
         }
     }
+
+    registerPlugins () {
+        const json = {
+            type: 'function',
+            func: args => {
+                const name = args[0].string;
+                const curSource = this.peekSourceStack();
+                const fname = path.join(path.dirname(curSource), name);
+                return ast.objectToAst(JSON.parse(readFileSync(fname, 'utf-8')), null);
+            }
+        };
+        const range = {
+            type: 'function',
+            func: args => {
+                let start = 0;
+                let end = undefined;
+                if (args.length == 1) {
+                    end = args[0].ival
+                } else if (args.length == 2) {
+                    start = args[0].ival
+                    end = args[1].ival
+                } else {
+                    // TODO errors reporting via a context parameter
+                    return null;
+                }
+                if (end == start) {
+                    return ast.objectToAst([], null);
+                }
+                if (end < start) {
+                    this.error(`range(start, end) expression end must be greater than start, start=${start}, end=${end} given`, null)
+                    return null;
+                }
+                return ast.objectToAst(
+                    Array(end-start).fill(null).map((_,idx) => idx + start),
+                    null
+                )
+            }
+        };
+        const addPlugin = (name, handler) => {
+            this.constants.add(name, {
+                name: { name, loc:null },
+                type: 'value',
+                value: handler
+            })
+        }
+        addPlugin('loadJson', json);
+        addPlugin('range', range);
+    }
 }
 
 export function assemble(filename) {
     const asm = new Assembler();
     const src = readFileSync(filename).toString();
     asm.pushSource(filename);
+
+    asm.pushConstantScope();
+    asm.registerPlugins();
 
     let pass = 0;
     do {
@@ -943,6 +987,7 @@ export function assemble(filename) {
         pass += 1;
     } while(asm.needPass && !asm.anyErrors());
 
+    asm.popConstantScope();
     asm.popSource();
 
     return {

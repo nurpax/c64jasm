@@ -1,5 +1,8 @@
 
 {
+  var ast = require('./ast')
+  var objectToAst = ast.objectToAst
+
   const emptyInsn = {
       mnemonic: null,
       imm: null,
@@ -87,44 +90,24 @@
     };
   }
 
-  function iconst(value, loc) {
+  function iconst(ival, loc) {
     return {
       type: 'literal',
-      value,
+      ival,
+      loc
+    }
+  }
+
+  function mkstr(string, loc) {
+    return {
+      type: 'string',
+      string,
       loc
     }
   }
 
   function loc() {
     return { ...location(), source: options.source }
-  }
-
-  // Convert a Javascript object to AST nodes
-  function objectToAst(o, loc) {
-    if (Array.isArray(o)) {
-      return {
-        type: 'array',
-        values: o.map(e => objectToAst(e)),
-        loc
-      }
-    }
-    if (typeof o === 'object') {
-      return {
-        type: 'object',
-        props: Object.keys(o).map(k => {
-          return { key: k, val: objectToAst(o[k]) };
-        }),
-        loc
-      }
-    }
-    if (typeof o === 'number') {
-      return {
-        type: 'literal',
-        value: o,
-        loc
-      }
-    }
-    return undefined;
   }
 }
 
@@ -315,16 +298,6 @@ macroArgName =
     };
   }
 
-rangeExpr =
-  "range" __ LPAR start:expr COMMA end:expr RPAR {
-    return {
-      type: 'list-range',
-      start,
-      end,
-      loc: loc()
-    }
-  }
-
 objectExpr =
   "`obj" __ {
     return {
@@ -457,7 +430,8 @@ boolOrExpr = first:boolAndExpr rest:(OROR boolAndExpr)* {
 lastExpr = boolOrExpr
 
 unaryExpression =
-  head:primary tail:(
+   callExpression
+ / head:primary tail:(
       LBRK property:lastExpr RBRK {
         return { property, computed: true };
       }
@@ -475,10 +449,20 @@ unaryExpression =
       }, head);
   }
 
+callExpression =
+  ident:labelIdent LPAR args:exprList RPAR {
+    return {
+      type: 'callfunc',
+      name: ident,
+      args,
+      loc: loc()
+    }
+  }
+
 primary
   = num:num              { return iconst(num, loc()); }
-  / rangeExpr
   / ident:labelIdent     { return mkident(ident, loc()); }
+  / string:string        { return mkstr(string, loc()); } 
   / LPAR e:lastExpr RPAR { return e; }
   / o:objectExpr         { return o}
 
