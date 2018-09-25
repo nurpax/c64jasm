@@ -298,15 +298,6 @@ macroArgName =
     };
   }
 
-objectExpr =
-  "`obj" __ {
-    return {
-      type: 'object',
-      object: objectToAst({test: [0,1,2], xyz:13}, loc()),
-      loc: loc()
-    }
-  }
-
 macroArgValueList = exprList
 
 exprList = head:expr tail:(COMMA expr)* { return buildList(head, tail, 1); }
@@ -464,7 +455,6 @@ primary
   / ident:labelIdent     { return mkident(ident, loc()); }
   / string:string        { return mkstr(string, loc()); } 
   / LPAR e:lastExpr RPAR { return e; }
-  / o:objectExpr         { return o}
 
 num =
    "$"i hex:$hexdig+ __ { return parseInt(hex, 16); }
