@@ -144,7 +144,7 @@ directive =
         size = extra[1]
         offset = extra[3]
       }
-      return ast.mkBinary(filename, size, offset, loc());
+      return ast.mkBinary(s, size, offset, loc());
     }
   / PSEUDO_IF LPAR condition:expr RPAR  LWING trueBranch:statements
     RWING PSEUDO_ELSE LWING falseBranch:statements RWING {

@@ -260,17 +260,21 @@ class Assembler {
 
     emitBinary = (ast) => {
         const { filename } = ast
-        const buf: Buffer = readFileSync(filename)
+        const fname = this.makeSourceRelativePath(filename)
+        const buf: Buffer = readFileSync(fname)
 
-        const offsetExpr = this.evalExpr(ast.offset);
-        let offset = ast.offset !== null && offsetExpr ? offsetExpr.lit : 0;
-        const sizeExpr = this.evalExpr(ast.size);
-        let size = ast.size !== null && sizeExpr ? sizeExpr.lit : buf.byteLength - offset;
-
-        if (offset === null || size === null) {
-            return false;
+        let offset = 0
+        let size = buf.byteLength
+        if (ast.size) {
+            if (ast.offset !== null) {
+                const offsetExpr = this.evalExpr(ast.offset);
+                offset = offsetExpr ? offsetExpr.lit : 0;
+            }
+            if (ast.size !== null) {
+                const sizeExpr = this.evalExpr(ast.size);
+                size = sizeExpr ? sizeExpr.lit : buf.byteLength - offset;
+            }
         }
-
         // TODO buffer overflow
         for (let i = 0; i < size; i++) {
             this.emit(buf.readUInt8(i + offset));
@@ -535,7 +539,7 @@ class Assembler {
     }
 
     fileInclude = (inclStmt: ast.StmtInclude) => {
-        const fname = path.join(path.dirname(this.peekSourceStack()), inclStmt.filename);
+        const fname = this.makeSourceRelativePath(inclStmt.filename);
         const src = readFileSync(fname).toString();
         this.pushSource(fname);
         const res = this.assemble(src);
@@ -864,6 +868,11 @@ class Assembler {
         return false;
     }
 
+    makeSourceRelativePath(filename: string): string {
+        const curSource = this.peekSourceStack();
+        return path.join(path.dirname(curSource), filename);
+    }
+
     assemble = (source) => {
         try {
             const statements = parser.parse(source, {
@@ -888,8 +897,7 @@ class Assembler {
             type: 'function',
             func: args => {
                 const name = args[0].lit;
-                const curSource = this.peekSourceStack();
-                const fname = path.join(path.dirname(curSource), name);
+                const fname = this.makeSourceRelativePath(name)
                 return ast.objectToAst(JSON.parse(readFileSync(fname, 'utf-8')), null);
             }
         };
