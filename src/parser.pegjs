@@ -82,30 +82,6 @@
     }
   }
 
-  function mkident(name, loc) {
-    return {
-      type: 'ident',
-      name,
-      loc
-    };
-  }
-
-  function iconst(ival, loc) {
-    return {
-      type: 'literal',
-      ival,
-      loc
-    }
-  }
-
-  function mkstr(string, loc) {
-    return {
-      type: 'string',
-      string,
-      loc
-    }
-  }
-
   function loc() {
     return { ...location(), source: options.source }
   }
@@ -123,19 +99,19 @@ insnLineWithComment =
 
 insnLine =
     label:label LWING scopedStmts:statements RWING {
-      return { label, stmt:null, scopedStmts };
+      return ast.mkAsmLine(label, null, scopedStmts, loc());
   }
   / label:label stmt:statement {
-      return { label, stmt };
+      return ast.mkAsmLine(label, stmt, null, loc());
     }
   / label:label {
-      return { label, stmt:null };
+      return ast.mkAsmLine(label, null, null, loc());
     }
   / stmt:statement {
-      return { label:null, stmt };
+      return ast.mkAsmLine(null, stmt, null, loc());
     }
   / pc:setPC {
-      return { label: null, stmt:pc }
+      return ast.mkAsmLine(null, pc, null, loc());
     }
   / __ {
     // empty line is a no-op
@@ -143,61 +119,23 @@ insnLine =
   }
 
 statement =
-    directive:directive { return directive; }
-  / instruction:instruction {
-      return {
-        type: 'insn',
-        insn: instruction,
-        loc: loc()
-      }
-    }
+    directive:directive     { return directive; }
+  / instruction:instruction { return ast.mkInsn(instruction, loc()); }
 
-label =
-    lbl:labelIdent ":" __  {
-      return {
-        name: lbl,
-        loc: loc()
-      }
-    }
+label = lbl:labelIdent ":" __  { return ast.mkLabel(lbl, loc()); }
 
-setPC =
-  STAR EQU pc:expr {
-    return {
-      type: 'setpc',
-      pc,
-      loc: loc()
-    };
-  }
+setPC = STAR EQU pc:expr { return ast.mkSetPC(pc, loc()); }
 
 directive =
-    PSEUDO_BYTE values:exprList  {
-      return {
-        type: 'byte',
-        values,
-        loc: loc()
-      };
-    }
-  / PSEUDO_WORD values:exprList {
-      return {
-        type: 'word',
-        values: values,
-        loc: loc()
-      };
+    size:(PSEUDO_BYTE / PSEUDO_WORD) values:exprList  {
+      const dataSize = size == 'byte' ? ast.DataSize.Byte : ast.DataSize.Word;
+      return ast.mkData(dataSize, values, loc());
     }
   / PSEUDO_FILL numBytes:expr COMMA fillValue:expr {
-      return {
-        type: 'fill',
-        numBytes,
-        fillValue,
-        loc: loc()
-      };
+      return ast.mkFill(numBytes, fillValue, loc());
     }
-  / PSEUDO_INCLUDE s:string {
-      return {
-        type: 'include',
-        filename: s,
-        loc: loc()
-      };
+  / PSEUDO_INCLUDE filename:string {
+      return ast.mkInclude(filename, loc());
     }
   / PSEUDO_BINARY s:string extra:(COMMA expr? COMMA expr)?  {
       let size = null
@@ -206,67 +144,25 @@ directive =
         size = extra[1]
         offset = extra[3]
       }
-      return {
-        type: 'binary',
-        filename: s,
-        size,
-        offset,
-        loc: loc()
-      };
+      return ast.mkBinary(filename, size, offset, loc());
     }
   / PSEUDO_IF LPAR condition:expr RPAR  LWING trueBranch:statements
     RWING PSEUDO_ELSE LWING falseBranch:statements RWING {
-      return {
-        type: 'if',
-        cond:condition,
-        trueBranch,
-        falseBranch:falseBranch,
-        loc: loc()
-      };
+      return ast.mkIfElse(condition, trueBranch, falseBranch, loc());
     }
   / PSEUDO_IF LPAR condition:expr RPAR LWING trueBranch:statements RWING {
-      return {
-        type: 'if',
-        cond:condition,
-        trueBranch,
-        falseBranch:null,
-        loc: loc()
-      };
+      return ast.mkIfElse(condition, trueBranch, [], loc());
     }
   / PSEUDO_FOR index:labelIdent "in" __ list:expr LWING body:statements RWING {
-      return {
-        type: 'for',
-        index: mkident(index),
-        list,
-        body,
-        loc: loc()
-      };
+      return ast.mkFor(ast.mkIdent(index), list, body, loc());
     }
   / PSEUDO_MACRO name:macroName LPAR args:macroArgNameList? RPAR LWING body:statements RWING {
-      return {
-        type: 'macro',
-        name,
-        args: args === null ? [] : args,
-        body,
-        loc: loc()
-      };
+      return ast.mkMacro(name, args, body, loc());
     }
-  / "+" name:macroName LPAR args:macroArgValueList? RPAR  {
-      return {
-        type: 'callmacro',
-        name,
-        args: args === null ? [] : args,
-        loc: loc()
-      };
+  / "+" name:macroName LPAR args:exprList? RPAR  {
+      return ast.mkCallMacro(name, args, loc());
     }
-  / name:ident EQU value:expr  {
-      return {
-        type: 'equ',
-        name,
-        value,
-        loc: loc()
-      };
-    }
+  / name:identifier EQU value:expr  { return ast.mkEqu(name, value, loc()); }
 
 string
   = '"' chars:doubleStringCharacter* '"' __ { return chars.join(''); }
@@ -274,31 +170,16 @@ string
 doubleStringCharacter
   = !'"' char:. { return char; }
 
-macroName = name:ident {
-  return {
-    name,
-    loc: loc()
-  }
-}
+macroName = name:ident { return ast.mkIdent(name, loc()); }
 
 macroArgNameList = head:macroArgName tail:(COMMA macroArgName)* { return buildList(head, tail, 1); }
 macroArgName =
-  "~" name:ident {
-    return {
-      type: 'ref',
-      name,
-      loc: loc()
-    };
+  "~" ident:identifier {
+    return ast.mkMacroArg('ref', ident);
   }
-  / name:ident {
-    return {
-      type: 'value',
-      name,
-      loc: loc()
-    };
+  / ident:identifier {
+    return ast.mkMacroArg('value', ident);
   }
-
-macroArgValueList = exprList
 
 exprList = head:expr tail:(COMMA expr)* { return buildList(head, tail, 1); }
 
@@ -333,15 +214,21 @@ labelIdent =
     ident:identNoWS __         { return ident; }
   / ident:("_" identNoWS) __   { return ident.join(''); }
 
+identifier = ident:ident {
+  return ast.mkIdent(ident, loc());
+}
+
 ident = sym:identNoWS __       { return sym; }
 mnemonic = ident:identNoWS __  { return ident; }
 
 imm = '#' lh:loOrHi? expr:expr {
   if (lh !== null) {
     if (lh === 'lo') {
-      return binop('&', expr, iconst(255))
+      return binop('&', expr, ast.mkLiteral(255, loc()));
     }
-    return binop('&', binop('>>', expr, iconst(8)), iconst(255));
+    const lit8 = ast.mkLiteral(8, loc());
+    const lit255 = ast.mkLiteral(8, loc());
+    return binop('&', binop('>>', expr, lit8), lit255);
   }
   return expr
 }
@@ -451,9 +338,9 @@ callExpression =
   }
 
 primary
-  = num:num              { return iconst(num, loc()); }
-  / ident:labelIdent     { return mkident(ident, loc()); }
-  / string:string        { return mkstr(string, loc()); } 
+  = num:num              { return ast.mkLiteral(num, loc()); }
+  / ident:labelIdent     { return ast.mkIdent(ident, loc()); }
+  / string:string        { return ast.mkLiteral(string, loc()); }
   / LPAR e:lastExpr RPAR { return e; }
 
 num =
@@ -469,8 +356,8 @@ hexdig = [0-9a-f]
 ws "whitespace" = [ \t\r]*
 __ = ws
 
-PSEUDO_BYTE    = "!byte" ws
-PSEUDO_WORD    = "!word" ws
+PSEUDO_BYTE    = "!byte" ws { return 'byte'; }
+PSEUDO_WORD    = "!word" ws { return 'word'; }
 PSEUDO_BINARY  = "!binary" ws
 PSEUDO_MACRO   = "!macro" ws
 PSEUDO_IF      = "!if" ws

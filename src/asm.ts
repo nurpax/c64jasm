@@ -4,34 +4,13 @@ import * as path from 'path'
 
 import { readFileSync, writeFileSync } from 'fs'
 import * as ast from './ast'
+import { Loc, SourceLoc } from './ast'
+
 var parser = require('./g_parser')
-
-interface Loc {
-    offset: number,
-    line: number,
-    column: number
-}
-
-interface SourceLoc {
-    start: Loc,
-    end: Loc,
-    source: string
-}
 
 interface Error {
     loc: SourceLoc,
     msg: string
-}
-
-interface StmtEmitBytes {
-    type: "byte" | "word";
-    values: any[];
-}
-
-interface StmtFillBytes {
-    numBytes: any[];
-    fillValue: any[];
-    loc: SourceLoc;
 }
 
 function toHex16(v: number): string {
@@ -78,7 +57,7 @@ interface Label {
 }
 
 class SeenLabels {
-    seenLabels = new Map<string, LabelSym>();
+    seenLabels = new Map<string, ast.Label>();
 
     clear () {
         this.seenLabels.clear();
@@ -135,25 +114,13 @@ class Labels {
         this.labels[prefixedName] = lbl
     }
 
-    find(name: string):Label {
+    find(name: string): Label {
         return this.labels[this.prefixName(name)]
     }
 }
 
-interface LabelSym {
-    name: string,
-    loc: any
-}
-
-interface Macro {
-    name: LabelSym,
-    args: string[],
-    body: any[];    // AST nodes (TODO types)
-}
-
 interface Constant {
-    name: LabelSym,
-    type: 'ref' | 'value',
+    arg: ast.MacroArg,
     value: any
 }
 
@@ -164,7 +131,7 @@ class SymbolTab<S> {
         this.symbols[name] = s
     }
 
-    find = (name: string) => {
+    find (name: string): S {
         return this.symbols[name]
     }
 }
@@ -211,7 +178,7 @@ class Assembler {
     needPass = false;
     seenLabels = new SeenLabels();
     labels = new Labels()
-    macros = new SymbolTab<Macro>()
+    macros = new SymbolTab<ast.StmtMacro>()
     constants = new ScopeStack<Constant>();
     errorList: Error[] = [];
 
@@ -296,9 +263,9 @@ class Assembler {
         const buf: Buffer = readFileSync(filename)
 
         const offsetExpr = this.evalExpr(ast.offset);
-        let offset = ast.offset !== null && offsetExpr ? offsetExpr.ival : 0;
+        let offset = ast.offset !== null && offsetExpr ? offsetExpr.lit : 0;
         const sizeExpr = this.evalExpr(ast.size);
-        let size = ast.size !== null && sizeExpr ? sizeExpr.ival : buf.byteLength - offset;
+        let size = ast.size !== null && sizeExpr ? sizeExpr.lit : buf.byteLength - offset;
 
         if (offset === null || size === null) {
             return false;
@@ -311,13 +278,11 @@ class Assembler {
         return true
     }
 
-    evalExpr (ast) {
-        const runBinop = (a, b, f) => {
-            return {
-                type: 'literal',
-                ival: f(a.ival, b.ival),
-                loc: a.loc // TODO combine a, b
-            }
+    evalExpr (astNode) {
+        const runBinop = (a: ast.Literal, b: ast.Literal, f) => {
+            // TODO combine a&b locs
+            // TODO a.type, b.type must be literal
+            return ast.mkLiteral(f(a.lit, b.lit), a.loc);
         }
         const evalExpr = (node) => {
             if (node.type === 'binary') {
@@ -348,18 +313,15 @@ class Assembler {
                 }
             }
             if (node.type === 'UnaryExpression') {
-                const { ival, loc } = evalExpr(node.argument);
+                const { lit, loc } = evalExpr(node.argument);
                 switch (node.operator) {
-                    case '-': return { type: 'literal', ival: -ival, loc: node.loc };
-                    case '~': return { type: 'literal', ival: ~ival, loc: node.loc };
+                    case '-': return ast.mkLiteral(-lit, node.loc);
+                    case '~': return ast.mkLiteral(~lit, node.loc);
                     default:
                         throw new Error(`Unhandled unary operator ${node.op}`);
                 }
             }
             if (node.type == 'literal') {
-                return node;
-            }
-            if (node.type == 'string') {
                 return node;
             }
             if (node.type == 'array') {
@@ -369,7 +331,7 @@ class Assembler {
                 let label = node.name
                 const constant = this.constants.find(label);
                 if (constant) {
-                    if (constant.type === 'value') {
+                    if (constant.arg.type === 'value') {
                         return constant.value;
                     }
                     // TODO name shadowing warning
@@ -384,7 +346,7 @@ class Assembler {
                     this.needPass = true;
                     return null
                 }
-                return { type: 'literal', ival: lbl.addr, loc: lbl.loc };
+                return ast.mkLiteral(lbl.addr, lbl.loc);
             }
             if (node.type == 'member') {
                 function findObjectField(props, prop) {
@@ -392,7 +354,7 @@ class Assembler {
                         const p = props[pi]
                         // TODO THIS IS SUPER MESSY!! and doesn't handle errors
                         if (typeof prop == 'object') {
-                            if (p.key === prop.string) {
+                            if (p.key === prop.lit) {
                                 return p.val
                             }
                         } else {
@@ -421,7 +383,7 @@ class Assembler {
                 } else {
                     const idx = this.evalExpr(node.property);
                     if (object.type === 'array') {
-                        return this.evalExpr(object.values[idx.ival]);
+                        return this.evalExpr(object.values[idx.lit]);
                     } else if (object.type === 'object') {
                         const elt = findObjectField(object.props, idx);
                         if (elt) {
@@ -440,8 +402,8 @@ class Assembler {
                     this.error(`Calling an unknown function '${node.name}'`, node.loc);
                     return null;
                 }
-                if (sym.type != 'value') {
-                    this.error(`Cannot call a macro argument reference.`, node.loc);
+                if (sym.arg.type != 'value') {
+                    this.error(`Cannot call with a macro argument reference.`, node.loc);
                     return null;
                 }
                 const callee = sym.value;
@@ -461,7 +423,7 @@ class Assembler {
             }
             throw new Error(`don't know what to do with node '${node.type}'`)
         }
-        return evalExpr(ast);
+        return evalExpr(astNode);
     }
 
     emit = (byte: number) => {
@@ -489,13 +451,13 @@ class Assembler {
         }
         const eres = this.evalExpr(param);
         if (eres !== null) {
-            const { ival, loc } = eres
-            if (ival < 0 || ival > 255) {
-                this.error(`Immediate evaluates to ${ival} which cannot fit in 8 bits`, loc);
+            const { lit, loc } = eres
+            if (lit < 0 || lit > 255) {
+                this.error(`Immediate evaluates to ${lit} which cannot fit in 8 bits`, loc);
                 return false
             }
             this.emit(opcode)
-            this.emit(ival)
+            this.emit(lit)
             return true
         } else {
             if (this.pass === 0) {
@@ -513,16 +475,16 @@ class Assembler {
         }
         const eres = this.evalExpr(param);
         if (eres !== null) {
-            const { ival, loc } = eres
+            const { lit, loc } = eres
             if (bits === 8) {
-                if (ival < 0 || ival >= (1<<bits)) {
+                if (lit < 0 || lit >= (1<<bits)) {
                     return false
                 }
                 this.emit(opcode)
-                this.emit(ival)
+                this.emit(lit)
             } else {
                 this.emit(opcode)
-                this.emit16(ival)
+                this.emit16(lit)
             }
             return true
         } else {
@@ -549,7 +511,7 @@ class Assembler {
             this.emit(0);
             return true;
         }
-        const { ival: addr, loc } = eres
+        const { lit: addr, loc } = eres
         // TODO check 8-bit overflow here!!
         if (addr < (this.codePC - 0x600)) {  // Backwards?
           this.emit((0xff - ((this.codePC - 0x600) - addr)) & 0xff);
@@ -565,15 +527,15 @@ class Assembler {
             this.error(`Couldn't evaluate expression value`, eres.loc);
             return false
         }
-        const { ival, loc } = eres
-        while (this.codePC < ival) {
+        const { lit, loc } = eres
+        while (this.codePC < lit) {
             this.emit(0);
         }
         return true
     }
 
-    fileInclude = (ast) => {
-        const fname = path.join(path.dirname(this.peekSourceStack()), ast.filename);
+    fileInclude = (inclStmt: ast.StmtInclude) => {
+        const fname = path.join(path.dirname(this.peekSourceStack()), inclStmt.filename);
         const src = readFileSync(fname).toString();
         this.pushSource(fname);
         const res = this.assemble(src);
@@ -581,8 +543,8 @@ class Assembler {
         return res;
     }
 
-    fillBytes = (n: StmtFillBytes) => {
-        const numVals   = this.evalExpr(n.numBytes);
+    fillBytes = (n: ast.StmtFill) => {
+        const numVals = this.evalExpr(n.numBytes);
         if (!numVals) {
             return false;
         }
@@ -590,12 +552,12 @@ class Assembler {
         if (!fillValue) {
             return false;
         }
-        const fv = fillValue.ival;
+        const fv = fillValue.lit;
         if (fv < 0 || fv >= 256) {
             this.error(`!fill value to repeat must be in 8-bit range, '${fv}' given`, fillValue.loc);
             return false;
         }
-        for (let i = 0; i < numVals.ival; i++) {
+        for (let i = 0; i < numVals.lit; i++) {
             this.emit(fv);
         }
         return true;
@@ -610,7 +572,7 @@ class Assembler {
         return res;
     }
 
-    checkDirectives = (ast) => {
+    checkDirectives = (node: ast.Stmt) => {
         const tryIntArg = (exprList, bits) => {
             // TODO must handle list of bytes
             for (let i = 0; i < exprList.length; i++) {
@@ -620,44 +582,41 @@ class Assembler {
                     this.error(`Couldn't evaluate expression value for data statement`, undefined);
                     return false
                 }
-                const { ival } = eres
+                const { lit } = eres
                 if (bits === 8) {
-                    this.emit(ival);
+                    this.emit(lit);
                 } else {
                     if (bits !== 16) {
                         throw new Error('impossible');
                     }
-                    this.emit16(ival);
+                    this.emit16(lit);
                 }
             }
             return true
         }
-        switch (ast.type) {
-            case 'byte':
-            case 'word': {
-                const emitNode: StmtEmitBytes = ast
-                return tryIntArg(emitNode.values, ast.type === 'byte' ? 8 : 16);
+        switch (node.type) {
+            case 'data': {
+                return tryIntArg(node.values, node.dataSize === ast.DataSize.Byte ? 8 : 16);
             }
             case 'fill': {
-                const n: StmtFillBytes = ast
-                return this.fillBytes(n);
+                return this.fillBytes(node);
             }
             case 'setpc': {
-                return this.setPC(ast.pc);
+                return this.setPC(node.pc);
             }
             case 'binary': {
-                return this.emitBinary(ast);
+                return this.emitBinary(node);
             }
             case 'include': {
-                return this.fileInclude(ast);
+                return this.fileInclude(node);
             }
             case 'if': {
-                const { cond, trueBranch, falseBranch } = ast
-                const eres = this.evalExpr(ast.cond);
+                const { cond, trueBranch, falseBranch } = node
+                const eres = this.evalExpr(node.cond);
                 if (!eres) {
                     return false;
                 }
-                const { ival: condVal } = eres
+                const { lit: condVal } = eres
                 if (isTrueVal(condVal)) {
                     return this.assembleStmtList(trueBranch);
                 } else {
@@ -666,7 +625,7 @@ class Assembler {
                 return true;
             }
             case 'for': {
-                const { index, list, body, loc } = ast
+                const { index, list, body, loc } = node
                 const lst: any = this.evalExpr(list);
                 if (!lst) {
                     return false;
@@ -674,12 +633,8 @@ class Assembler {
 
                 return this.withScope('forloop', () => {
                     const loopVar: Constant = {
-                        name: index,
-                        type: 'value',
-                        value: {
-                            type: 'literal',
-                            ival: 0
-                        }
+                        arg: ast.mkMacroArg('value', index),
+                        value: ast.mkLiteral(0, null)
                     };
                     this.constants.add(index.name, loopVar);
 
@@ -698,7 +653,7 @@ class Assembler {
                 // No need to deal with sticking macros into the symbol table in the later
                 // passes because we only register its body AST.
                 if (this.pass === 0) {
-                    const { name, args, body } = ast;
+                    const { name, args, body } = node;
                     // TODO check for duplicate arg names!
                     const prevMacro = this.macros.find(name.name);
                     if (prevMacro !== undefined) {
@@ -706,13 +661,13 @@ class Assembler {
                         this.error(`Macro '${name}' already defined`, name.loc);
                         return false;
                     }
-                    this.macros.add(name.name, { name, args, body });
+                    this.macros.add(name.name, node);
                 }
                 return true;
             }
             case 'callmacro': {
                 let argValues = [];
-                const { name, args } = ast;
+                const { name, args } = node;
                 const macro = this.macros.find(name.name);
 
                 if (!macro) {
@@ -736,7 +691,7 @@ class Assembler {
                         // pass by named reference
                         if (arg.type !== 'ident') {
                             if (this.pass === 0) {
-                                const arg = macro.args[argIdx];
+                                const arg = macro.args[argIdx].ident;
                                 this.error(`Must pass an identifer for macro '${name.name}' argument '${arg.name}' (call-by-reference argument)`, arg.loc);
                             }
                             return false;
@@ -753,10 +708,9 @@ class Assembler {
                 }
                 return this.withScope(name, () => {
                     for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
-                        const argName = macro.args[argIdx];
+                        const argName = macro.args[argIdx].ident;
                         this.constants.add(argName.name, {
-                            name: argName,
-                            type: argValues[argIdx].type,
+                            arg: { ident: argName, type: argValues[argIdx].type},
                             value: argValues[argIdx].value
                         });
                     }
@@ -764,27 +718,26 @@ class Assembler {
                 })
             }
             case 'equ': {
-                const name = ast.name;
-                const prevConstant = this.constants.find(name);
+                const name = node.name;
+                const prevConstant = this.constants.find(name.name);
                 if (prevConstant) {
                     if (this.pass === 0) {
-                        this.error(`Constant ${name} already defined`, ast.loc);
+                        this.error(`Constant ${name.name} already defined`, node.loc);
                     }
                     return false;
                 }
-                const eres = this.evalExpr(ast.value);
+                const eres = this.evalExpr(node.value);
                 if (eres === null) {
                     return false;
                 }
-                this.constants.add(name, {
-                    name,
-                    type: 'value',
+                this.constants.add(name.name, {
+                    arg: { ident: name, type: 'value' },
                     value: eres
                 });
                 return true;
             }
             default:
-                throw new Error(`unknown directive ${ast.type}`)
+                throw new Error(`unknown directive ${node.type}`)
         }
     }
 
@@ -812,7 +765,7 @@ class Assembler {
             // If there's a label 'ref' in the constants table, rewrite the current line's
             // label name to that.  This is used for passing label names via macro parameters.
             if (constant) {
-                if (constant.type === 'ref') {
+                if (constant.arg.type === 'ref') {
                     lblSymbol = {
                         ...lblSymbol,
                         name: constant.value
@@ -934,7 +887,7 @@ class Assembler {
         const json = {
             type: 'function',
             func: args => {
-                const name = args[0].string;
+                const name = args[0].lit;
                 const curSource = this.peekSourceStack();
                 const fname = path.join(path.dirname(curSource), name);
                 return ast.objectToAst(JSON.parse(readFileSync(fname, 'utf-8')), null);
@@ -946,10 +899,10 @@ class Assembler {
                 let start = 0;
                 let end = undefined;
                 if (args.length == 1) {
-                    end = args[0].ival
+                    end = args[0].lit
                 } else if (args.length == 2) {
-                    start = args[0].ival
-                    end = args[1].ival
+                    start = args[0].lit
+                    end = args[1].lit
                 } else {
                     // TODO errors reporting via a context parameter
                     return null;
@@ -969,8 +922,10 @@ class Assembler {
         };
         const addPlugin = (name, handler) => {
             this.constants.add(name, {
-                name: { name, loc:null },
-                type: 'value',
+                arg: {
+                    type: 'value',
+                    ident: ast.mkIdent(name, null) // TODO loc?
+                },
                 value: handler
             })
         }
