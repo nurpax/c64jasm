@@ -353,7 +353,7 @@ class Assembler {
                 return ast.mkLiteral(lbl.addr, lbl.loc);
             }
             if (node.type == 'member') {
-                function findObjectField(props, prop) {
+                const findObjectField = (props, prop) => {
                     for (let pi = 0; pi < props.length; pi++) {
                         const p = props[pi]
                         // TODO THIS IS SUPER MESSY!! and doesn't handle errors
