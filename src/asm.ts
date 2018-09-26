@@ -740,6 +740,28 @@ class Assembler {
                 });
                 return true;
             }
+            case 'load-plugin': {
+                const fname = node.filename;
+                const pluginFunc = require(path.resolve(this.makeSourceRelativePath(fname)));
+                const funcName = node.funcName.name;
+                this.constants.add(funcName, {
+                    arg: {
+                        type: 'value',
+                        ident: node.funcName
+                    },
+                    value: {
+                        type: 'function',
+                        func: (args) => {
+                            const res = pluginFunc({
+                                readFileSync,
+                                resolveRelative: fn => this.makeSourceRelativePath(fn)
+                            }, ...args);
+                            return ast.objectToAst(res, node.loc);
+                        }
+                    }
+                })
+                return true;
+            }
             default:
                 throw new Error(`unknown directive ${node.type}`)
         }

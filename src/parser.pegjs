@@ -163,6 +163,9 @@ directive =
       return ast.mkCallMacro(name, args, loc());
     }
   / name:identifier EQU value:expr  { return ast.mkEqu(name, value, loc()); }
+  / PSEUDO_USE filename:string "as" __ plugin:identifier  {
+      return ast.mkLoadPlugin(filename, plugin, loc());
+    }
 
 string
   = '"' chars:doubleStringCharacter* '"' __ { return chars.join(''); }
@@ -365,6 +368,7 @@ PSEUDO_ELSE    = "else" ws
 PSEUDO_FOR     = "!for" ws
 PSEUDO_INCLUDE = "!include" ws
 PSEUDO_FILL    = "!fill" ws
+PSEUDO_USE     = "!use" ws
 
 LBRK      =  s:'['         ws { return s; }
 RBRK      =  s:']'         ws { return s; }

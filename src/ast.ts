@@ -52,6 +52,7 @@ export type Stmt =
   | StmtMacro
   | StmtCallMacro
   | StmtEqu
+  | StmtLoadPlugin
 
 export type Insn = any
 
@@ -125,6 +126,12 @@ export interface StmtEqu extends Node {
   type: 'equ',
   name: Ident;
   value: Expr;
+}
+
+export interface StmtLoadPlugin extends Node {
+  type: 'load-plugin',
+  filename: string;
+  funcName: Ident;
 }
 
 interface AsmLine extends Node {
@@ -232,6 +239,15 @@ export function mkEqu(name: Ident, value: Expr, loc: SourceLoc): StmtEqu {
     type: 'equ',
     name,
     value,
+    loc
+  }
+}
+
+export function mkLoadPlugin(filename: string, funcName: Ident, loc: SourceLoc): StmtLoadPlugin {
+  return {
+    type: 'load-plugin',
+    filename,
+    funcName,
     loc
   }
 }
