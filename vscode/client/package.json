@@ -18,6 +18,9 @@
 	},
 	"dependencies": {
 		"vscode": "^1.1.21",
-		"vscode-languageclient": "^4.1.4"
+		"vscode-languageclient": "^4.1.4",
+		"vscode-debugadapter": "1.32.1",
+		"vscode-debugprotocol": "1.32.0",
+		"await-notify": "1.0.1"
 	}
 }

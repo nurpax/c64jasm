@@ -17,7 +17,9 @@
 		"vscode": "^1.23.0"
 	},
 	"activationEvents": [
-		"onLanguage:asm"
+		"onLanguage:asm",
+		"onDebug",
+		"onCommand:extension.c64jasm.getProgramName"
 	],
 	"main": "./client/out/extension",
 	"contributes": {
@@ -80,6 +82,63 @@
 				"language": "asm",
 				"scopeName": "source.asm.c64",
 				"path": "./syntaxes/c64jasm.tmLanguage.json"
+			}
+		],
+		"debuggers": [
+			{
+				"type": "c64jasm",
+				"label": "c64jasm Debug",
+				"program": "./client/out/debugAdapter.js",
+				"runtime": "node",
+				"configurationAttributes": {
+					"launch": {
+						"required": [
+							"program"
+						],
+						"properties": {
+							"program": {
+								"type": "string",
+								"description": "Absolute path to a text file.",
+								"default": "${workspaceFolder}/${command:AskForProgramName}"
+							},
+							"stopOnEntry": {
+								"type": "boolean",
+								"description": "Automatically stop after launch.",
+								"default": true
+							},
+							"trace": {
+								"type": "boolean",
+								"description": "Enable logging of the Debug Adapter Protocol.",
+								"default": true
+							}
+						}
+					}
+				},
+				"initialConfigurations": [
+					{
+						"type": "c64jasm",
+						"request": "launch",
+						"name": "Ask for file name",
+						"program": "${workspaceFolder}/${command:AskForProgramName}",
+						"stopOnEntry": true
+					}
+				],
+				"configurationSnippets": [
+					{
+						"label": "c64jasm Debug: Launch",
+						"description": "A new configuration for 'debugging' a user selected markdown file.",
+						"body": {
+							"type": "c64jasm",
+							"request": "launch",
+							"name": "Ask for file name",
+							"program": "^\"\\${workspaceFolder}/\\${command:AskForProgramName}\"",
+							"stopOnEntry": true
+						}
+					}
+				],
+				"variables": {
+					"AskForProgramName": "extension.c64jasm.getProgramName"
+				}
 			}
 		]
 	},
