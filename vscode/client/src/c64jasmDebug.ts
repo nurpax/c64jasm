@@ -55,7 +55,6 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 		this._runtime = new C64jasmRuntime();
 
 		// setup event handlers
-		// setup event handlers
 		this._runtime.on('stopOnEntry', () => {
 			this.sendEvent(new StoppedEvent('entry', C64jasmDebugSession.THREAD_ID));
 		});
@@ -94,6 +93,7 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 
 		// the adapter implements the configurationDoneRequest.
 		response.body.supportsConfigurationDoneRequest = true;
+		response.body.supportTerminateDebuggee = true;
 
 		this.sendResponse(response);
 
@@ -124,6 +124,20 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 
 		// start the program in the runtime
 		this._runtime.start(args.program, !!args.stopOnEntry);
+
+		this.sendResponse(response);
+	}
+
+	protected async terminateRequest(response: DebugProtocol.TerminateResponse) {
+		// start the program in the runtime
+		this._runtime.terminate();
+
+		this.sendResponse(response);
+	}
+
+	protected async disconnectRequest(response: DebugProtocol.DisconnectResponse) {
+		// start the program in the runtime
+		this._runtime.terminate();
 
 		this.sendResponse(response);
 	}

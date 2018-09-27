@@ -29,7 +29,7 @@ const EMBED_DEBUG_ADAPTER = true;
 let client: LanguageClient;
 
 function activateDebugger(context: ExtensionContext) {
-	context.subscriptions.push(vscode.commands.registerCommand('extension.c64jasm.getProgramName', config => {
+	context.subscriptions.push(vscode.commands.registerCommand('extension.c64jasm.getProgramName', _config => {
 		return vscode.window.showInputBox({
 			placeHolder: "Please enter the name of your .asm entry file in the workspace folder",
 			value: "main.asm"

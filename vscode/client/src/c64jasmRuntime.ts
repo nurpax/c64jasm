@@ -2,6 +2,11 @@
 import { readFileSync } from 'fs';
 import { EventEmitter } from 'events';
 
+import * as path from 'path'
+
+import { ChildProcess } from 'child_process'
+import * as child_process from 'child_process'
+
 export interface C64jasmBreakpoint {
 	id: number;
 	line: number;
@@ -32,6 +37,7 @@ export class C64jasmRuntime extends EventEmitter {
 	// so that the frontend can match events with breakpoints.
 	private _breakpointId = 1;
 
+	private _viceProcess: ChildProcess = null;
 
 	constructor() {
 		super();
@@ -43,6 +49,10 @@ export class C64jasmRuntime extends EventEmitter {
 	public start(program: string, stopOnEntry: boolean) {
 
 		this.loadSource(program);
+
+		const { dir, name } = path.parse(program);
+		const prgName = path.join(dir, name+'.prg');
+		this._viceProcess = child_process.exec(`x64 ${prgName}`);
 		this._currentLine = -1;
 
 		this.verifyBreakpoints(this._sourceFile);
@@ -54,6 +64,10 @@ export class C64jasmRuntime extends EventEmitter {
 			// we just start to run until we hit a breakpoint or an exception
 			this.continue();
 		}
+	}
+
+	public terminate() {
+		this._viceProcess.kill();
 	}
 
 	/**
