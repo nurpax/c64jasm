@@ -167,9 +167,8 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 		const startFrame = typeof args.startFrame === 'number' ? args.startFrame : 0;
 		const maxLevels = typeof args.levels === 'number' ? args.levels : 1000;
 		const endFrame = startFrame + maxLevels;
-
 		const stk = this._runtime.stack(startFrame, endFrame);
-
+		
 		response.body = {
 			stackFrames: stk.frames.map((f:any) => new StackFrame(f.index, f.name, this.createSource(f.file), this.convertDebuggerLineToClient(f.line))),
 			totalFrames: stk.count
@@ -179,50 +178,23 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
 
+		/*
 		const frameReference = args.frameId;
 		const scopes = new Array<Scope>();
 		scopes.push(new Scope("Local", this._variableHandles.create("local_" + frameReference), false));
 		scopes.push(new Scope("Global", this._variableHandles.create("global_" + frameReference), true));
+		*/
 
 		response.body = {
-			scopes: scopes
+			scopes: []
 		};
 		this.sendResponse(response);
 	}
 
 	protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
-
-		const variables = new Array<DebugProtocol.Variable>();
-		const id = this._variableHandles.get(args.variablesReference);
-		if (id !== null) {
-			variables.push({
-				name: id + "_i",
-				type: "integer",
-				value: "123",
-				variablesReference: 0
-			});
-			variables.push({
-				name: id + "_f",
-				type: "float",
-				value: "3.14",
-				variablesReference: 0
-			});
-			variables.push({
-				name: id + "_s",
-				type: "string",
-				value: "hello world",
-				variablesReference: 0
-			});
-			variables.push({
-				name: id + "_o",
-				type: "object",
-				value: "Object",
-				variablesReference: this._variableHandles.create("object_")
-			});
-		}
-
+		// No variables in 6502 assemble (maybe could use this for show label values?)
 		response.body = {
-			variables: variables
+			variables: []
 		};
 		this.sendResponse(response);
 	}
