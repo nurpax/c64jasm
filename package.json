@@ -1,6 +1,6 @@
 {
   "name": "c64jasm",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "A C64 macro assembler",
   "license": "MIT",
   "repository": {
@@ -8,6 +8,11 @@
     "url": "https://github.com/nurpax/c64jasm.git"
   },
   "main": "./dist/src/index.js",
+  "files": [
+    "dist/**/*",
+    "src/**/*",
+    "test/**/*"
+  ],
   "homepage": "https://github.com/nurpax/c64jasm#README.md",
   "author": {
     "email": "jjhellst@gmail.com",
