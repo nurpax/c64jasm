@@ -19,6 +19,8 @@ import {
 	TransportKind
 } from 'vscode-languageclient';
 
+const LANGUAGE_SERVER_ENABLED = false;
+
 /*
  * Set the following compile time flag to true if the
  * debug adapter should run inside the extension host.
@@ -98,9 +100,9 @@ class C64jasmConfigurationProvider implements vscode.DebugConfigurationProvider 
 
 export function activate(context: ExtensionContext) {
 	activateDebugger(context);
-	// DEBUG leave language server features disabled for now
-	return;
-
+	if (!LANGUAGE_SERVER_ENABLED) {
+		return;
+	}
 	// The server is implemented in node
 	let serverModule = context.asAbsolutePath(
 		path.join('server', 'out', 'server.js')

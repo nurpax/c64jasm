@@ -177,7 +177,7 @@ export class C64jasmRuntime extends EventEmitter {
 			for (let ln = this._currentLine+1; ln < this._sourceLines.length; ln++) {
 				if (this.fireEventsForLine(ln, stepEvent)) {
 					this._currentLine = ln;
-					return true;
+					return;
 				}
 			}
 			// no more lines: run to end

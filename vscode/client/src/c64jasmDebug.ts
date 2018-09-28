@@ -6,7 +6,7 @@ import {
 	Logger, logger,
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	Thread, Source, Scope, StackFrame, Handles, Breakpoint
+	Thread, Source, StackFrame, Breakpoint
 } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
@@ -36,8 +36,6 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 
 	// a C64jasm runtime (or debugger)
 	private _runtime: C64jasmRuntime;
-
-	private _variableHandles = new Handles<string>();
 
 	private _configurationDone = new Subject();
 
@@ -86,7 +84,7 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 	 * The 'initialize' request is the first request called by the frontend
 	 * to interrogate the features the debug adapter provides.
 	 */
-	protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
+	protected initializeRequest(response: DebugProtocol.InitializeResponse, _args: DebugProtocol.InitializeRequestArguments): void {
 
 		// build and return the capabilities of this debug adapter:
 		response.body = response.body || {};
