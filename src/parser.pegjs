@@ -230,7 +230,7 @@ imm = '#' lh:loOrHi? expr:expr {
       return binop('&', expr, ast.mkLiteral(255, loc()));
     }
     const lit8 = ast.mkLiteral(8, loc());
-    const lit255 = ast.mkLiteral(8, loc());
+    const lit255 = ast.mkLiteral(255, loc());
     return binop('&', binop('>>', expr, lit8), lit255);
   }
   return expr
