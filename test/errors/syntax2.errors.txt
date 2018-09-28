@@ -1,1 +1,1 @@
-<unknown>:1:1: error: Internal compiler error x.
+<unknown>:1:1: error: Internal compiler error: unhandled codepath.

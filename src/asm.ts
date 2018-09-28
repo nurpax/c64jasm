@@ -336,7 +336,16 @@ class Assembler {
                 const constant = this.constants.find(label);
                 if (constant) {
                     if (constant.arg.type === 'value') {
-                        return constant.value;
+                        if (constant.value) {
+                            return constant.value;
+                        }
+                        // Return something that we can continue compilation with in case this
+                        // is a legit forward reference.
+                        if (this.pass == 0) {
+                            return ast.mkLiteral(0, node.name.loc);
+                        }
+                        this.error(`Couldn't resolve value for identifier '${label}'`, node.name.loc);
+                        return null;
                     }
                     // TODO name shadowing warning
                     label = constant.value;
@@ -979,7 +988,7 @@ export function assemble(filename) {
         if (!asm.assemble(src)) {
             // Ddin't get an error but returned anyway?  Add ICE
             if (!asm.anyErrors()) {
-                asm.error('Internal compiler error x.', undefined)
+                asm.error('Internal compiler error: unhandled codepath.', undefined)
             }
             return {
                 errors: asm.errors()

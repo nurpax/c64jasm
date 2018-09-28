@@ -8,9 +8,10 @@
             "type": "node",
             "request": "launch",
             "name": "Launch Program",
-            "program": "${workspaceFolder}/src/asm.ts",
+            "program": "${workspaceFolder}/src/cli.ts",
             "args": [
-                "test/petscii1.asm"
+                "test/cases/scroll1.input.asm",
+                "--out=x.prg"
             ],
             "preLaunchTask": "tsc: build - tsconfig.json",
             "outFiles": [
@@ -25,7 +26,7 @@
             "preLaunchTask": "tsc: build - tsconfig.json",
             "outFiles": [
                 "${workspaceFolder}/build/**/*.js"
-            ]
+            ] 
         }
     ]
 }

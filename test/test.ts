@@ -60,14 +60,9 @@ function readLines(fname) {
     return lines.map(line => line.trimRight());
 }
 
-function outputTest() {
+function outputTest(testcase) {
     const g = glob();
-    let inputs = g.readdirSync('test/cases/*.input.asm');
-
-    const last = argv[argv.length-1];
-    if (path.extname(last) === '.asm') {
-        inputs = [path.join('test/cases', path.basename(last))];
-    }
+    let inputs = g.readdirSync('test/cases/*.input.asm').filter(t => testcase ? t == testcase : true);
 
     const runTest = (fname) => {
         const { prg, errors } = assemble(fname);
@@ -130,14 +125,9 @@ function cleanSyntaxError(msg) {
     return msg;
 }
 
-function testErrors() {
+function testErrors(testcase) {
     const g = glob();
-    let inputs = g.readdirSync('test/errors/*.input.asm');
-
-    const last = argv[argv.length-1];
-    if (path.extname(last) === '.asm') {
-        inputs = [path.join('test/errors', path.basename(last))];
-    }
+    let inputs = g.readdirSync('test/errors/*.input.asm').filter(t => testcase ? t == testcase : true);
 
     const runTest = (fname) => {
         const x = assemble(fname);
@@ -198,6 +188,11 @@ parser.addArgument('--verbose', {
     constant:true,
     help: 'Output .prg filename'
 });
+
+parser.addArgument('--test', {
+    help: 'Test case to run (default is to run all)'
+});
+
 const args = parser.parseArgs();
 if (args.verbose) {
     verbose = true;
@@ -205,8 +200,8 @@ if (args.verbose) {
 
 const hrstart = process.hrtime();
 
-outputTest();
-testErrors();
+outputTest(args.test);
+testErrors(args.test);
 
 if (verbose) {
     const NS_PER_SEC = 1e9;
