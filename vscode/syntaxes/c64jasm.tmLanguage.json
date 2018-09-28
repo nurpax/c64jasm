@@ -29,6 +29,7 @@
 				}
 			}
 		},
+
 		{
 			"name": "meta.macro.c64",
 			"match": "(?i)^[ \t]*(!macro)[ \t]+([a-zA-Z0-9_\\.]+)",
@@ -44,73 +45,53 @@
 
 		{
 			"name": "meta.other.c64",
-			"match": "(?i)^[ \t]*(!if)[ \t]*\\(",
+			"match": "(?i)^[ \t]*(!if|!include|!binary|!for|!fill|!byte|!word|!use)[ \t]*",
 			"captures": {
 				"1": {
-					"name": "variable.other.macro.c64"
-				},
-				"2": {
-					"name": "meta.macro.name.c64"
+					"name": "variable.other.pseudo.c64"
 				}
 			}
 		},
 
 		{
-			"name": "meta.section.c64",
-			"match": "(?i)\bsection\\s+(.[^,]*)\\s*,\\s*(.[^;]+)",
+			"name": "meta.definition.label.c64",
+			"match": "(?i)^[ \t]*([a-zA-Z_][a-zA-Z0-9_]*):",
 			"captures": {
 				"1": {
-					"name": "meta.section.name.c64"
-				},
-				"2": {
-					"name": "meta.section.type.c64"
+					"name": "variable.other.label.c64"
 				}
 			}
-		},
-		{
-			"name": "meta.include.c64",
-			"match": "(?i)\binclude[ \t]+(\"[^\"]+\"|'[^']+'|[^,]+)",
-			"captures": {
-				"1": {
-					"name": "meta.include.name.c64"
-				}
-			}
-		},
-		{
-			"name": "meta.label.global.c64",
-			"match": "^[a-zA-Z_]([a-zA-Z0-9_]*|[a-zA-Z0-9_\\.%\\$]*[a-zA-Z0-9_])(?=$|[ \t:])"
 		},
 		{
 			"name": "constant.numeric.hex.c64",
-			"match": "(?<![a-zA-Z])\\$[0-9A-Fa-f]+\\b"
-		},
-		{
-			"name": "constant.numeric.octal.c64",
-			"match": "(?<![a-zA-Z])@[0-7]+\\b"
-		},
-		{
-			"name": "constant.numeric.binary.c64",
-			"match": "(?<![a-zA-Z])%[01]+\\b"
+			"match": "(#)?\\$([0-9A-Fa-f]+)\\b",
+			"captures": {
+				"1": {
+					"name": "string.quoted.single.c64"
+				},
+				"2": {
+					"name": "constant.numeric.hex.c64"
+				}
+			}
 		},
 		{
 			"name": "constant.numeric.decimal.c64",
-			"match": "(?<![a-zA-Z])[+-]?[0-9]+\\b"
+			"match": "((#)(\\d+))|(\\b\\d+\\b)",
+			"captures": {
+				"2": {
+					"name": "string.quoted.single.c64"
+				},
+				"3": {
+					"name": "constant.numeric.decimal.c64"
+				},
+				"4": {
+					"name": "constant.numeric.decimal.c64"
+				}
+			}
 		},
 		{
 			"name": "keyword.other.opcode.cpu.c64",
 			"match": "(?i)\\b(adc|and|asl|bit|bpl|bmi|bvc|bvs|bcc|bcs|bne|beq|brk|cmp|cpx|cpy|dec|eor|clc|sec|cli|sei|clv|cld|sed|inc|jmp|jsr|lda|ldx|ldy|lsr|nop|ora|tax|txa|dex|inx|tay|tya|dey|iny|ror|rol|rti|rts|sbc|sta|txs|tsx|pha|pla|php|plp|stx|sty)\\b"
-		},
-		{
-			"name": "keyword.control.import.c64",
-			"match": "(?i)\\b(include|incdir|incbin)\\b"
-		},
-		{
-			"name": "keyword.control.section.c64",
-			"match": "(?i)\\b(section|bss(_[cf])?|cseg|code(_[cf])?|data(_[cf])?|dseg)\\b"
-		},
-		{
-			"name": "invalid.illegal.opcode.c64",
-			"match": "(?i)\\billegal\\b"
 		}
 	]
 }
