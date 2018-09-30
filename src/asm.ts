@@ -90,19 +90,25 @@ class Labels {
         this.labelPrefix.pop();
     }
 
-    currentScopePrefix(): string {
+    makeScopePrefix(maxDepth): string {
         if (this.labelPrefix.length === 0) {
             return ''
         }
-        return this.labelPrefix.join('/');
+        return this.labelPrefix.slice(0, maxDepth).join('/');
     }
 
-    prefixName(name: string): string {
+    currentScopePrefix(): string {
+        return this.makeScopePrefix(this.labelPrefix.length)
+    }
+
+    currentPrefixName(name: string): string {
         const prefix = this.currentScopePrefix();
-        if (name[0] === '_') {
-            return `${prefix}${name}`
-        }
-        return name
+        return `${prefix}${name}`
+    }
+
+    prefixName(name: string, depth): string {
+        const prefix = this.makeScopePrefix(depth);
+        return `${prefix}${name}`
     }
 
     add(name: string, addr: number, loc: SourceLoc): void {
@@ -110,12 +116,23 @@ class Labels {
             addr,
             loc
         }
-        const prefixedName = this.prefixName(name)
+        const prefixedName = this.currentPrefixName(name);
         this.labels[prefixedName] = lbl
     }
 
     find(name: string): Label {
-        return this.labels[this.prefixName(name)]
+        const scopeDepth = this.labelPrefix.length;
+        if (scopeDepth == 0) {
+            return this.labels[name];
+        }
+        for (let depth = scopeDepth; depth >= 0; depth--) {
+            const pn = this.prefixName(name, depth);
+            const lbl = this.labels[pn];
+            if (lbl) {
+                return lbl;
+            }
+        }
+        return undefined;
     }
 }
 
@@ -203,12 +220,12 @@ class Scopes {
     }
 
     findSeenLabel(name: string): ast.Label {
-        return this.seenLabels.find(this.labels.prefixName(name));
+        return this.seenLabels.find(this.labels.currentPrefixName(name));
     }
 
     declareLabelSymbol(symbol: ast.Label, codePC: number): boolean {
         const { name, loc } = symbol
-        this.seenLabels.declare(this.labels.prefixName(name), symbol);
+        this.seenLabels.declare(this.labels.currentPrefixName(name), symbol);
         const oldLabel = this.labels.find(name);
         if (oldLabel === undefined) {
             this.addLabel(name, codePC, loc);
@@ -394,22 +411,17 @@ class Assembler {
                 let label = node.name
                 const variable = this.variables.find(label);
                 if (variable) {
-                    if (variable.arg.type === 'value') {
-                        if (variable.value) {
-                            return variable.value;
-                        }
-                        // Return something that we can continue compilation with in case this
-                        // is a legit forward reference.
-                        if (this.pass == 0) {
-                            return ast.mkLiteral(0, node.name.loc);
-                        }
-                        this.error(`Couldn't resolve value for identifier '${label}'`, node.name.loc);
-                        return null;
+                    if (variable.value) {
+                        return variable.value;
                     }
-                    // TODO name shadowing warning
-                    label = variable.value;
+                    // Return something that we can continue compilation with in case this
+                    // is a legit forward reference.
+                    if (this.pass == 0) {
+                        return ast.mkLiteral(0, node.name.loc);
+                    }
+                    this.error(`Couldn't resolve value for identifier '${label}'`, node.name.loc);
+                    return null;
                 }
-
                 const lbl = this.scopes.findLabel(label);
                 if (!lbl) {
                     if (this.pass === 1) {
@@ -472,10 +484,6 @@ class Assembler {
                 const sym = this.variables.find(node.name);
                 if (!sym) {
                     this.error(`Calling an unknown function '${node.name}'`, node.loc);
-                    return null;
-                }
-                if (sym.arg.type != 'value') {
-                    this.error(`Cannot call with a macro argument reference.`, node.loc);
                     return null;
                 }
                 const callee = sym.value;
@@ -635,7 +643,7 @@ class Assembler {
         return true;
     }
 
-    withScope = (name, compileScope) => {
+    withScope = (name: string, compileScope) => {
         this.pushVariableScope();
         this.scopes.pushMacroExpandScope(name);
         const res = compileScope();
@@ -708,7 +716,7 @@ class Assembler {
                     const ok = this.withScope('__forloop', () => {
                         const value = this.evalExpr(elts[i])
                         const loopVar: Constant = {
-                            arg: ast.mkMacroArg('value', index),
+                            arg: ast.mkMacroArg(index),
                             value
                         };
                         this.variables.add(index.name, loopVar);
@@ -752,32 +760,17 @@ class Assembler {
                 }
 
                 for (let argIdx = 0; argIdx < macro.args.length; argIdx++) {
-                    const argType = macro.args[argIdx].type;
-                    const arg = args[argIdx];
-                    if (argType === 'ref') {
-                        // pass by named reference
-                        if (arg.type !== 'ident') {
-                            if (this.pass === 0) {
-                                const arg = macro.args[argIdx].ident;
-                                this.error(`Must pass an identifer for macro '${name.name}' argument '${arg.name}' (call-by-reference argument)`, arg.loc);
-                            }
-                            return false;
-                        }
-                        argValues.push({type: 'ref', value: arg.name});
-                    } else {
-                        // pass by value, so evaluate
-                        const eres = this.evalExpr(args[argIdx]);
-                        argValues.push({
-                            type: 'value',
-                            value: eres
-                        });
-                    }
+                    const eres = this.evalExpr(args[argIdx]);
+                    argValues.push({
+                        type: 'value',
+                        value: eres
+                    });
                 }
-                return this.withScope(name, () => {
+                return this.withScope(name.name, () => {
                     for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
                         const argName = macro.args[argIdx].ident;
                         this.variables.add(argName.name, {
-                            arg: { ident: argName, type: argValues[argIdx].type},
+                            arg: { ident: argName },
                             value: argValues[argIdx].value
                         });
                     }
@@ -798,7 +791,7 @@ class Assembler {
                     return false;
                 }
                 this.variables.add(name.name, {
-                    arg: { ident: name, type: 'value' },
+                    arg: { ident: name },
                     value: eres
                 });
                 return true;
@@ -815,7 +808,7 @@ class Assembler {
                     return false;
                 }
                 this.variables.add(name.name, {
-                    arg: { ident: name, type: 'value' },
+                    arg: { ident: name },
                     value: eres
                 });
                 return true;
@@ -826,7 +819,6 @@ class Assembler {
                 const funcName = node.funcName.name;
                 this.variables.add(funcName, {
                     arg: {
-                        type: 'value',
                         ident: node.funcName
                     },
                     value: {
@@ -867,18 +859,6 @@ class Assembler {
 
         if (line.label !== null) {
             let lblSymbol = line.label;
-            const variable = this.variables.find(line.label.name);
-            // If there's a label 'ref' in the constants table, rewrite the current line's
-            // label name to that.  This is used for passing label names via macro parameters.
-            if (variable) {
-                if (variable.arg.type === 'ref') {
-                    lblSymbol = {
-                        ...lblSymbol,
-                        name: variable.value
-                    };
-                }
-            }
-
             const seenSymbol = this.scopes.findSeenLabel(lblSymbol.name);
             if (seenSymbol) {
                 this.error(`Label '${seenSymbol.name}' already defined`, lblSymbol.loc);
@@ -1025,7 +1005,6 @@ class Assembler {
         const addPlugin = (name, handler) => {
             this.variables.add(name, {
                 arg: {
-                    type: 'value',
                     ident: ast.mkIdent(name, null) // TODO loc?
                 },
                 value: handler

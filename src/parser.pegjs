@@ -178,12 +178,7 @@ macroName = name:ident { return ast.mkIdent(name, loc()); }
 
 macroArgNameList = head:macroArgName tail:(COMMA macroArgName)* { return buildList(head, tail, 1); }
 macroArgName =
-  "~" ident:identifier {
-    return ast.mkMacroArg('ref', ident);
-  }
-  / ident:identifier {
-    return ast.mkMacroArg('value', ident);
-  }
+  ident:identifier { return ast.mkMacroArg(ident); }
 
 exprList = head:expr tail:(COMMA expr)* { return buildList(head, tail, 1); }
 

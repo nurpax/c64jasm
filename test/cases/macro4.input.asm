@@ -2,9 +2,9 @@
 
 !macro foo(a, b) {
     lda #a
-    bne _lbl1
+    bne lbl1
     lda #b
-_lbl1:
+lbl1:
 }
 
     +foo(1, 2)

@@ -1,4 +1,4 @@
-!macro basic_start(~xaddr) {
+!macro basic_start(xaddr) {
 * = $801
     !byte $0c
     !byte $08

@@ -1,1 +1,0 @@
-test/errors/macro4.input.asm:7 - Label 'lbl1' already defined

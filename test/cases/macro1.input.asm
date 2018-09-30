@@ -5,7 +5,7 @@
     lda #b
 }
 
-!macro add16imm(~a, imm) {
+!macro add16imm(a, imm) {
     lda a
     clc
     adc #<imm

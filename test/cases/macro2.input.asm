@@ -1,7 +1,7 @@
 * = $801
 
 
-!macro jmptest(~a) {
+!macro jmptest(a) {
     jmp a
 }
 

@@ -106,7 +106,6 @@ export interface StmtFor extends Node {
 }
 
 export interface MacroArg {
-  type: 'ref' | 'value';
   ident: Ident;
 }
 
@@ -218,8 +217,8 @@ export function mkFor(index: Ident, list: Expr, body: Stmt[], loc: SourceLoc): S
   }
 }
 
-export function mkMacroArg(type: 'ref' | 'value', ident: Ident): MacroArg {
-  return { type, ident };
+export function mkMacroArg(ident: Ident): MacroArg {
+  return { ident };
 }
 
 export function mkMacro(name: Ident, args: MacroArg[] | null, body: Stmt[], loc: SourceLoc): StmtMacro {
