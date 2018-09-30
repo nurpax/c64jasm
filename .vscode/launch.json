@@ -10,7 +10,7 @@
             "name": "Launch Program",
             "program": "${workspaceFolder}/src/cli.ts",
             "args": [
-                "test/cases/scroll1.input.asm",
+                "test/cases/macro1.input.asm",
                 "--out=x.prg"
             ],
             "preLaunchTask": "tsc: build - tsconfig.json",

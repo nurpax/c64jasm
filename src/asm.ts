@@ -119,9 +119,59 @@ class Labels {
     }
 }
 
+interface Constant {
+    arg: ast.MacroArg,
+    value: any
+}
+
+class SymbolTab<S> {
+    symbols: Map<string, S> = new Map();
+
+    add = (name: string, s: S) => {
+        this.symbols[name] = s
+    }
+
+    find (name: string): S {
+        return this.symbols[name]
+    }
+}
+
+class ScopeStack<S> {
+    stack: SymbolTab<S>[] = [];
+
+    push = () => {
+        this.stack.push(new SymbolTab<S>());
+    }
+
+    pop = () => {
+        this.stack.pop();
+    }
+
+    find (name: string): S | undefined {
+        const last = this.stack.length-1;
+        for (let idx = last; idx >= 0; idx--) {
+            const elt = this.stack[idx].find(name);
+            if (elt) {
+                return elt;
+            }
+        }
+        return undefined;
+    }
+
+    add = (name: string, sym: S) => {
+        const last = this.stack.length-1;
+        this.stack[last].add(name, sym);
+    }
+}
+
 class Scopes {
     labels = new Labels();
     seenLabels = new SeenLabels();
+    macros = new ScopeStack<ast.StmtMacro>();
+
+    constructor () {
+        this.macros.push();
+    }
 
     startPass(): void {
         this.labels.startPass();
@@ -134,6 +184,14 @@ class Scopes {
 
     popMacroExpandScope(): void {
         this.labels.popMacroExpandScope();
+    }
+
+    findMacro(name: string): ast.StmtMacro | undefined {
+        return this.macros.find(name);
+    }
+
+    addMacro(name: string, macro: ast.StmtMacro): void {
+        return this.macros.add(name, macro);
     }
 
     addLabel(name: string, addr: number, loc: SourceLoc): void {
@@ -166,51 +224,6 @@ class Scopes {
 
 }
 
-interface Constant {
-    arg: ast.MacroArg,
-    value: any
-}
-
-class SymbolTab<S> {
-    symbols: Map<string, S> = new Map();
-
-    add = (name: string, s: S) => {
-        this.symbols[name] = s
-    }
-
-    find (name: string): S {
-        return this.symbols[name]
-    }
-}
-
-class ScopeStack<S> {
-    stack: SymbolTab<S>[] = [];
-
-    push = () => {
-        this.stack.push(new SymbolTab<S>());
-    }
-
-    pop = () => {
-        this.stack.pop();
-    }
-
-    find (name: string): S {
-        const last = this.stack.length-1;
-        for (let idx = last; idx >= 0; idx--) {
-            const elt = this.stack[idx].find(name);
-            if (elt) {
-                return elt;
-            }
-        }
-        return undefined;
-    }
-
-    add = (name: string, sym: S) => {
-        const last = this.stack.length-1;
-        this.stack[last].add(name, sym);
-    }
-}
-
 function isTrueVal(cond: number | boolean): boolean {
     return (cond === true || cond != 0);
 }
@@ -224,7 +237,6 @@ class Assembler {
     pass = 0;
     needPass = false;
     scopes = new Scopes();
-    macros = new SymbolTab<ast.StmtMacro>()
     variables = new ScopeStack<Constant>();
     errorList: Error[] = [];
 
@@ -278,11 +290,13 @@ class Assembler {
     }
 
     pushVariableScope = () => {
+        this.scopes.macros.push();
         this.variables.push();
     }
 
     popVariableScope = () => {
         this.variables.pop();
+        this.scopes.macros.pop();
     }
 
     emitBasicHeader = () => {
@@ -707,25 +721,21 @@ class Assembler {
                 return true;
             }
             case 'macro': {
-                // No need to deal with sticking macros into the symbol table in the later
-                // passes because we only register its body AST.
-                if (this.pass === 0) {
-                    const { name, args, body } = node;
-                    // TODO check for duplicate arg names!
-                    const prevMacro = this.macros.find(name.name);
-                    if (prevMacro !== undefined) {
-                        // TODO previous declaration from prevMacro
-                        this.error(`Macro '${name}' already defined`, name.loc);
-                        return false;
-                    }
-                    this.macros.add(name.name, node);
+                const { name, args, body } = node;
+                // TODO check for duplicate arg names!
+                const prevMacro = this.scopes.findMacro(name.name);
+                if (prevMacro !== undefined) {
+                    // TODO previous declaration from prevMacro
+                    this.error(`Macro '${name.name}' already defined`, name.loc);
+                    return false;
                 }
+                this.scopes.addMacro(name.name, node);
                 return true;
             }
             case 'callmacro': {
                 let argValues = [];
                 const { name, args } = node;
-                const macro = this.macros.find(name.name);
+                const macro = this.scopes.findMacro(name.name);
 
                 if (!macro) {
                     if (this.pass === 0) {
