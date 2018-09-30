@@ -162,7 +162,8 @@ directive =
   / "+" name:macroName LPAR args:exprList? RPAR  {
       return ast.mkCallMacro(name, args, loc());
     }
-  / name:identifier EQU value:expr  { return ast.mkEqu(name, value, loc()); }
+  / PSEUDO_LET name:identifier EQU value:expr  { return ast.mkLet(name, value, loc()); }
+  / name:identifier EQU value:expr             { return ast.mkAssign(name, value, loc()); }
   / PSEUDO_USE filename:string "as" __ plugin:identifier  {
       return ast.mkLoadPlugin(filename, plugin, loc());
     }
@@ -362,6 +363,7 @@ __ = ws
 PSEUDO_BYTE    = "!byte" ws { return 'byte'; }
 PSEUDO_WORD    = "!word" ws { return 'word'; }
 PSEUDO_BINARY  = "!binary" ws
+PSEUDO_LET     = "!let" ws
 PSEUDO_MACRO   = "!macro" ws
 PSEUDO_IF      = "!if" ws
 PSEUDO_ELSE    = "else" ws

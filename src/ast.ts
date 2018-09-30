@@ -51,7 +51,8 @@ export type Stmt =
   | StmtFor
   | StmtMacro
   | StmtCallMacro
-  | StmtEqu
+  | StmtLet
+  | StmtAssign
   | StmtLoadPlugin
 
 export type Insn = any
@@ -122,8 +123,14 @@ export interface StmtCallMacro extends Node {
   args: Expr[];
 }
 
-export interface StmtEqu extends Node {
-  type: 'equ',
+export interface StmtLet extends Node {
+  type: 'let',
+  name: Ident;
+  value: Expr;
+}
+
+export interface StmtAssign extends Node {
+  type: 'assign',
   name: Ident;
   value: Expr;
 }
@@ -234,9 +241,18 @@ export function mkCallMacro(name: Ident, args: Expr[], loc: SourceLoc): StmtCall
   }
 }
 
-export function mkEqu(name: Ident, value: Expr, loc: SourceLoc): StmtEqu {
+export function mkLet(name: Ident, value: Expr, loc: SourceLoc): StmtLet {
   return {
-    type: 'equ',
+    type: 'let',
+    name,
+    value,
+    loc
+  }
+}
+
+export function mkAssign(name: Ident, value: Expr, loc: SourceLoc): StmtAssign {
+  return {
+    type: 'assign',
     name,
     value,
     loc

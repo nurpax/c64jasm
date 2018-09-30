@@ -119,6 +119,53 @@ class Labels {
     }
 }
 
+class Scopes {
+    labels = new Labels();
+    seenLabels = new SeenLabels();
+
+    startPass(): void {
+        this.labels.startPass();
+        this.seenLabels.clear();
+    }
+
+    pushMacroExpandScope(macroName): void {
+        this.labels.pushMacroExpandScope(macroName);
+    }
+
+    popMacroExpandScope(): void {
+        this.labels.popMacroExpandScope();
+    }
+
+    addLabel(name: string, addr: number, loc: SourceLoc): void {
+        this.labels.add(name, addr, loc);
+    }
+
+    findLabel(name: string): Label {
+        return this.labels.find(name);
+    }
+
+    findSeenLabel(name: string): ast.Label {
+        return this.seenLabels.find(this.labels.prefixName(name));
+    }
+
+    declareLabelSymbol(symbol: ast.Label, codePC: number): boolean {
+        const { name, loc } = symbol
+        this.seenLabels.declare(this.labels.prefixName(name), symbol);
+        const oldLabel = this.labels.find(name);
+        if (oldLabel === undefined) {
+            this.addLabel(name, codePC, loc);
+            return false;
+        }
+        // If label address has changed change, need one more pass
+        if (oldLabel.addr !== codePC) {
+            this.addLabel(name, codePC, loc);
+            return true;
+        }
+        return false;
+    }
+
+}
+
 interface Constant {
     arg: ast.MacroArg,
     value: any
@@ -176,10 +223,9 @@ class Assembler {
     codePC = 0;
     pass = 0;
     needPass = false;
-    seenLabels = new SeenLabels();
-    labels = new Labels()
+    scopes = new Scopes();
     macros = new SymbolTab<ast.StmtMacro>()
-    constants = new ScopeStack<Constant>();
+    variables = new ScopeStack<Constant>();
     errorList: Error[] = [];
 
     prg = () => {
@@ -228,16 +274,15 @@ class Assembler {
       this.pass = pass;
       this.needPass = false;
       this.binary = [];
-      this.seenLabels.clear();
-      this.labels.startPass();
+      this.scopes.startPass();
     }
 
-    pushConstantScope = () => {
-        this.constants.push();
+    pushVariableScope = () => {
+        this.variables.push();
     }
 
-    popConstantScope = () => {
-        this.constants.pop();
+    popVariableScope = () => {
+        this.variables.pop();
     }
 
     emitBasicHeader = () => {
@@ -333,11 +378,11 @@ class Assembler {
             }
             if (node.type == 'ident') {
                 let label = node.name
-                const constant = this.constants.find(label);
-                if (constant) {
-                    if (constant.arg.type === 'value') {
-                        if (constant.value) {
-                            return constant.value;
+                const variable = this.variables.find(label);
+                if (variable) {
+                    if (variable.arg.type === 'value') {
+                        if (variable.value) {
+                            return variable.value;
                         }
                         // Return something that we can continue compilation with in case this
                         // is a legit forward reference.
@@ -348,10 +393,10 @@ class Assembler {
                         return null;
                     }
                     // TODO name shadowing warning
-                    label = constant.value;
+                    label = variable.value;
                 }
 
-                const lbl = this.labels.find(label);
+                const lbl = this.scopes.findLabel(label);
                 if (!lbl) {
                     if (this.pass === 1) {
                         this.error(`Undefined symbol '${label}'`, node.loc)
@@ -410,7 +455,7 @@ class Assembler {
                 }
             }
             if (node.type == 'callfunc') {
-                const sym = this.constants.find(node.name);
+                const sym = this.variables.find(node.name);
                 if (!sym) {
                     this.error(`Calling an unknown function '${node.name}'`, node.loc);
                     return null;
@@ -577,11 +622,11 @@ class Assembler {
     }
 
     withScope = (name, compileScope) => {
-        this.pushConstantScope();
-        this.labels.pushMacroExpandScope(name);
+        this.pushVariableScope();
+        this.scopes.pushMacroExpandScope(name);
         const res = compileScope();
-        this.labels.popMacroExpandScope();
-        this.popConstantScope();
+        this.scopes.popMacroExpandScope();
+        this.popVariableScope();
         return res;
     }
 
@@ -649,7 +694,7 @@ class Assembler {
                         arg: ast.mkMacroArg('value', index),
                         value: ast.mkLiteral(0, null)
                     };
-                    this.constants.add(index.name, loopVar);
+                    this.variables.add(index.name, loopVar);
 
                     const elts = lst.values
                     for (let i = 0; i < elts.length; i++) {
@@ -722,7 +767,7 @@ class Assembler {
                 return this.withScope(name, () => {
                     for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
                         const argName = macro.args[argIdx].ident;
-                        this.constants.add(argName.name, {
+                        this.variables.add(argName.name, {
                             arg: { ident: argName, type: argValues[argIdx].type},
                             value: argValues[argIdx].value
                         });
@@ -730,12 +775,12 @@ class Assembler {
                     return this.assembleStmtList(macro.body);
                 })
             }
-            case 'equ': {
+            case 'let': {
                 const name = node.name;
-                const prevConstant = this.constants.find(name.name);
-                if (prevConstant) {
+                const prevVariable = this.variables.find(name.name);
+                if (prevVariable) {
                     if (this.pass === 0) {
-                        this.error(`Constant ${name.name} already defined`, node.loc);
+                        this.error(`Variable ${name.name} already defined`, node.loc);
                     }
                     return false;
                 }
@@ -743,7 +788,26 @@ class Assembler {
                 if (eres === null) {
                     return false;
                 }
-                this.constants.add(name.name, {
+                this.variables.add(name.name, {
+                    arg: { ident: name, type: 'value' },
+                    value: eres
+                });
+                return true;
+            }
+            case 'assign': {
+                const name = node.name;
+                const prevVariable = this.variables.find(name.name);
+                if (prevVariable) {
+                    if (this.pass === 0) {
+                        this.error(`Variable ${name.name} already defined`, node.loc);
+                    }
+                    return false;
+                }
+                const eres = this.evalExpr(node.value);
+                if (eres === null) {
+                    return false;
+                }
+                this.variables.add(name.name, {
                     arg: { ident: name, type: 'value' },
                     value: eres
                 });
@@ -753,7 +817,7 @@ class Assembler {
                 const fname = node.filename;
                 const pluginFunc = require(path.resolve(this.makeSourceRelativePath(fname)));
                 const funcName = node.funcName.name;
-                this.constants.add(funcName, {
+                this.variables.add(funcName, {
                     arg: {
                         type: 'value',
                         ident: node.funcName
@@ -796,36 +860,28 @@ class Assembler {
 
         if (line.label !== null) {
             let lblSymbol = line.label;
-            const constant = this.constants.find(line.label.name);
+            const variable = this.variables.find(line.label.name);
             // If there's a label 'ref' in the constants table, rewrite the current line's
             // label name to that.  This is used for passing label names via macro parameters.
-            if (constant) {
-                if (constant.arg.type === 'ref') {
+            if (variable) {
+                if (variable.arg.type === 'ref') {
                     lblSymbol = {
                         ...lblSymbol,
-                        name: constant.value
+                        name: variable.value
                     };
                 }
             }
 
-            const seenSymbol = this.seenLabels.find(this.labels.prefixName(lblSymbol.name));
+            const seenSymbol = this.scopes.findSeenLabel(lblSymbol.name);
             if (seenSymbol) {
                 this.error(`Label '${seenSymbol.name}' already defined`, lblSymbol.loc);
                 // this.note
                 // on line ${lineNo}`)
                 return false;
             } else {
-                const lblName = lblSymbol.name;
-                this.seenLabels.declare(this.labels.prefixName(lblName), lblSymbol);
-                const oldLabel = this.labels.find(lblName);
-                if (oldLabel === undefined) {
-                    this.labels.add(lblName, this.codePC, lblSymbol.loc);
-                } else {
-                    // If label address has changed change, need one more pass
-                    if (oldLabel.addr !== this.codePC) {
-                        this.needPass = true;
-                        this.labels.add(lblName, this.codePC, lblSymbol.loc);
-                    }
+                const labelChanged = this.scopes.declareLabelSymbol(lblSymbol, this.codePC);
+                if (labelChanged) {
+                    this.needPass = true;
                 }
             }
         }
@@ -960,7 +1016,7 @@ class Assembler {
             }
         };
         const addPlugin = (name, handler) => {
-            this.constants.add(name, {
+            this.variables.add(name, {
                 arg: {
                     type: 'value',
                     ident: ast.mkIdent(name, null) // TODO loc?
@@ -978,12 +1034,12 @@ export function assemble(filename) {
     const src = readFileSync(filename).toString();
     asm.pushSource(filename);
 
-    asm.pushConstantScope();
+    asm.pushVariableScope();
     asm.registerPlugins();
 
     let pass = 0;
     do {
-        asm.pushConstantScope();
+        asm.pushVariableScope();
         asm.startPass(pass);
         if (!asm.assemble(src)) {
             // Ddin't get an error but returned anyway?  Add ICE
@@ -994,7 +1050,7 @@ export function assemble(filename) {
                 errors: asm.errors()
             }
         }
-        asm.popConstantScope();
+        asm.popVariableScope();
         const maxPass = 10;
         if (pass > maxPass) {
             console.error(`Exceeded max pass limit ${maxPass}`);
@@ -1003,7 +1059,7 @@ export function assemble(filename) {
         pass += 1;
     } while(asm.needPass && !asm.anyErrors());
 
-    asm.popConstantScope();
+    asm.popVariableScope();
     asm.popSource();
 
     return {

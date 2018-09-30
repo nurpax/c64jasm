@@ -1,8 +1,8 @@
 
 * = $801
 
-xScale = 2
-yScale = 2
+!let xScale = 2
+!let yScale = 2
 
 !macro setpos(i, x, y) {
     ldx #100 + x * xScale * 24
