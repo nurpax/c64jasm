@@ -797,10 +797,8 @@ class Assembler {
             case 'assign': {
                 const name = node.name;
                 const prevVariable = this.variables.find(name.name);
-                if (prevVariable) {
-                    if (this.pass === 0) {
-                        this.error(`Variable ${name.name} already defined`, node.loc);
-                    }
+                if (!prevVariable) {
+                    this.error(`Assignment to undeclared variable '${name.name}'`, node.loc);
                     return false;
                 }
                 const eres = this.evalExpr(node.value);

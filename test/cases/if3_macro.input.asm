@@ -5,7 +5,7 @@
     !byte $00
     !byte $00
     !byte $9e
-addr = $080d
+!let addr = $080d
 !if (addr >= 10000) {
     !byte $30 + (addr/10000)%10
 }

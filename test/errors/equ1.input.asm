@@ -1,7 +1,7 @@
 
 * = $801
 
-irqline0 = 13
-irqline0 = 52
+!let irqline0 = 13
+!let irqline0 = 52
 
     lda #0

@@ -11,7 +11,7 @@
 ;     }
 ; }
 
-json = loadJson("json3.json")
+!let json = loadJson("json3.json")
 
 !for n in json.screens {
     !for byte in json[n].bytes {
