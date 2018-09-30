@@ -689,23 +689,22 @@ class Assembler {
                     return false;
                 }
 
-                return this.withScope('forloop', () => {
-                    const loopVar: Constant = {
-                        arg: ast.mkMacroArg('value', index),
-                        value: ast.mkLiteral(0, null)
-                    };
-                    this.variables.add(index.name, loopVar);
-
-                    const elts = lst.values
-                    for (let i = 0; i < elts.length; i++) {
-                        const val = this.evalExpr(elts[i])
-                        loopVar.value = val;
-                        if (!this.assembleStmtList(body)) {
-                            return false;
-                        }
+                const elts = lst.values
+                for (let i = 0; i < elts.length; i++) {
+                    const ok = this.withScope('__forloop', () => {
+                        const value = this.evalExpr(elts[i])
+                        const loopVar: Constant = {
+                            arg: ast.mkMacroArg('value', index),
+                            value
+                        };
+                        this.variables.add(index.name, loopVar);
+                        return this.assembleStmtList(body);
+                    });
+                    if (!ok) {
+                        return false;
                     }
-                    return true;
-                })
+                }
+                return true;
             }
             case 'macro': {
                 // No need to deal with sticking macros into the symbol table in the later
@@ -780,7 +779,7 @@ class Assembler {
                 const prevVariable = this.variables.find(name.name);
                 if (prevVariable) {
                     if (this.pass === 0) {
-                        this.error(`Variable ${name.name} already defined`, node.loc);
+                        this.error(`Variable '${name.name}' already defined`, node.loc);
                     }
                     return false;
                 }

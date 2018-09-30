@@ -1,1 +1,1 @@
-test/errors/equ1.input.asm:5:1: error: Variable irqline0 already defined
+test/errors/equ1.input.asm:5:1: error: Variable 'irqline0' already defined
