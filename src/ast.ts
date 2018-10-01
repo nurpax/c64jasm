@@ -43,6 +43,7 @@ export type Expr = any | Ident | Literal
 export type Stmt =
     StmtInsn
   | StmtSetPC
+  | StmtAlign
   | StmtData
   | StmtFill
   | StmtInclude
@@ -78,6 +79,11 @@ export interface StmtFill extends Node {
   type: 'fill';
   numBytes: number;
   fillValue: Expr;
+}
+
+export interface StmtAlign extends Node {
+  type: 'align';
+  alignBytes: Expr;
 }
 
 export interface StmtInclude extends Node {
@@ -183,6 +189,10 @@ export function mkData(dataSize: DataSize, values: Expr[], loc: SourceLoc): Stmt
 
 export function mkFill(numBytes: number, fillValue: Expr, loc: SourceLoc): StmtFill {
   return { type: 'fill', numBytes, fillValue, loc }
+}
+
+export function mkAlign(alignBytes: Expr, loc: SourceLoc): StmtAlign {
+  return { type: 'align', alignBytes, loc }
 }
 
 export function mkInclude(filename: string, loc: SourceLoc): StmtInclude {

@@ -609,13 +609,7 @@ class Assembler {
 
     fillBytes = (n: ast.StmtFill) => {
         const numVals = this.evalExpr(n.numBytes);
-        if (!numVals) {
-            return false;
-        }
         const fillValue = this.evalExpr(n.fillValue);
-        if (!fillValue) {
-            return false;
-        }
         const fv = fillValue.lit;
         if (fv < 0 || fv >= 256) {
             this.error(`!fill value to repeat must be in 8-bit range, '${fv}' given`, fillValue.loc);
@@ -624,6 +618,20 @@ class Assembler {
             this.emit(fv);
         }
         return true;
+    }
+
+    alignBytes = (n: ast.StmtAlign) => {
+        const alignBytes = this.evalExpr(n.alignBytes);
+        const { lit } = alignBytes;
+        if (lit < 1) {
+            this.error(`Alignment must be a positive integer, ${lit} given`, n.loc);
+        }
+        if ((lit & (lit-1)) != 0) {
+            this.error(`Alignment must be a power of two, ${lit} given`, n.loc);
+        }
+        while ((this.codePC & (lit-1)) != 0) {
+            this.emit(0);
+        }
     }
 
     withScope = (name: string, compileScope) => {
@@ -658,6 +666,10 @@ class Assembler {
             }
             case 'fill': {
                 this.fillBytes(node);
+                break;
+            }
+            case 'align': {
+                this.alignBytes(node);
                 break;
             }
             case 'setpc': {
@@ -791,7 +803,7 @@ class Assembler {
                 break;
             }
             default:
-                throw new Error(`unknown directive ${node.type}`)
+                this.error(`unknown directive ${node.type}`, node.loc);
         }
     }
 

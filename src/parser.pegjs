@@ -170,6 +170,9 @@ directive =
   / PSEUDO_ERROR error:string {
       return ast.mkError(error, loc());
     }
+  / PSEUDO_ALIGN alignBytes:expr {
+      return ast.mkAlign(alignBytes, loc());
+    }
 
 string
   = '"' chars:doubleStringCharacter* '"' __ { return chars.join(''); }
@@ -358,6 +361,7 @@ hexdig = [0-9a-f]
 ws "whitespace" = [ \t\r]*
 __ = ws
 
+PSEUDO_ALIGN   = "!align" ws
 PSEUDO_BYTE    = "!byte" ws { return 'byte'; }
 PSEUDO_WORD    = "!word" ws { return 'word'; }
 PSEUDO_BINARY  = "!binary" ws

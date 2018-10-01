@@ -1,0 +1,1 @@
+test/errors/align1.input.asm:5:1: error: Alignment must be a power of two, 13 given
