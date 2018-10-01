@@ -291,11 +291,15 @@ class Assembler {
         })
     }
 
-    error = (err: string, loc: SourceLoc) => {
-        this.errorList.push({
-            loc,
-            msg: err
-        })
+    addError (msg: string, loc: SourceLoc): void {
+        this.errorList.push({ msg, loc });
+    }
+
+    error (msg: string, loc: SourceLoc): never {
+        this.addError(msg, loc);
+        const err = new Error('Compilation failed');
+        err.name = 'semantic';
+        throw err;
     }
 
     startPass = (pass: number) => {
@@ -358,7 +362,7 @@ class Assembler {
         return true
     }
 
-    evalExpr (astNode) {
+    evalExpr (astNode): ast.Expr {
         const runBinop = (a: ast.Literal, b: ast.Literal, f) => {
             // TODO combine a&b locs
             // TODO a.type, b.type must be literal
@@ -368,9 +372,6 @@ class Assembler {
             if (node.type === 'binary') {
                 const left = evalExpr(node.left);
                 const right = evalExpr(node.right);
-                if (left === null || right === null) {
-                    return null
-                }
                 switch (node.op) {
                     case '+': return  runBinop(left, right, (a,b) => a + b)
                     case '-': return  runBinop(left, right, (a,b) => a - b)
@@ -405,6 +406,7 @@ class Assembler {
                 return node;
             }
             if (node.type == 'array') {
+                // TODO should eval the contents here?
                 return node;
             }
             if (node.type == 'ident') {
@@ -420,15 +422,15 @@ class Assembler {
                         return ast.mkLiteral(0, node.name.loc);
                     }
                     this.error(`Couldn't resolve value for identifier '${label}'`, node.name.loc);
-                    return null;
                 }
                 const lbl = this.scopes.findLabel(label);
                 if (!lbl) {
                     if (this.pass === 1) {
                         this.error(`Undefined symbol '${label}'`, node.loc)
                     }
+                    // Return a placeholder that should be resolved in the next pass
                     this.needPass = true;
-                    return null
+                    return ast.mkLiteral(0, node.loc);
                 }
                 return ast.mkLiteral(lbl.addr, lbl.loc);
             }
@@ -449,21 +451,16 @@ class Assembler {
                     }
                 }
                 const object = this.evalExpr(node.object);
-                if (!object) {
-                    return null;
-                }
                 const { property, computed } = node
                 if (!computed) {
                     if (object.type !== 'object') {
                         this.error(`The dot . operator can only operate on objects. Got ${object.type}.`, node.loc)
-                        return null;
                     }
                     const elt = findObjectField(object.props, property);
                     if (elt) {
                         return elt;
                     }
                     this.error(`Object has no property named '${property}'`, node.loc)
-                    return null
                 } else {
                     const idx = this.evalExpr(node.property);
                     if (object.type === 'array') {
@@ -474,34 +471,27 @@ class Assembler {
                             return elt;
                         }
                         this.error(`Object has no property named '${property}'`, node.loc)
-                        return null
                     }
                     this.error('Cannot index a non-array object', node.loc)
-                    return null;
                 }
             }
             if (node.type == 'callfunc') {
                 const sym = this.variables.find(node.name);
                 if (!sym) {
                     this.error(`Calling an unknown function '${node.name}'`, node.loc);
-                    return null;
                 }
                 const callee = sym.value;
                 if (callee.type !== 'function') {
                     this.error(`Callee must be a function type.  Got '${callee.type}'`, node.loc);
-                    return null;
                 }
                 const argValues = [];
                 for (let argIdx = 0; argIdx < node.args.length; argIdx++) {
                     const e = this.evalExpr(node.args[argIdx]);
-                    if (!e) {
-                        return null;
-                    }
                     argValues.push(e);
                 }
                 return callee.func(argValues);
             }
-            throw new Error(`don't know what to do with node '${node.type}'`)
+            this.error(`Don't know what to do with node '${node.type}'`, node.loc);
         }
         return evalExpr(astNode);
     }
@@ -534,7 +524,6 @@ class Assembler {
             const { lit, loc } = eres
             if (lit < 0 || lit > 255) {
                 this.error(`Immediate evaluates to ${lit} which cannot fit in 8 bits`, loc);
-                return false
             }
             this.emit(opcode)
             this.emit(lit)
@@ -602,12 +591,7 @@ class Assembler {
       }
 
     setPC = (valueExpr) => {
-        const eres = this.evalExpr(valueExpr);
-        if (eres === null) {
-            this.error(`Couldn't evaluate expression value`, eres.loc);
-            return false
-        }
-        const { lit, loc } = eres
+        const { lit } = this.evalExpr(valueExpr);
         while (this.codePC < lit) {
             this.emit(0);
         }
@@ -635,7 +619,6 @@ class Assembler {
         const fv = fillValue.lit;
         if (fv < 0 || fv >= 256) {
             this.error(`!fill value to repeat must be in 8-bit range, '${fv}' given`, fillValue.loc);
-            return false;
         }
         for (let i = 0; i < numVals.lit; i++) {
             this.emit(fv);
@@ -652,17 +635,11 @@ class Assembler {
         return res;
     }
 
-    checkDirectives = (node: ast.Stmt) => {
+    checkDirectives (node: ast.Stmt): void {
         const tryIntArg = (exprList, bits) => {
             // TODO must handle list of bytes
             for (let i = 0; i < exprList.length; i++) {
-                const eres = this.evalExpr(exprList[i]);
-                if (eres === null && this.pass !== 0) {
-                    // TODO what location to report here??  Probably there will be another error reported by evalExpr, so maybe no need for an error here?
-                    this.error(`Couldn't evaluate expression value for data statement`, undefined);
-                    return false
-                }
-                const { lit } = eres
+                const { lit } = this.evalExpr(exprList[i]);
                 if (bits === 8) {
                     this.emit(lit);
                 } else {
@@ -676,44 +653,41 @@ class Assembler {
         }
         switch (node.type) {
             case 'data': {
-                return tryIntArg(node.values, node.dataSize === ast.DataSize.Byte ? 8 : 16);
+                tryIntArg(node.values, node.dataSize === ast.DataSize.Byte ? 8 : 16);
+                break;
             }
             case 'fill': {
-                return this.fillBytes(node);
+                this.fillBytes(node);
+                break;
             }
             case 'setpc': {
-                return this.setPC(node.pc);
+                this.setPC(node.pc);
+                break;
             }
             case 'binary': {
-                return this.emitBinary(node);
+                this.emitBinary(node);
+                break;
             }
             case 'include': {
-                return this.fileInclude(node);
+                this.fileInclude(node);
+                break;
             }
             case 'if': {
                 const { cond, trueBranch, falseBranch } = node
-                const eres = this.evalExpr(node.cond);
-                if (!eres) {
-                    return false;
-                }
-                const { lit: condVal } = eres
+                const { lit: condVal } = this.evalExpr(node.cond);
                 if (isTrueVal(condVal)) {
-                    return this.assembleStmtList(trueBranch);
+                    this.assembleStmtList(trueBranch);
                 } else {
-                    return this.assembleStmtList(falseBranch);
+                    this.assembleStmtList(falseBranch);
                 }
-                return true;
+                break;
             }
             case 'for': {
                 const { index, list, body, loc } = node
                 const lst: any = this.evalExpr(list);
-                if (!lst) {
-                    return false;
-                }
-
                 const elts = lst.values
                 for (let i = 0; i < elts.length; i++) {
-                    const ok = this.withScope('__forloop', () => {
+                    this.withScope('__forloop', () => {
                         const value = this.evalExpr(elts[i])
                         const loopVar: Constant = {
                             arg: ast.mkMacroArg(index),
@@ -722,11 +696,8 @@ class Assembler {
                         this.variables.add(index.name, loopVar);
                         return this.assembleStmtList(body);
                     });
-                    if (!ok) {
-                        return false;
-                    }
                 }
-                return true;
+                break;
             }
             case 'macro': {
                 const { name, args, body } = node;
@@ -735,10 +706,9 @@ class Assembler {
                 if (prevMacro !== undefined) {
                     // TODO previous declaration from prevMacro
                     this.error(`Macro '${name.name}' already defined`, name.loc);
-                    return false;
                 }
                 this.scopes.addMacro(name.name, node);
-                return true;
+                break;
             }
             case 'callmacro': {
                 let argValues = [];
@@ -746,17 +716,11 @@ class Assembler {
                 const macro = this.scopes.findMacro(name.name);
 
                 if (!macro) {
-                    if (this.pass === 0) {
-                        this.error(`Undefined macro '${name.name}'`, name.loc);
-                    }
-                    return false;
+                    this.error(`Undefined macro '${name.name}'`, name.loc);
                 }
                 if (macro.args.length !== args.length) {
-                    if (this.pass === 0) {
-                        this.error(`Macro '${name.name}' declared with ${macro.args.length} args but called here with ${args.length}`,
-                            name.loc);
-                    }
-                    return false;
+                    this.error(`Macro '${name.name}' declared with ${macro.args.length} args but called here with ${args.length}`,
+                        name.loc);
                 }
 
                 for (let argIdx = 0; argIdx < macro.args.length; argIdx++) {
@@ -766,7 +730,7 @@ class Assembler {
                         value: eres
                     });
                 }
-                return this.withScope(name.name, () => {
+                this.withScope(name.name, () => {
                     for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
                         const argName = macro.args[argIdx].ident;
                         this.variables.add(argName.name, {
@@ -774,44 +738,32 @@ class Assembler {
                             value: argValues[argIdx].value
                         });
                     }
-                    return this.assembleStmtList(macro.body);
-                })
+                    this.assembleStmtList(macro.body);
+                });
+                break;
             }
             case 'let': {
                 const name = node.name;
                 const prevVariable = this.variables.find(name.name);
                 if (prevVariable) {
-                    if (this.pass === 0) {
-                        this.error(`Variable '${name.name}' already defined`, node.loc);
-                    }
-                    return false;
+                    this.error(`Variable '${name.name}' already defined`, node.loc);
                 }
                 const eres = this.evalExpr(node.value);
-                if (eres === null) {
-                    return false;
-                }
                 this.variables.add(name.name, {
                     arg: { ident: name },
                     value: eres
                 });
-                return true;
+                break;
             }
             case 'assign': {
                 const name = node.name;
                 const prevVariable = this.variables.find(name.name);
                 if (!prevVariable) {
                     this.error(`Assignment to undeclared variable '${name.name}'`, node.loc);
-                    return false;
                 }
-                const eres = this.evalExpr(node.value);
-                if (eres === null) {
-                    return false;
-                }
-                this.variables.add(name.name, {
-                    arg: { ident: name },
-                    value: eres
-                });
-                return true;
+                const lit: ast.Expr = this.evalExpr(node.value);
+                prevVariable.value = lit;
+                break;
             }
             case 'load-plugin': {
                 const fname = node.filename;
@@ -832,7 +784,7 @@ class Assembler {
                         }
                     }
                 })
-                return true;
+                break;
             }
             default:
                 throw new Error(`unknown directive ${node.type}`)
@@ -841,14 +793,11 @@ class Assembler {
 
     assembleStmtList = (lst) => {
         if (lst === null) {
-            return true;
+            return;
         }
         for (let i = 0; i < lst.length; i++) {
-            if (!this.assembleLine(lst[i])) {
-                return false;
-            }
+            this.assembleLine(lst[i]);
         }
-        return true
     }
 
     assembleLine = (line) => {
@@ -864,7 +813,6 @@ class Assembler {
                 this.error(`Label '${seenSymbol.name}' already defined`, lblSymbol.loc);
                 // this.note
                 // on line ${lineNo}`)
-                return false;
             } else {
                 const labelChanged = this.scopes.declareLabelSymbol(lblSymbol, this.codePC);
                 if (labelChanged) {
@@ -874,17 +822,19 @@ class Assembler {
         }
 
         if (line.scopedStmts) {
-            return this.withScope(line.label, () => {
-                return this.assembleStmtList(line.scopedStmts);
-            })
+            this.withScope(line.label, () => {
+                this.assembleStmtList(line.scopedStmts);
+            });
+            return;
         }
 
         if (line.stmt === null) {
-            return true
+            return;
         }
 
         if (line.stmt.type !== 'insn') {
-            return this.checkDirectives(line.stmt);
+            this.checkDirectives(line.stmt);
+            return;
         }
 
         const stmt = line.stmt
@@ -898,48 +848,50 @@ class Assembler {
                 && insn.absy === null
                 && insn.absind === null
             if (noArgs && this.checkSingle(op[10])) {
-                return true;
+                return;
             }
             if (this.checkImm(insn.imm, op[0])) {
-                return true;
+                return;
             }
             if (this.checkAbs(insn.abs, op[1], 8)) {
-                return true;
+                return;
             }
 
             if (this.checkAbs(insn.absx, op[2], 8)) {
-                return true;
+                return;
             }
             if (this.checkAbs(insn.absy, op[3], 8)) {
-                return true;
+                return;
             }
 
             if (this.checkAbs(insn.absx, op[5], 16)) {
-                return true;
+                return;
             }
             if (this.checkAbs(insn.absy, op[6], 16)) {
-                return true;
+                return;
             }
             // Absolute indirect
             if (this.checkAbs(insn.absind, op[7], 16)) {
-                return true;
+                return;
             }
 
             if (this.checkAbs(insn.indx, op[8], 8)) {
-                return true;
+                return;
             }
             if (this.checkAbs(insn.indy, op[9], 8)) {
-                return true;
+                return;
             }
 
             if (this.checkAbs(insn.abs, op[4], 16)) {
-                return true;
+                return;
             }
             if (this.checkBranch(insn.abs, op[11])) {
-                return true;
+                return;
             }
+            this.error(`Couldn't encoder instruction '${insn.mnemonic}'`, line.loc);
+        } else {
+            this.error(`Unknown mnemonic '${insn.mnemonic}'`, line.loc);
         }
-        return false;
     }
 
     makeSourceRelativePath(filename: string): string {
@@ -952,17 +904,16 @@ class Assembler {
             const statements = parser.parse(source, {
                 source: this.peekSourceStack()
             });
-            return this.assembleStmtList(statements);
+            this.assembleStmtList(statements);
         } catch(err) {
             if ('name' in err && err.name == 'SyntaxError') {
-                this.error(`Syntax error: ${err.message}`, {
+                this.addError(`Syntax error: ${err.message}`, {
                     ...err.location,
                     source: this.peekSourceStack()
                 })
-                return false;
+            } else if ('name' in err && err.name == 'semantic') {
+                return;
             }
-            console.error('Internal compiler error.', err);
-            return false;
         }
     }
 
@@ -1027,15 +978,14 @@ export function assemble(filename) {
     do {
         asm.pushVariableScope();
         asm.startPass(pass);
-        if (!asm.assemble(src)) {
-            // Ddin't get an error but returned anyway?  Add ICE
-            if (!asm.anyErrors()) {
-                asm.error('Internal compiler error: unhandled codepath.', undefined)
-            }
+
+        asm.assemble(src);
+        if (asm.anyErrors()) {
             return {
                 errors: asm.errors()
             }
         }
+
         asm.popVariableScope();
         const maxPass = 10;
         if (pass > maxPass) {

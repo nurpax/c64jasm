@@ -1,1 +1,1 @@
-<unknown>:1:1: error: Internal compiler error: unhandled codepath.
+test/errors/syntax2.input.asm:10:5: error: Unknown mnemonic 'foo'
