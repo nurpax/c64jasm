@@ -1,0 +1,1 @@
+test/errors/error1.input.asm:3:1: error: user error

@@ -672,6 +672,10 @@ class Assembler {
                 this.fileInclude(node);
                 break;
             }
+            case 'error': {
+                this.error(node.error, node.loc);
+                break;
+            }
             case 'if': {
                 const { cond, trueBranch, falseBranch } = node
                 const { lit: condVal } = this.evalExpr(node.cond);

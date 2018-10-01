@@ -48,6 +48,7 @@ export type Stmt =
   | StmtInclude
   | StmtBinary
   | StmtIfElse
+  | StmtError
   | StmtFor
   | StmtMacro
   | StmtCallMacro
@@ -96,6 +97,11 @@ export interface StmtIfElse extends Node {
   cond: Expr;
   trueBranch: Stmt[];
   falseBranch: Stmt[];
+}
+
+export interface StmtError extends Node {
+  type: 'error';
+  error: string;
 }
 
 export interface StmtFor extends Node {
@@ -183,6 +189,14 @@ export function mkInclude(filename: string, loc: SourceLoc): StmtInclude {
   return {
     type: 'include',
     filename,
+    loc
+  }
+}
+
+export function mkError(error: string, loc: SourceLoc): StmtError {
+  return {
+    type: 'error',
+    error,
     loc
   }
 }

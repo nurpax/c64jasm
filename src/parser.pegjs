@@ -167,6 +167,9 @@ directive =
   / PSEUDO_USE filename:string "as" __ plugin:identifier  {
       return ast.mkLoadPlugin(filename, plugin, loc());
     }
+  / PSEUDO_ERROR error:string {
+      return ast.mkError(error, loc());
+    }
 
 string
   = '"' chars:doubleStringCharacter* '"' __ { return chars.join(''); }
@@ -362,6 +365,7 @@ PSEUDO_LET     = "!let" ws
 PSEUDO_MACRO   = "!macro" ws
 PSEUDO_IF      = "!if" ws
 PSEUDO_ELSE    = "else" ws
+PSEUDO_ERROR   = "!error" ws
 PSEUDO_FOR     = "!for" ws
 PSEUDO_INCLUDE = "!include" ws
 PSEUDO_FILL    = "!fill" ws
