@@ -3,7 +3,7 @@
 	"description": "c64jasm extension",
 	"author": "Janne Hellsten",
 	"license": "MIT",
-	"version": "0.0.6",
+	"version": "0.1.0",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/nurpax/c64jasm"
