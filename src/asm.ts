@@ -2,7 +2,7 @@
 import opcodes from './opcodes'
 import * as path from 'path'
 
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync } from 'fs'
 import * as ast from './ast'
 import { Loc, SourceLoc } from './ast'
 
