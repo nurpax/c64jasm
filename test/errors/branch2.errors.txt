@@ -1,0 +1,1 @@
+test/errors/branch2.input.asm:5:9: error: Branch target too far (must fit in signed 8-bit, got -129

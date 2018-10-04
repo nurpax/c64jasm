@@ -575,18 +575,20 @@ class Assembler {
             return false;
         }
         const eres = this.evalExpr(param);
+        const { lit: addr, loc } = eres;
+        const addrDelta = addr - this.codePC - 2;
         this.emit(opcode);
-        if (eres === null) {
-            this.emit(0);
-            return true;
+        if (addrDelta > 0x7f || addrDelta < -128) {
+            if (this.pass == 0) {
+                // Maybe we couldn't resolve the address and got addr==0 placeholder.
+                // So try another pass and error out only if pass=1 has a branch range
+                // problem.
+                this.needPass = true;
+            } else {
+                this.error(`Branch target too far (must fit in signed 8-bit, got ${addrDelta}`, param.loc);
+            }
         }
-        const { lit: addr, loc } = eres
-        // TODO check 8-bit overflow here!!
-        if (addr < (this.codePC - 0x600)) {  // Backwards?
-          this.emit((0xff - ((this.codePC - 0x600) - addr)) & 0xff);
-          return true;
-        }
-        this.emit((addr - (this.codePC - 0x600) - 1) & 0xff);
+        this.emit(addrDelta & 0xff);
         return true;
       }
 
