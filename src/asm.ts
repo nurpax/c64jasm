@@ -594,6 +594,10 @@ class Assembler {
 
     setPC = (valueExpr) => {
         const { lit } = this.evalExpr(valueExpr);
+        if (this.codePC > lit) {
+            // TODO this is not great.  Actually need to track which ranges of memory have something in them.
+            this.error(`Cannot set program counter to a smaller value than current (current: $${toHex16(this.codePC)}, trying to set $${toHex16(lit)})`, valueExpr.loc)
+        }
         while (this.codePC < lit) {
             this.emit(0);
         }

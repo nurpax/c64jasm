@@ -1,0 +1,1 @@
+test/errors/setpc1.input.asm:10:5: error: Cannot set program counter to a smaller value than current (current: $0807, trying to set $0805)
