@@ -606,11 +606,16 @@ class Assembler {
 
     fileInclude = (inclStmt: ast.StmtInclude) => {
         const fname = this.makeSourceRelativePath(inclStmt.filename);
-        const src = readFileSync(fname).toString();
-        this.pushSource(fname);
-        const res = this.assemble(src);
-        this.popSource();
-        return res;
+        try {
+            const src = readFileSync(fname).toString();
+            this.pushSource(fname);
+            const res = this.assemble(src);
+            this.popSource();
+            return res;
+        } catch(err) {
+            // TODO could add a 'note' for ${err}
+            this.error(`Couldn't read !include file '${fname}'`, inclStmt.loc);
+        }
     }
 
     fillBytes = (n: ast.StmtFill) => {
