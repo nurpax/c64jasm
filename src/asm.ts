@@ -1,6 +1,7 @@
 
 import opcodes from './opcodes'
 import * as path from 'path'
+const importFresh = require('import-fresh');
 
 import { readFileSync } from 'fs'
 import * as ast from './ast'
@@ -794,7 +795,7 @@ class Assembler {
             }
             case 'load-plugin': {
                 const fname = node.filename;
-                const pluginFunc = require(path.resolve(this.makeSourceRelativePath(fname)));
+                const pluginFunc = importFresh(path.resolve(this.makeSourceRelativePath(fname)));
                 const funcName = node.funcName.name;
                 this.variables.add(funcName, {
                     arg: {

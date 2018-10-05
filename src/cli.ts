@@ -4,7 +4,8 @@ import * as process from 'process'
 import { writeFileSync } from 'fs'
 import { assemble } from './asm'
 import { ArgumentParser } from 'argparse'
-import * as watch from 'node-watch'
+
+const chokidar = require('chokidar');
 
 function compile(args) {
     const hrstart = process.hrtime();
@@ -57,7 +58,10 @@ if (args.out === null) {
 
 console.log(`Compiling ${args.source}`)
 if (args.watch) {
-    watch(args.watch, { recursive:true }, () => compile(args))
+    const watcher = chokidar.watch(args.watch, {
+        recursive:true
+    })
+    watcher.on('change', (path, stats) => compile(args));
 } else {
     compile(args)
 }

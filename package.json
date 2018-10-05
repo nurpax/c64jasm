@@ -32,9 +32,10 @@
   },
   "dependencies": {
     "argparse": "^1.0.10",
+    "chokidar": "^2.0.4",
     "colors": "^1.3.2",
     "glob-fs": "^0.1.7",
-    "node-watch": "^0.5.8"
+    "import-fresh": "^2.0.0"
   },
   "devDependencies": {
     "@types/argparse": "^1.0.34",
