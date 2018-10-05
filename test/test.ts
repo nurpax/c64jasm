@@ -186,7 +186,7 @@ const parser = new ArgumentParser({
 parser.addArgument('--verbose', {
     action:'storeConst',
     constant:true,
-    help: 'Output .prg filename'
+    help: 'Output extra debug information'
 });
 
 parser.addArgument('--test', {
@@ -208,4 +208,4 @@ if (verbose) {
     const diff = process.hrtime(hrstart);
     const deltaNS = diff[0] * NS_PER_SEC + diff[1];
     console.info('Tests completed in %d ms', Math.floor((deltaNS/1000000.0)*100)/100);
-    }
+}
