@@ -33,7 +33,8 @@
   "dependencies": {
     "argparse": "^1.0.10",
     "colors": "^1.3.2",
-    "glob-fs": "^0.1.7"
+    "glob-fs": "^0.1.7",
+    "node-watch": "^0.5.8"
   },
   "devDependencies": {
     "@types/argparse": "^1.0.34",
