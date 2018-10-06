@@ -407,8 +407,7 @@ class Assembler {
                 return node;
             }
             if (node.type == 'array') {
-                // TODO should eval the contents here?
-                return node;
+                return node.values.map(v => evalExpr(v));
             }
             if (node.type == 'ident') {
                 let label = node.name
@@ -463,6 +462,7 @@ class Assembler {
                     }
                     this.error(`Object has no property named '${property}'`, node.loc)
                 } else {
+                    // TODO assert type int
                     const idx = this.evalExpr(node.property);
                     if (object.type === 'array') {
                         return this.evalExpr(object.values[idx.lit]);
@@ -657,17 +657,27 @@ class Assembler {
 
     checkDirectives (node: ast.Stmt): void {
         const tryIntArg = (exprList, bits) => {
-            // TODO must handle list of bytes
             for (let i = 0; i < exprList.length; i++) {
-                const { lit } = this.evalExpr(exprList[i]);
-                if (bits === 8) {
-                    this.emit(lit);
+                const e = this.evalExpr(exprList[i]);
+                const vals = []
+                if (e.type === 'literal') {
+                    vals.push(e.lit);
+                } else if (e.type === 'array') {
+                    // TODO function 'assertType' that returns the value and errors otherwise
+                    e.values.forEach(v => vals.push(v.lit));
                 } else {
-                    if (bits !== 16) {
-                        throw new Error('impossible');
-                    }
-                    this.emit16(lit);
+                    this.error(`Only literal (int constants) or array types can be emitted.  Got ${e.type}`, exprList[i].loc);
                 }
+                vals.forEach(v => {
+                    if (bits === 8) {
+                        this.emit(v);
+                    } else {
+                        if (bits !== 16) {
+                            throw new Error('impossible');
+                        }
+                        this.emit16(v);
+                    }
+                })
             }
             return true
         }
@@ -712,11 +722,14 @@ class Assembler {
             }
             case 'for': {
                 const { index, list, body, loc } = node
-                const lst: any = this.evalExpr(list);
+                const lst = this.evalExpr(list);
+                if (lst.type !== 'array') {
+                    this.error(`for-loop range must be an array expression (e.g., a range() or an array)`, list.loc)
+                }
                 const elts = lst.values
                 for (let i = 0; i < elts.length; i++) {
                     this.withScope('__forloop', () => {
-                        const value = this.evalExpr(elts[i])
+                        const value = elts[i];
                         const loopVar: Constant = {
                             arg: ast.mkMacroArg(index),
                             value

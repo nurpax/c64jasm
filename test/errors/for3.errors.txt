@@ -1,0 +1,1 @@
+test/errors/for3.input.asm:6:11: error: for-loop range must be an array expression (e.g., a range() or an array)
