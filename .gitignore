@@ -3,3 +3,7 @@
 /node_modules/
 /test/**/*.actual.asm
 /*.prg
+test/errors/*.actual_errors.txt
+/vscode/*.vsix
+/c64jasm-*.tgz
+/dist/
