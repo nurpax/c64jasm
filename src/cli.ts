@@ -8,7 +8,7 @@ import { ArgumentParser } from 'argparse'
 const chokidar = require('chokidar');
 
 function compile(args) {
-    console.log(`Compiling ${args.source}`)
+    console.log(`Compiling ${args.source} (out: ${args.out})`)
     const hrstart = process.hrtime();
 
     const { errors, prg } = assemble(args.source);
@@ -57,11 +57,11 @@ if (args.out === null) {
     process.exit(1);
 }
 
+compile(args);
+
 if (args.watch) {
     const watcher = chokidar.watch(args.watch, {
         recursive:true
     })
     watcher.on('change', (path, stats) => compile(args));
-} else {
-    compile(args)
 }
