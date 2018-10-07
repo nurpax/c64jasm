@@ -313,6 +313,14 @@ boolOrExpr = first:boolAndExpr rest:(OROR boolAndExpr)* {
 lastExpr = boolOrExpr
 
 unaryExpression =
+   callOrMemberExpression
+ / op:unaryOperator expr:unaryExpression {
+   return ast.mkUnary(op, expr, loc());
+ }
+
+unaryOperator = op:(PLUS / MINUS / TILDA / BANG) { return op };
+
+callOrMemberExpression =
    callExpression
  / head:primary tail:(
       LBRK property:lastExpr RBRK {

@@ -29,6 +29,12 @@ export interface Ident extends Node {
   name: string;
 }
 
+export interface Unary extends Node {
+  type: 'unary';
+  op: string;
+  expr: Expr;
+}
+
 export function mkLiteral(lit: number | string, loc: SourceLoc): Literal {
   return { type: 'literal', lit, loc };
 }
@@ -37,9 +43,13 @@ export function mkIdent(name: string, loc: SourceLoc): Ident {
   return { type: 'ident', name, loc };
 }
 
+export function mkUnary(op: string, expr: Expr, loc: SourceLoc): Expr {
+  return { type: 'unary', op, expr, loc };
+}
+
 export enum DataSize { Byte, Word };
 
-export type Expr = any | Ident | Literal
+export type Expr = any | Ident | Literal | Unary
 export type Stmt =
     StmtInsn
   | StmtSetPC

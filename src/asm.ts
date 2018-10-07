@@ -394,9 +394,10 @@ class Assembler {
                         throw new Error(`Unhandled binary operator ${node.op}`);
                 }
             }
-            if (node.type === 'UnaryExpression') {
-                const { lit, loc } = evalExpr(node.argument);
-                switch (node.operator) {
+            if (node.type === 'unary') {
+                const { lit } = evalExpr(node.expr);
+                switch (node.op) {
+                    case '+': return ast.mkLiteral(+lit, node.loc);
                     case '-': return ast.mkLiteral(-lit, node.loc);
                     case '~': return ast.mkLiteral(~lit, node.loc);
                     default:
@@ -523,9 +524,6 @@ class Assembler {
         const eres = this.evalExpr(param);
         if (eres !== null) {
             const { lit, loc } = eres
-            if (lit < 0 || lit > 255) {
-                this.error(`Immediate evaluates to ${lit} which cannot fit in 8 bits`, loc);
-            }
             this.emit(opcode)
             this.emit(lit)
             return true
