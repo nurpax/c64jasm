@@ -341,13 +341,8 @@ callOrMemberExpression =
   }
 
 callExpression =
-  ident:labelIdent LPAR args:exprList RPAR {
-    return {
-      type: 'callfunc',
-      name: ident,
-      args,
-      loc: loc()
-    }
+  ident:labelIdent LPAR args:exprList? RPAR {
+    return ast.mkCallFunc(ident, args, loc());
   }
 
 primary

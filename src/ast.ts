@@ -63,6 +63,7 @@ export type Stmt =
   | StmtFor
   | StmtMacro
   | StmtCallMacro
+  | StmtCallFunc
   | StmtLet
   | StmtAssign
   | StmtLoadPlugin
@@ -140,6 +141,12 @@ export interface StmtMacro extends Node {
 
 export interface StmtCallMacro extends Node {
   type: 'callmacro',
+  name: Ident;
+  args: Expr[];
+}
+
+export interface StmtCallFunc extends Node {
+  type: 'callfunc',
   name: Ident;
   args: Expr[];
 }
@@ -268,6 +275,15 @@ export function mkMacro(name: Ident, args: MacroArg[] | null, body: Stmt[], loc:
 export function mkCallMacro(name: Ident, args: Expr[], loc: SourceLoc): StmtCallMacro {
   return {
     type: 'callmacro',
+    name,
+    args: args == null ? [] : args,
+    loc
+  }
+}
+
+export function mkCallFunc(name: Ident, args: Expr[], loc: SourceLoc): StmtCallFunc {
+  return {
+    type: 'callfunc',
     name,
     args: args == null ? [] : args,
     loc

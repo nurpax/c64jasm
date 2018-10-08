@@ -408,7 +408,10 @@ class Assembler {
                 return node;
             }
             if (node.type == 'array') {
-                return node.values.map(v => evalExpr(v));
+                return {
+                    ...node,
+                    values: node.values.map(v => evalExpr(v))
+                }
             }
             if (node.type == 'ident') {
                 let label = node.name
