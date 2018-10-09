@@ -2,8 +2,6 @@
 import { readFileSync } from 'fs';
 import { EventEmitter } from 'events';
 
-import * as path from 'path'
-
 import { ChildProcess } from 'child_process'
 import * as child_process from 'child_process'
 
