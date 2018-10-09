@@ -111,9 +111,8 @@ export interface StmtBinary extends Node {
 
 export interface StmtIfElse extends Node {
   type: 'if';
-  cond: Expr;
-  trueBranch: Stmt[];
-  falseBranch: Stmt[];
+  cases: [Expr, Stmt[]];
+  elseBranch: Stmt[];
 }
 
 export interface StmtError extends Node {
@@ -238,12 +237,11 @@ export function mkBinary(filename: Expr, size: Expr, offset: Expr, loc: SourceLo
   }
 }
 
-export function mkIfElse(cond: Expr, trueBranch: Stmt[], falseBranch: Stmt[], loc: SourceLoc): StmtIfElse {
+export function mkIfElse(cases: [Expr, Stmt[]], elseBranch: Stmt[], loc: SourceLoc): StmtIfElse {
   return {
     type: 'if',
-    cond,
-    trueBranch,
-    falseBranch,
+    cases,
+    elseBranch: elseBranch !== null ? elseBranch : [],
     loc
   }
 }

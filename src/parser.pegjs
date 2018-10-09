@@ -146,12 +146,13 @@ directive =
       }
       return ast.mkBinary(s, size, offset, loc());
     }
-  / PSEUDO_IF LPAR condition:expr RPAR  LWING trueBranch:statements
-    RWING PSEUDO_ELSE LWING falseBranch:statements RWING {
-      return ast.mkIfElse(condition, trueBranch, falseBranch, loc());
-    }
-  / PSEUDO_IF LPAR condition:expr RPAR LWING trueBranch:statements RWING {
-      return ast.mkIfElse(condition, trueBranch, [], loc());
+  / PSEUDO_IF LPAR condition:expr RPAR LWING trueBranch:statements RWING
+    elifs:elif*
+    elseBody:elseBody? {
+      const conds = [condition, ...elifs.map(e => e.condition)]
+      const trueBodies = [trueBranch, ...elifs.map(e => e.trueBranch)]
+      const cases = conds.map((c,i) => [c, trueBodies[i]])
+      return ast.mkIfElse(cases, elseBody, loc());
     }
   / PSEUDO_FOR index:labelIdent "in" __ list:expr LWING body:statements RWING {
       return ast.mkFor(ast.mkIdent(index), list, body, loc());
@@ -173,6 +174,14 @@ directive =
   / PSEUDO_ALIGN alignBytes:expr {
       return ast.mkAlign(alignBytes, loc());
     }
+
+elif = PSEUDO_ELIF LPAR condition:expr RPAR LWING trueBranch:statements RWING {
+  return { condition, trueBranch };
+}
+
+elseBody = PSEUDO_ELSE LWING elseBody:statements RWING {
+  return elseBody;
+}
 
 string
   = '"' chars:doubleStringCharacter* '"' __ { return chars.join(''); }
@@ -374,6 +383,7 @@ PSEUDO_LET     = "!let" ws
 PSEUDO_MACRO   = "!macro" ws
 PSEUDO_IF      = "!if" ws
 PSEUDO_ELSE    = "else" ws
+PSEUDO_ELIF    = "elif" ws
 PSEUDO_ERROR   = "!error" ws
 PSEUDO_FOR     = "!for" ws
 PSEUDO_INCLUDE = "!include" ws

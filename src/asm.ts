@@ -724,13 +724,15 @@ class Assembler {
                 break;
             }
             case 'if': {
-                const { cond, trueBranch, falseBranch } = node
-                const { lit: condVal } = this.evalExpr(node.cond);
-                if (isTrueVal(condVal)) {
-                    this.assembleStmtList(trueBranch);
-                } else {
-                    this.assembleStmtList(falseBranch);
+                const { cases, elseBranch } = node
+                for (let ci in cases) {
+                    const [condExpr, body] = cases[ci];
+                    const { lit: condition } = this.evalExpr(condExpr);
+                    if (isTrueVal(condition)) {
+                        return this.assembleStmtList(body);
+                    }
                 }
+                this.assembleStmtList(elseBranch);
                 break;
             }
             case 'for': {
@@ -967,6 +969,8 @@ class Assembler {
                 })
             } else if ('name' in err && err.name == 'semantic') {
                 return;
+            } else {
+                throw err;
             }
         }
     }
