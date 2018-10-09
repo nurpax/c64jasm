@@ -1,0 +1,1 @@
+test/errors/plugin2.input.asm:5:10: error: Syntax error: 

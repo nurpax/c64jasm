@@ -342,7 +342,7 @@ class Assembler {
     emitBinary = (ast) => {
         const { filename } = ast
         const fname = this.makeSourceRelativePath(filename)
-        const buf: Buffer = readFileSync(fname)
+        const buf: Buffer = this.guardedReadFileSync(fname, ast.loc);
 
         let offset = 0
         let size = buf.byteLength
@@ -494,7 +494,11 @@ class Assembler {
                     const e = this.evalExpr(node.args[argIdx]);
                     argValues.push(e);
                 }
-                return callee.func(argValues);
+                try {
+                    return callee.func(argValues);
+                } catch(err) {
+                    this.error(`Plugin invocation '${node.name}' failed with an exception: ${err}`, node.loc);
+                }
             }
             this.error(`Don't know what to do with node '${node.type}'`, node.loc);
         }
@@ -606,10 +610,18 @@ class Assembler {
         return true
     }
 
+    guardedReadFileSync(fname, loc) {
+        try {
+            return readFileSync(fname);
+        } catch (err) {
+            this.error(`Failed to load file '${fname}'.  Reason: ${err}`, loc);
+        }
+    }
+
     fileInclude = (inclStmt: ast.StmtInclude) => {
         const fname = this.makeSourceRelativePath(inclStmt.filename);
         try {
-            const src = readFileSync(fname).toString();
+            const src = this.guardedReadFileSync(fname, inclStmt.loc).toString();
             this.pushSource(fname);
             const res = this.assemble(src);
             this.popSource();
@@ -962,7 +974,7 @@ class Assembler {
     registerPlugins () {
         const json = {
             type: 'function',
-            func: args => {
+            func: (args) => {
                 const name = args[0].lit;
                 const fname = this.makeSourceRelativePath(name)
                 return ast.objectToAst(JSON.parse(readFileSync(fname, 'utf-8')), null);
@@ -970,7 +982,7 @@ class Assembler {
         };
         const range = {
             type: 'function',
-            func: args => {
+            func: (args) => {
                 let start = 0;
                 let end = undefined;
                 if (args.length == 1) {
