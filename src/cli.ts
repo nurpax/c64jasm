@@ -8,7 +8,7 @@ import { ArgumentParser } from 'argparse'
 const chokidar = require('chokidar');
 
 function compile(args) {
-    console.log(`Compiling ${args.source} (out: ${args.out})`)
+    console.log(`Compiling ${args.source}`)
     const hrstart = process.hrtime();
 
     const { errors, prg } = assemble(args.source);
@@ -17,9 +17,11 @@ function compile(args) {
         errors.forEach(err => {
             console.log(err.formatted);
         })
-        process.exit(1);
+        console.log('Compilation failed.')
+        return false;
     }
     writeFileSync(args.out, prg, null)
+    console.log(`Compilation succeeded.  Output written to ${args.out}`)
 
     if (args.verbose) {
         const NS_PER_SEC = 1e9;
@@ -27,6 +29,7 @@ function compile(args) {
         const deltaNS = diff[0] * NS_PER_SEC + diff[1];
         console.info('Compilation completed %d ms', Math.floor((deltaNS/1000000.0)*100)/100);
     }
+    return true;
 }
 
 const version = require('../../package.json').version
@@ -57,7 +60,10 @@ if (args.out === null) {
     process.exit(1);
 }
 
-compile(args);
+const ok = compile(args);
+if (!ok && !args.watch) {
+    process.exit(1);
+}
 
 if (args.watch) {
     const watcher = chokidar.watch(args.watch, {

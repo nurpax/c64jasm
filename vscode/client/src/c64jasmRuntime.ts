@@ -48,11 +48,9 @@ export class C64jasmRuntime extends EventEmitter {
 	 */
 	public start(program: string, stopOnEntry: boolean) {
 
-		this.loadSource(program);
+//		this.loadSource(program);
 
-		const { dir, name } = path.parse(program);
-		const prgName = path.join(dir, name+'.prg');
-		this._viceProcess = child_process.exec(`x64 ${prgName}`);
+		this._viceProcess = child_process.exec(`x64 ${program}`);
 		this._currentLine = -1;
 
 		this.verifyBreakpoints(this._sourceFile);

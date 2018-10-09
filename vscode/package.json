@@ -74,6 +74,11 @@
 					"column": 3,
 					"severity": 4,
 					"message": 5
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^Compiling ",
+					"endsPattern": "^Compilation (succeeded|failed)"
 				}
 			}
 		],
