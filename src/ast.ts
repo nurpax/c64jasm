@@ -22,6 +22,7 @@ export interface Label extends Node {
 export interface Literal extends Node {
   type: 'literal',
   lit: number | string
+  unresolved: Label | Ident | null;
 }
 
 export interface Ident extends Node {
@@ -35,8 +36,8 @@ export interface Unary extends Node {
   expr: Expr;
 }
 
-export function mkLiteral(lit: number | string, loc: SourceLoc): Literal {
-  return { type: 'literal', lit, loc };
+export function mkLiteral(lit: number | string, loc: SourceLoc, unresolved = null): Literal {
+  return { type: 'literal', lit, loc, unresolved };
 }
 
 export function mkIdent(name: string, loc: SourceLoc): Ident {

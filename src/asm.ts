@@ -423,7 +423,7 @@ class Assembler {
                     // Return something that we can continue compilation with in case this
                     // is a legit forward reference.
                     if (this.pass == 0) {
-                        return ast.mkLiteral(0, node.name.loc);
+                        return ast.mkLiteral(0, node.name.loc, node);
                     }
                     this.error(`Couldn't resolve value for identifier '${label}'`, node.name.loc);
                 }
@@ -434,7 +434,7 @@ class Assembler {
                     }
                     // Return a placeholder that should be resolved in the next pass
                     this.needPass = true;
-                    return ast.mkLiteral(0, node.loc);
+                    return ast.mkLiteral(0, node.loc, node);
                 }
                 return ast.mkLiteral(lbl.addr, lbl.loc);
             }
@@ -455,6 +455,10 @@ class Assembler {
                     }
                 }
                 const object = this.evalExpr(node.object);
+                if (object.unresolved) {
+                    const { name } = object.unresolved
+                    this.error(`Cannot access properties of an unresolved symbol '${name}'`, object.unresolved.loc);
+                }
                 const { property, computed } = node
                 if (!computed) {
                     if (object.type !== 'object') {
@@ -464,7 +468,7 @@ class Assembler {
                     if (elt) {
                         return elt;
                     }
-                    this.error(`Object has no property named '${property}'`, node.loc)
+                    this.error(`Object has no property '${property}'`, node.loc)
                 } else {
                     // TODO assert type int
                     const idx = this.evalExpr(node.property);
@@ -477,7 +481,7 @@ class Assembler {
                         }
                         this.error(`Object has no property named '${property}'`, node.loc)
                     }
-                    this.error('Cannot index a non-array object', node.loc)
+                    this.error('Cannot index a non-array object', object.loc)
                 }
             }
             if (node.type == 'callfunc') {

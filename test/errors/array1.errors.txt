@@ -1,0 +1,1 @@
+test/errors/array1.input.asm:4:10: error: Cannot access properties of an unresolved symbol 'data'
