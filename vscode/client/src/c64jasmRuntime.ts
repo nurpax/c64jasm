@@ -49,6 +49,11 @@ export class C64jasmRuntime extends EventEmitter {
 //		this.loadSource(program);
 
 		this._viceProcess = child_process.exec(`x64 ${program}`);
+
+		// Stop the debugger once the VICE process exits.
+		this._viceProcess.on('close', (code, signal) => {
+			this.sendEvent('end');
+		})
 		this._currentLine = -1;
 
 		this.verifyBreakpoints(this._sourceFile);

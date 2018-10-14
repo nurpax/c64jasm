@@ -127,7 +127,6 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 	}
 
 	protected async terminateRequest(response: DebugProtocol.TerminateResponse) {
-		// start the program in the runtime
 		this._runtime.terminate();
 
 		this.sendResponse(response);
