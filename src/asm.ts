@@ -4,6 +4,7 @@ import * as path from 'path'
 const importFresh = require('import-fresh');
 
 import { readFileSync } from 'fs'
+import { toHex16 } from './util'
 import * as ast from './ast'
 import { Loc, SourceLoc } from './ast'
 
@@ -12,10 +13,6 @@ var parser = require('./g_parser')
 interface Error {
     loc: SourceLoc,
     msg: string
-}
-
-function toHex16(v: number): string {
-    return v.toString(16).padStart(4, '0');
 }
 
 function readLines (fname) {
@@ -196,7 +193,7 @@ class Scopes {
         this.seenLabels.clear();
     }
 
-    pushMacroExpandScope(macroName): void {
+    pushMacroExpandScope(macroName: string): void {
         this.labels.pushMacroExpandScope(macroName);
     }
 
@@ -240,6 +237,29 @@ class Scopes {
         return false;
     }
 
+    dumpLabels(codePC: number) {
+        const labels = Object.keys(this.labels.labels).map(name => {
+            return {
+                name,
+                ...this.labels.labels[name],
+                size: 0
+            }
+        })
+        const sortedLabels = labels.sort((a, b) => {
+            return a.addr - b.addr;
+        })
+
+        const numLabels = sortedLabels.length;
+        if (numLabels > 0) {
+            for (let i = 1; i < numLabels; i++) {
+                sortedLabels[i-1].size = sortedLabels[i].addr - sortedLabels[i-1].addr;
+            }
+            const last = sortedLabels[numLabels-1];
+            last.size = codePC - last.addr;
+        }
+
+        return sortedLabels;
+    }
 }
 
 function isTrueVal(cond: number | boolean): boolean {
@@ -1026,6 +1046,10 @@ class Assembler {
         addPlugin('loadJson', json);
         addPlugin('range', range);
     }
+
+    dumpLabels () {
+        return this.scopes.dumpLabels(this.codePC);
+    }
 }
 
 export function assemble(filename) {
@@ -1062,6 +1086,7 @@ export function assemble(filename) {
 
     return {
         prg: asm.prg(),
-        errors: asm.errors()
+        errors: asm.errors(),
+        labels: asm.dumpLabels()
     }
 }

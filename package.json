@@ -31,11 +31,13 @@
     "dist": "rm -rf dist && mkdir -p build/src dist/src && npm run gen && cp build/src/g_parser.js dist/src && tsc -p tsconfig.dist.json"
   },
   "dependencies": {
+    "@types/sprintf-js": "^1.1.1",
     "argparse": "^1.0.10",
     "chokidar": "^2.0.4",
     "colors": "^1.3.2",
     "glob-fs": "^0.1.7",
-    "import-fresh": "^2.0.0"
+    "import-fresh": "^2.0.0",
+    "sprintf-js": "^1.1.1"
   },
   "devDependencies": {
     "@types/argparse": "^1.0.34",

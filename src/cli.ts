@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 
 import * as process from 'process'
+import { sprintf } from 'sprintf-js'
+
 import { writeFileSync } from 'fs'
 import { assemble } from './asm'
 import { ArgumentParser } from 'argparse'
-
+import { toHex16 } from './util'
 const chokidar = require('chokidar');
 
 function compile(args) {
     console.log(`Compiling ${args.source}`)
     const hrstart = process.hrtime();
 
-    const { errors, prg } = assemble(args.source);
+    const { errors, prg, labels } = assemble(args.source);
 
     if (errors.length !== 0) {
         errors.forEach(err => {
@@ -28,6 +30,13 @@ function compile(args) {
         const diff = process.hrtime(hrstart);
         const deltaNS = diff[0] * NS_PER_SEC + diff[1];
         console.info('Compilation completed %d ms', Math.floor((deltaNS/1000000.0)*100)/100);
+    }
+
+    if (args.dumpLabels) {
+        labels.forEach(({name, addr, size, loc}) => {
+            const msg = sprintf("%s %4d %s", toHex16(addr), size, name);
+            console.log(msg);
+        })
     }
     return true;
 }
@@ -50,6 +59,12 @@ parser.addArgument('--out', { help: 'Output .prg filename' })
 parser.addArgument('--watch', {
     action:'append',
     help: 'Watch directories/files and recompile on changes.  Add multiple --watch args if you want to watch for multiple dirs/files.'
+});
+parser.addArgument('--dump-labels', {
+    action:'storeConst',
+    constant: true,
+    dest: 'dumpLabels',
+    help: 'Dump program address and size for all labels declared in the source files.'
 });
 parser.addArgument('source', {help: 'Input .asm file'})
 
