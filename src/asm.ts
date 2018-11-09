@@ -266,6 +266,11 @@ function isTrueVal(cond: number | boolean): boolean {
     return (cond === true || cond != 0);
 }
 
+interface BranchOffset {
+    offset: number;
+    loc: SourceLoc;
+}
+
 class Assembler {
     // TODO this should be a resizable array instead
     binary: number[] = [];
@@ -277,6 +282,7 @@ class Assembler {
     scopes = new Scopes();
     variables = new ScopeStack<Constant>();
     errorList: Error[] = [];
+    outOfRangeBranches: BranchOffset[] = [];
 
     prg = () => {
       // 1,8 is for encoding the $0801 starting address in the .prg file
@@ -329,6 +335,7 @@ class Assembler {
       this.needPass = false;
       this.binary = [];
       this.scopes.startPass();
+      this.outOfRangeBranches = [];
     }
 
     pushVariableScope = () => {
@@ -609,14 +616,9 @@ class Assembler {
         const addrDelta = addr - this.codePC - 2;
         this.emit(opcode);
         if (addrDelta > 0x7f || addrDelta < -128) {
-            if (this.pass == 0) {
-                // Maybe we couldn't resolve the address and got addr==0 placeholder.
-                // So try another pass and error out only if pass=1 has a branch range
-                // problem.
-                this.needPass = true;
-            } else {
-                this.error(`Branch target too far (must fit in signed 8-bit, got ${addrDelta}`, param.loc);
-            }
+            // Defer reporting out of 8-bit range branch targets to the end of the
+            // current pass (or report nothing if we need another pass.)
+            this.outOfRangeBranches.push({ loc, offset: addrDelta });
         }
         this.emit(addrDelta & 0xff);
         return true;
@@ -968,7 +970,7 @@ class Assembler {
             if (this.checkBranch(insn.abs, op[11])) {
                 return;
             }
-            this.error(`Couldn't encoder instruction '${insn.mnemonic}'`, line.loc);
+            this.error(`Couldn't encode instruction '${insn.mnemonic}'`, line.loc);
         } else {
             this.error(`Unknown mnemonic '${insn.mnemonic}'`, line.loc);
         }
@@ -1079,6 +1081,14 @@ export function assemble(filename) {
             return;
         }
         pass += 1;
+
+        if (!asm.needPass && asm.outOfRangeBranches.length != 0) {
+            for (let bidx in asm.outOfRangeBranches) {
+                const b = asm.outOfRangeBranches[bidx];
+                asm.addError(`Branch target too far (must fit in signed 8-bit range, got ${b.offset})`, b.loc);
+            }
+            break;
+        }
     } while(asm.needPass && !asm.anyErrors());
 
     asm.popVariableScope();
