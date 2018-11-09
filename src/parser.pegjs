@@ -255,7 +255,7 @@ abs = expr:expr { return expr; }
 
 expr = lastExpr
 
-multiplicative = first:unaryExpression rest:((STAR / DIV / MOD) primary)* {
+multiplicative = first:unaryExpression rest:((STAR / DIV / MOD) unaryExpression)* {
     return rest.reduce(function(memo, curr) {
       return binop(curr[0], memo, curr[1]);
     }, first);
