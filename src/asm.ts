@@ -79,8 +79,8 @@ class Labels {
         this.macroCount = 0;
     }
 
-    pushMacroExpandScope(macroName): void {
-        this.labelPrefix.push(`${macroName}/${this.macroCount}/`)
+    pushMacroExpandScope(name: string): void {
+        this.labelPrefix.push(`${name}/${this.macroCount}`)
         this.macroCount++;
     }
 
@@ -101,12 +101,18 @@ class Labels {
 
     currentPrefixName(name: string): string {
         const prefix = this.currentScopePrefix();
-        return `${prefix}${name}`
+        if (prefix == '') {
+            return name;
+        }
+        return `${prefix}/${name}`
     }
 
     prefixName(name: string, depth): string {
         const prefix = this.makeScopePrefix(depth);
-        return `${prefix}${name}`
+        if (prefix == '') {
+            return name;
+        }
+        return `${prefix}/${name}`
     }
 
     add(name: string, addr: number, loc: SourceLoc): void {
@@ -904,7 +910,7 @@ class Assembler {
         }
 
         if (line.scopedStmts) {
-            this.withScope(line.label, () => {
+            this.withScope(line.label.name, () => {
                 this.assembleStmtList(line.scopedStmts);
             });
             return;
