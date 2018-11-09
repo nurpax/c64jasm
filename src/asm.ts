@@ -618,7 +618,7 @@ class Assembler {
         if (addrDelta > 0x7f || addrDelta < -128) {
             // Defer reporting out of 8-bit range branch targets to the end of the
             // current pass (or report nothing if we need another pass.)
-            this.outOfRangeBranches.push({ loc, offset: addrDelta });
+            this.outOfRangeBranches.push({ loc: param.loc, offset: addrDelta });
         }
         this.emit(addrDelta & 0xff);
         return true;
