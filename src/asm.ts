@@ -735,35 +735,34 @@ class Assembler {
         this.popVariableScope();
     }
 
-    checkDirectives (node: ast.Stmt): void {
-        const tryIntArg = (exprList, bits) => {
-            for (let i = 0; i < exprList.length; i++) {
-                const e = this.evalExpr(exprList[i]);
-                const vals = []
-                if (e.type === 'literal') {
-                    vals.push(e.lit);
-                } else if (e.type === 'array') {
-                    // TODO function 'assertType' that returns the value and errors otherwise
-                    e.values.forEach(v => vals.push(v.lit));
-                } else {
-                    this.error(`Only literal (int constants) or array types can be emitted.  Got ${e.type}`, exprList[i].loc);
-                }
-                vals.forEach(v => {
-                    if (bits === 8) {
-                        this.emit(v);
-                    } else {
-                        if (bits !== 16) {
-                            throw new Error('impossible');
-                        }
-                        this.emit16(v);
-                    }
-                })
-            }
-            return true
+    emit8or16(v, bits) {
+        if (bits == 8) {
+            this.emit(v);
+            return;
         }
+        this.emit16(v);
+    }
+
+    emitData (exprList: ast.Expr[], bits) {
+        for (let i = 0; i < exprList.length; i++) {
+            const e = this.evalExpr(exprList[i]);
+            if (e.type === 'literal') {
+                this.emit8or16(e.lit, bits);
+            } else if (e.type === 'array') {
+                // TODO function 'assertType' that returns the value and errors otherwise
+                for (let bi in e.values) {
+                    this.emit8or16(e.values[bi].lit, bits);
+                }
+            } else {
+                this.error(`Only literal (int constants) or array types can be emitted.  Got ${e.type}`, exprList[i].loc);
+            }
+        }
+    }
+
+    checkDirectives (node: ast.Stmt): void {
         switch (node.type) {
             case 'data': {
-                tryIntArg(node.values, node.dataSize === ast.DataSize.Byte ? 8 : 16);
+                this.emitData(node.values, node.dataSize === ast.DataSize.Byte ? 8 : 16);
                 break;
             }
             case 'fill': {
