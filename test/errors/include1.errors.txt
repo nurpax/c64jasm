@@ -1,1 +1,1 @@
-test/errors/include1.input.asm:3:1: error: Couldn't read !include file 'test/errors/macrosxxxxinexistentfile.asm'
+test/errors/include1.input.asm:3:1: error: Couldn't open file 'test/errors/macrosxxxxinexistentfile.asm'

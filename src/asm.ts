@@ -7,16 +7,11 @@ import { readFileSync } from 'fs'
 import { toHex16 } from './util'
 import * as ast from './ast'
 import { Loc, SourceLoc } from './ast'
-
-var parser = require('./g_parser')
+import ParseCache from './parseCache'
 
 interface Error {
     loc: SourceLoc,
     msg: string
-}
-
-function readLines (fname) {
-    return readFileSync(fname).toString().split('\n')
 }
 
 const filterMap = (lst, mf) => {
@@ -306,6 +301,8 @@ interface BranchOffset {
 class Assembler {
     // TODO this should be a resizable array instead
     binary: number[] = [];
+
+    parseCache = new ParseCache((fname, loc) => this.guardedReadFileSync(fname, loc));
 
     includeStack: string[] = [];
     codePC = 0;
@@ -702,21 +699,15 @@ class Assembler {
         try {
             return readFileSync(fname);
         } catch (err) {
-            this.error(`Failed to load file '${fname}'.  Reason: ${err}`, loc);
+            this.error(`Couldn't open file '${fname}'`, loc);
         }
     }
 
     fileInclude (inclStmt: ast.StmtInclude): void {
         const fname = this.makeSourceRelativePath(inclStmt.filename);
-        try {
-            const src = this.guardedReadFileSync(fname, inclStmt.loc).toString();
-            this.pushSource(fname);
-            this.assemble(src);
-            this.popSource();
-        } catch(err) {
-            // TODO could add a 'note' for ${err}
-            this.error(`Couldn't read !include file '${fname}'`, inclStmt.loc);
-        }
+        this.pushSource(fname);
+        this.assemble(fname, inclStmt.loc);
+        this.popSource();
     }
 
     fillBytes (n: ast.StmtFill): void {
@@ -1048,11 +1039,9 @@ class Assembler {
         return path.join(path.dirname(curSource), filename);
     }
 
-    assemble = (source) => {
+    assemble (filename, loc: SourceLoc | null): void {
         try {
-            const astLines = parser.parse(source, {
-                source: this.peekSourceStack()
-            });
+            const astLines = this.parseCache.parse(filename, loc);
             this.assmbleLines(astLines);
         } catch(err) {
             if ('name' in err && err.name == 'SyntaxError') {
@@ -1123,9 +1112,7 @@ class Assembler {
 
 export function assemble(filename) {
     const asm = new Assembler();
-    const src = readFileSync(filename).toString();
     asm.pushSource(filename);
-
     asm.pushVariableScope();
     asm.registerPlugins();
 
@@ -1134,7 +1121,7 @@ export function assemble(filename) {
         asm.pushVariableScope();
         asm.startPass(pass);
 
-        asm.assemble(src);
+        asm.assemble(filename, null);
         if (asm.anyErrors()) {
             return {
                 errors: asm.errors()
