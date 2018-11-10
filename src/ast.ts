@@ -112,8 +112,8 @@ export interface StmtBinary extends Node {
 
 export interface StmtIfElse extends Node {
   type: 'if';
-  cases: [Expr, Stmt[]];
-  elseBranch: Stmt[];
+  cases: [Expr, AsmLine[]];
+  elseBranch: AsmLine[];
 }
 
 export interface StmtError extends Node {
@@ -125,7 +125,7 @@ export interface StmtFor extends Node {
   type: 'for',
   index: Ident;
   list: Expr;
-  body: Stmt[];
+  body: AsmLine[];
 }
 
 export interface MacroArg {
@@ -136,7 +136,7 @@ export interface StmtMacro extends Node {
   type: 'macro',
   name: Ident;
   args: MacroArg[];
-  body: Stmt[];
+  body: AsmLine[];
 }
 
 export interface StmtCallMacro extends Node {
@@ -169,10 +169,10 @@ export interface StmtLoadPlugin extends Node {
   funcName: Ident;
 }
 
-interface AsmLine extends Node {
+export interface AsmLine extends Node {
   label: Label | null;
   stmt: Stmt | null;
-  scopedStmts: Stmt[] | null;
+  scopedStmts: AsmLine[] | null;
 }
 
 export function mkLabel(name: string, loc: SourceLoc): Label {
@@ -238,7 +238,7 @@ export function mkBinary(filename: Expr, size: Expr, offset: Expr, loc: SourceLo
   }
 }
 
-export function mkIfElse(cases: [Expr, Stmt[]], elseBranch: Stmt[], loc: SourceLoc): StmtIfElse {
+export function mkIfElse(cases: [Expr, AsmLine[]], elseBranch: AsmLine[], loc: SourceLoc): StmtIfElse {
   return {
     type: 'if',
     cases,
@@ -247,7 +247,7 @@ export function mkIfElse(cases: [Expr, Stmt[]], elseBranch: Stmt[], loc: SourceL
   }
 }
 
-export function mkFor(index: Ident, list: Expr, body: Stmt[], loc: SourceLoc): StmtFor {
+export function mkFor(index: Ident, list: Expr, body: AsmLine[], loc: SourceLoc): StmtFor {
   return {
     type: 'for',
     index,
@@ -261,7 +261,7 @@ export function mkMacroArg(ident: Ident): MacroArg {
   return { ident };
 }
 
-export function mkMacro(name: Ident, args: MacroArg[] | null, body: Stmt[], loc: SourceLoc): StmtMacro {
+export function mkMacro(name: Ident, args: MacroArg[] | null, body: AsmLine[], loc: SourceLoc): StmtMacro {
   return {
     type: 'macro',
     name,
@@ -319,7 +319,7 @@ export function mkLoadPlugin(filename: string, funcName: Ident, loc: SourceLoc):
 export function mkAsmLine(
     label: Label = null,
     stmt: Stmt = null,
-    scopedStmts: Stmt[] = null,
+    scopedStmts: AsmLine[] = null,
     loc: SourceLoc
   ): AsmLine {
   return { label, stmt, scopedStmts, loc };

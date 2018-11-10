@@ -316,25 +316,27 @@ class Assembler {
     errorList: Error[] = [];
     outOfRangeBranches: BranchOffset[] = [];
 
-    prg = () => {
+    prg (): Buffer {
       // 1,8 is for encoding the $0801 starting address in the .prg file
       return Buffer.from([1, 8].concat(this.binary))
     }
 
-    peekSourceStack () {
+    peekSourceStack (): string {
         const len = this.includeStack.length;
         return this.includeStack[len-1];
     }
 
-    pushSource (fname) {
+    pushSource (fname: string): void {
         this.includeStack.push(fname);
     }
 
-    popSource () {
+    popSource (): void {
         this.includeStack.pop();
     }
 
-    anyErrors = () => this.errorList.length !== 0
+    anyErrors (): boolean {
+        return this.errorList.length !== 0;
+    }
 
     errors = () => {
         return this.errorList.map(({loc, msg}) => {
@@ -361,7 +363,7 @@ class Assembler {
         throw err;
     }
 
-    startPass = (pass: number) => {
+    startPass (pass: number): void {
       this.codePC = 0x801;
       this.pass = pass;
       this.needPass = false;
@@ -370,17 +372,17 @@ class Assembler {
       this.outOfRangeBranches = [];
     }
 
-    pushVariableScope = () => {
+    pushVariableScope (): void {
         this.scopes.macros.push();
         this.variables.push();
     }
 
-    popVariableScope = () => {
+    popVariableScope (): void {
         this.variables.pop();
         this.scopes.macros.pop();
     }
 
-    emitBasicHeader = () => {
+    emitBasicHeader () {
       this.emit(0x0c);
       this.emit(0x08);
       this.emit(0x00);
@@ -398,7 +400,7 @@ class Assembler {
       this.emit(0);
     }
 
-    emitBinary = (ast) => {
+    emitBinary (ast: ast.StmtBinary): void {
         const { filename } = ast
         const fname = this.makeSourceRelativePath(filename)
         const buf: Buffer = this.guardedReadFileSync(fname, ast.loc);
@@ -419,7 +421,6 @@ class Assembler {
         for (let i = 0; i < size; i++) {
             this.emit(buf.readUInt8(i + offset));
         }
-        return true
     }
 
     evalExpr (astNode): ast.Expr {
@@ -598,18 +599,18 @@ class Assembler {
         return evalExpr(astNode);
     }
 
-    emit = (byte: number) => {
+    emit (byte: number): void {
         this.binary.push(byte);
         this.codePC += 1
     }
 
-    emit16 = (word: number) => {
+    emit16 (word: number): void {
         this.emit(word & 0xff);
         this.emit((word>>8) & 0xff);
     }
 
     // TODO shouldn't have any for opcode
-    checkSingle = (opcode: number | null) => {
+    checkSingle (opcode: number | null): boolean {
         if (opcode === null) {
             return false;
         }
@@ -617,7 +618,7 @@ class Assembler {
         return true;
     }
 
-    checkImm = (param: any, opcode: number | null) => {
+    checkImm (param: any, opcode: number | null): boolean {
         if (opcode === null || param === null) {
             return false;
         }
@@ -637,7 +638,7 @@ class Assembler {
         return false;
     }
 
-    checkAbs = (param: any, opcode: number | null, bits: number) => {
+    checkAbs (param: any, opcode: number | null, bits: number): boolean {
         if (opcode === null || param === null) {
             return false;
         }
@@ -669,7 +670,7 @@ class Assembler {
         return false
     }
 
-    checkBranch = (param: any, opcode: number | null) => {
+    checkBranch (param: any, opcode: number | null): boolean {
         if (opcode === null || param === null) {
             return false;
         }
@@ -686,7 +687,7 @@ class Assembler {
         return true;
       }
 
-    setPC = (valueExpr) => {
+    setPC (valueExpr): void {
         const { lit } = this.evalExpr(valueExpr);
         if (this.codePC > lit) {
             // TODO this is not great.  Actually need to track which ranges of memory have something in them.
@@ -695,10 +696,9 @@ class Assembler {
         while (this.codePC < lit) {
             this.emit(0);
         }
-        return true
     }
 
-    guardedReadFileSync(fname, loc) {
+    guardedReadFileSync(fname, loc): Buffer {
         try {
             return readFileSync(fname);
         } catch (err) {
@@ -706,21 +706,20 @@ class Assembler {
         }
     }
 
-    fileInclude = (inclStmt: ast.StmtInclude) => {
+    fileInclude (inclStmt: ast.StmtInclude): void {
         const fname = this.makeSourceRelativePath(inclStmt.filename);
         try {
             const src = this.guardedReadFileSync(fname, inclStmt.loc).toString();
             this.pushSource(fname);
-            const res = this.assemble(src);
+            this.assemble(src);
             this.popSource();
-            return res;
         } catch(err) {
             // TODO could add a 'note' for ${err}
             this.error(`Couldn't read !include file '${fname}'`, inclStmt.loc);
         }
     }
 
-    fillBytes = (n: ast.StmtFill) => {
+    fillBytes (n: ast.StmtFill): void {
         const numVals = this.evalExpr(n.numBytes);
         const fillValue = this.evalExpr(n.fillValue);
         const fv = fillValue.lit;
@@ -730,10 +729,9 @@ class Assembler {
         for (let i = 0; i < numVals.lit; i++) {
             this.emit(fv);
         }
-        return true;
     }
 
-    alignBytes = (n: ast.StmtAlign) => {
+    alignBytes (n: ast.StmtAlign): void {
         const alignBytes = this.evalExpr(n.alignBytes);
         const { lit } = alignBytes;
         if (lit < 1) {
@@ -747,22 +745,20 @@ class Assembler {
         }
     }
 
-    withLabelScope = (name: string, compileScope) => {
+    withLabelScope (name: string, compileScope): void {
         this.pushVariableScope();
         this.scopes.pushLabelScope(name);
-        const res = compileScope();
+        compileScope();
         this.scopes.popLabelScope();
         this.popVariableScope();
-        return res;
     }
 
-    withMacroExpandScope = (name: string, compileScope) => {
+    withMacroExpandScope (name: string, compileScope): void {
         this.pushVariableScope();
         this.scopes.pushMacroExpandScope(name);
-        const res = compileScope();
+        compileScope();
         this.scopes.popMacroExpandScope();
         this.popVariableScope();
-        return res;
     }
 
     checkDirectives (node: ast.Stmt): void {
@@ -826,10 +822,10 @@ class Assembler {
                     const [condExpr, body] = cases[ci];
                     const { lit: condition } = this.evalExpr(condExpr);
                     if (isTrueVal(condition)) {
-                        return this.assembleStmtList(body);
+                        return this.assmbleLines(body);
                     }
                 }
-                this.assembleStmtList(elseBranch);
+                this.assmbleLines(elseBranch);
                 break;
             }
             case 'for': {
@@ -847,7 +843,7 @@ class Assembler {
                             value
                         };
                         this.variables.add(index.name, loopVar);
-                        return this.assembleStmtList(body);
+                        return this.assmbleLines(body);
                     });
                 }
                 break;
@@ -891,7 +887,7 @@ class Assembler {
                             value: argValues[argIdx].value
                         });
                     }
-                    this.assembleStmtList(macro.body);
+                    this.assmbleLines(macro.body);
                 });
                 break;
             }
@@ -944,7 +940,7 @@ class Assembler {
         }
     }
 
-    assembleStmtList = (lst) => {
+    assmbleLines (lst: ast.AsmLine[]): void {
         if (lst === null) {
             return;
         }
@@ -953,10 +949,10 @@ class Assembler {
         }
     }
 
-    assembleLine = (line) => {
+    assembleLine (line: ast.AsmLine): void {
         // Empty lines are no-ops
-        if (line === null) {
-            return true;
+        if (line.label == null && line.stmt == null && line.scopedStmts == null) {
+            return;
         }
 
         if (line.label !== null) {
@@ -976,7 +972,7 @@ class Assembler {
 
         if (line.scopedStmts) {
             this.withLabelScope(line.label.name, () => {
-                this.assembleStmtList(line.scopedStmts);
+                this.assmbleLines(line.scopedStmts);
             });
             return;
         }
@@ -1054,10 +1050,10 @@ class Assembler {
 
     assemble = (source) => {
         try {
-            const statements = parser.parse(source, {
+            const astLines = parser.parse(source, {
                 source: this.peekSourceStack()
             });
-            this.assembleStmtList(statements);
+            this.assmbleLines(astLines);
         } catch(err) {
             if ('name' in err && err.name == 'SyntaxError') {
                 this.addError(`Syntax error: ${err.message}`, {

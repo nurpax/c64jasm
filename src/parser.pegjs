@@ -115,7 +115,7 @@ insnLine =
     }
   / __ {
     // empty line is a no-op
-    return null
+    return ast.mkAsmLine(null, null, null, loc());
   }
 
 statement =
