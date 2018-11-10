@@ -813,10 +813,10 @@ class Assembler {
                     const [condExpr, body] = cases[ci];
                     const { lit: condition } = this.evalExpr(condExpr);
                     if (isTrueVal(condition)) {
-                        return this.assmbleLines(body);
+                        return this.assembleLines(body);
                     }
                 }
-                this.assmbleLines(elseBranch);
+                this.assembleLines(elseBranch);
                 break;
             }
             case 'for': {
@@ -834,7 +834,7 @@ class Assembler {
                             value
                         };
                         this.variables.add(index.name, loopVar);
-                        return this.assmbleLines(body);
+                        return this.assembleLines(body);
                     });
                 }
                 break;
@@ -878,7 +878,7 @@ class Assembler {
                             value: argValues[argIdx].value
                         });
                     }
-                    this.assmbleLines(macro.body);
+                    this.assembleLines(macro.body);
                 });
                 break;
             }
@@ -931,7 +931,7 @@ class Assembler {
         }
     }
 
-    assmbleLines (lst: ast.AsmLine[]): void {
+    assembleLines (lst: ast.AsmLine[]): void {
         if (lst === null) {
             return;
         }
@@ -963,7 +963,7 @@ class Assembler {
 
         if (line.scopedStmts) {
             this.withLabelScope(line.label.name, () => {
-                this.assmbleLines(line.scopedStmts);
+                this.assembleLines(line.scopedStmts);
             });
             return;
         }
@@ -1042,7 +1042,7 @@ class Assembler {
     assemble (filename, loc: SourceLoc | null): void {
         try {
             const astLines = this.parseCache.parse(filename, loc);
-            this.assmbleLines(astLines);
+            this.assembleLines(astLines);
         } catch(err) {
             if ('name' in err && err.name == 'SyntaxError') {
                 this.addError(`Syntax error: ${err.message}`, {
