@@ -309,6 +309,7 @@ class Assembler {
     binary: number[] = [];
 
     parseCache = new ParseCache();
+    pluginCache = new Map();
 
     includeStack: string[] = [];
     codePC = 0;
@@ -326,6 +327,21 @@ class Assembler {
 
     parse (filename, loc) {
         return this.parseCache.parse(filename, loc, ((fname, loc) => this.guardedReadFileSync(fname, loc)));
+    }
+
+    // Cache plugin require's so that we fresh require() them only in the first pass.
+    // importFresh is somewhat slow because it blows through Node's cache
+    // intentionally.  We don't want it completely cached because changes to plugin
+    // code must trigger a recompile and in that case we want the plugins really
+    // reloaded too.
+    requirePlugin(fname) {
+        const p = this.pluginCache.get(fname);
+        if (p !== undefined) {
+            return p;
+        }
+        const newPlugin = importFresh(path.resolve(this.makeSourceRelativePath(fname)));
+        this.pluginCache.set(fname, newPlugin);
+        return newPlugin;
     }
 
     peekSourceStack (): string {
@@ -889,7 +905,7 @@ class Assembler {
             }
             case 'load-plugin': {
                 const fname = node.filename;
-                const pluginFunc = importFresh(path.resolve(this.makeSourceRelativePath(fname)));
+                const pluginFunc = this.requirePlugin(fname);
                 const funcName = node.funcName.name;
                 this.variables.add(funcName, {
                     arg: {
