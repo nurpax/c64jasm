@@ -79,12 +79,20 @@ class Labels {
         this.macroCount = 0;
     }
 
+    pushLabelScope(name: string): void {
+        this.labelPrefix.push(name)
+    }
+
+    popMacroExpandScope(): void {
+        this.labelPrefix.pop();
+    }
+
     pushMacroExpandScope(name: string): void {
         this.labelPrefix.push(`${name}/${this.macroCount}`)
         this.macroCount++;
     }
 
-    popMacroExpandScope(): void {
+    popLabelScope(): void {
         this.labelPrefix.pop();
     }
 
@@ -122,6 +130,11 @@ class Labels {
         }
         const prefixedName = this.currentPrefixName(name);
         this.labels[prefixedName] = lbl
+    }
+
+    // Find a label with fully specified scope path
+    findFq(nameFq): Label {
+        return this.labels[nameFq];
     }
 
     find(name: string): Label {
@@ -199,6 +212,14 @@ class Scopes {
         this.seenLabels.clear();
     }
 
+    pushLabelScope(name: string): void {
+        this.labels.pushLabelScope(name);
+    }
+
+    popLabelScope(): void {
+        this.labels.popLabelScope();
+    }
+
     pushMacroExpandScope(macroName: string): void {
         this.labels.pushMacroExpandScope(macroName);
     }
@@ -223,14 +244,19 @@ class Scopes {
         return this.labels.find(name);
     }
 
+    findLabelFq(name: string): Label {
+        return this.labels.findFq(name);
+    }
+
     findSeenLabel(name: string): ast.Label {
         return this.seenLabels.find(this.labels.currentPrefixName(name));
     }
 
     declareLabelSymbol(symbol: ast.Label, codePC: number): boolean {
         const { name, loc } = symbol
-        this.seenLabels.declare(this.labels.currentPrefixName(name), symbol);
-        const oldLabel = this.labels.find(name);
+        const labelFq = this.labels.currentPrefixName(name);
+        this.seenLabels.declare(labelFq, symbol);
+        const oldLabel = this.findLabelFq(labelFq);
         if (oldLabel === undefined) {
             this.addLabel(name, codePC, loc);
             return false;
@@ -487,6 +513,36 @@ class Assembler {
                         }
                     }
                 }
+                // Does the object access match a foo.bar.baz style label access?
+                // If yes, resolve as label
+                if (node.type == 'member' && !node.computed) {
+                    const names = [];
+                    let n = node;
+                    let allMatched = true;
+                    do {
+                        if (n.type !== 'member') {
+                            allMatched = false;
+                            break;
+                        }
+                        if (n.computed) {
+                            allMatched = false;
+                            break;
+                        }
+                        names.push(n.property)
+                        n = n.object;
+                    } while(n.type != 'ident');
+                    if (allMatched && n.type == 'ident') {
+                        names.push(n.name);
+                        names.reverse();
+                        const nestedLabel = names.join('/');
+                        const lbl = this.scopes.findLabel(nestedLabel);
+                        // If this is a legit label, treat it as such.  Otherwise fall-thru
+                        // to object property lookup.
+                        if (lbl) {
+                            return this.evalExpr(ast.mkIdent(nestedLabel, node.loc));
+                        }
+                    }
+                }
                 const object = this.evalExpr(node.object);
                 if (object.unresolved) {
                     const { name } = object.unresolved
@@ -691,7 +747,16 @@ class Assembler {
         }
     }
 
-    withScope = (name: string, compileScope) => {
+    withLabelScope = (name: string, compileScope) => {
+        this.pushVariableScope();
+        this.scopes.pushLabelScope(name);
+        const res = compileScope();
+        this.scopes.popLabelScope();
+        this.popVariableScope();
+        return res;
+    }
+
+    withMacroExpandScope = (name: string, compileScope) => {
         this.pushVariableScope();
         this.scopes.pushMacroExpandScope(name);
         const res = compileScope();
@@ -775,7 +840,7 @@ class Assembler {
                 }
                 const elts = lst.values
                 for (let i = 0; i < elts.length; i++) {
-                    this.withScope('__forloop', () => {
+                    this.withMacroExpandScope('__forloop', () => {
                         const value = elts[i];
                         const loopVar: Constant = {
                             arg: ast.mkMacroArg(index),
@@ -818,7 +883,7 @@ class Assembler {
                         value: eres
                     });
                 }
-                this.withScope(name.name, () => {
+                this.withMacroExpandScope(name.name, () => {
                     for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
                         const argName = macro.args[argIdx].ident;
                         this.variables.add(argName.name, {
@@ -910,7 +975,7 @@ class Assembler {
         }
 
         if (line.scopedStmts) {
-            this.withScope(line.label.name, () => {
+            this.withLabelScope(line.label.name, () => {
                 this.assembleStmtList(line.scopedStmts);
             });
             return;
