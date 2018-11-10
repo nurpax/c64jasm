@@ -8,24 +8,22 @@ export default class {
     filenameToSource = new Map<string, Buffer>();
     sourceToAst = new Map<string, ast.AsmLine[]>();
 
-    guardedReadFileSync: ((string, Loc) => Buffer) = undefined;
-
-    constructor (guardedReadFileSync: (string, SourceLoc) => Buffer) {
-        this.guardedReadFileSync = guardedReadFileSync;
-    }
-
-    getFileContents(filename, loc: SourceLoc | null): Buffer {
+    getFileContents(filename, loc: SourceLoc | null, guardedReadFileSync): Buffer {
         const contents = this.filenameToSource.get(filename);
         if (contents !== undefined) {
             return contents;
         }
-        const src = this.guardedReadFileSync(filename, loc);
+        const src = guardedReadFileSync(filename, loc);
         this.filenameToSource.set(filename, src);
         return src;
     }
 
-    parse(filename: string, loc: SourceLoc | null): ast.AsmLine[] {
-        const source = this.getFileContents(filename, loc);
+    parse(
+        filename: string,
+        loc: SourceLoc | null,
+        guardedReadFileSync: (string, SourceLoc) => Buffer
+    ): ast.AsmLine[] {
+        const source = this.getFileContents(filename, loc, guardedReadFileSync);
         const cachedAst = this.sourceToAst.get(filename);
         if (cachedAst !== undefined) {
             return cachedAst;

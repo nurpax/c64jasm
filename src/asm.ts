@@ -298,11 +298,17 @@ interface BranchOffset {
     loc: SourceLoc;
 }
 
+const runBinop = (a: ast.Literal, b: ast.Literal, f) => {
+    // TODO combine a&b locs
+    // TODO a.type, b.type must be literal
+    return ast.mkLiteral(f(a.lit, b.lit), a.loc);
+}
+
 class Assembler {
     // TODO this should be a resizable array instead
     binary: number[] = [];
 
-    parseCache = new ParseCache((fname, loc) => this.guardedReadFileSync(fname, loc));
+    parseCache = new ParseCache();
 
     includeStack: string[] = [];
     codePC = 0;
@@ -316,6 +322,10 @@ class Assembler {
     prg (): Buffer {
       // 1,8 is for encoding the $0801 starting address in the .prg file
       return Buffer.from([1, 8].concat(this.binary))
+    }
+
+    parse (filename, loc) {
+        return this.parseCache.parse(filename, loc, ((fname, loc) => this.guardedReadFileSync(fname, loc)));
     }
 
     peekSourceStack (): string {
@@ -421,11 +431,6 @@ class Assembler {
     }
 
     evalExpr (astNode): ast.Expr {
-        const runBinop = (a: ast.Literal, b: ast.Literal, f) => {
-            // TODO combine a&b locs
-            // TODO a.type, b.type must be literal
-            return ast.mkLiteral(f(a.lit, b.lit), a.loc);
-        }
         const evalExpr = (node) => {
             if (node.type === 'binary') {
                 const left = evalExpr(node.left);
@@ -1041,7 +1046,7 @@ class Assembler {
 
     assemble (filename, loc: SourceLoc | null): void {
         try {
-            const astLines = this.parseCache.parse(filename, loc);
+            const astLines = this.parse(filename, loc);
             this.assembleLines(astLines);
         } catch(err) {
             if ('name' in err && err.name == 'SyntaxError') {
