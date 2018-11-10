@@ -430,11 +430,11 @@ class Assembler {
         }
     }
 
-    evalExpr (astNode): ast.Expr {
-        const evalExpr = (node) => {
-            if (node.type === 'binary') {
-                const left = evalExpr(node.left);
-                const right = evalExpr(node.right);
+    evalExpr (node): ast.Expr {
+        switch (node.type) {
+            case 'binary': {
+                const left = this.evalExpr(node.left);
+                const right = this.evalExpr(node.right);
                 switch (node.op) {
                     case '+': return  runBinop(left, right, (a,b) => a + b)
                     case '-': return  runBinop(left, right, (a,b) => a - b)
@@ -456,8 +456,8 @@ class Assembler {
                         throw new Error(`Unhandled binary operator ${node.op}`);
                 }
             }
-            if (node.type === 'unary') {
-                const { lit } = evalExpr(node.expr);
+            case 'unary': {
+                const { lit } = this.evalExpr(node.expr);
                 switch (node.op) {
                     case '+': return ast.mkLiteral(+lit, node.loc);
                     case '-': return ast.mkLiteral(-lit, node.loc);
@@ -466,16 +466,16 @@ class Assembler {
                         throw new Error(`Unhandled unary operator ${node.op}`);
                 }
             }
-            if (node.type == 'literal') {
+            case 'literal': {
                 return node;
             }
-            if (node.type == 'array') {
+            case 'array': {
                 return {
                     ...node,
-                    values: node.values.map(v => evalExpr(v))
+                    values: node.values.map(v => this.evalExpr(v))
                 }
             }
-            if (node.type == 'ident') {
+            case 'ident': {
                 let label = node.name
                 const variable = this.variables.find(label);
                 if (variable) {
@@ -500,7 +500,7 @@ class Assembler {
                 }
                 return ast.mkLiteral(lbl.addr, lbl.loc);
             }
-            if (node.type == 'member') {
+            case 'member': {
                 const findObjectField = (props, prop) => {
                     for (let pi = 0; pi < props.length; pi++) {
                         const p = props[pi]
@@ -576,7 +576,7 @@ class Assembler {
                     this.error('Cannot index a non-array object', object.loc)
                 }
             }
-            if (node.type == 'callfunc') {
+            case 'callfunc': {
                 const sym = this.variables.find(node.name);
                 if (!sym) {
                     this.error(`Calling an unknown function '${node.name}'`, node.loc);
@@ -596,9 +596,9 @@ class Assembler {
                     this.error(`Plugin invocation '${node.name}' failed with an exception: ${err}`, node.loc);
                 }
             }
-            this.error(`Don't know what to do with node '${node.type}'`, node.loc);
+            default:
+                this.error(`Don't know what to do with node '${node.type}'`, node.loc);
         }
-        return evalExpr(astNode);
     }
 
     emit (byte: number): void {
