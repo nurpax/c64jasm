@@ -625,19 +625,10 @@ class Assembler {
             return false;
         }
         const eres = this.evalExpr(param);
-        if (eres !== null) {
-            const { lit, loc } = eres
-            this.emit(opcode)
-            this.emit(lit)
-            return true
-        } else {
-            if (this.pass === 0) {
-                this.emit(opcode)
-                this.emit(0)
-                return true
-            }
-        }
-        return false;
+        const { lit, loc } = eres
+        this.emit(opcode)
+        this.emit(lit)
+        return true
     }
 
     checkAbs (param: any, opcode: number | null, bits: number): boolean {
@@ -645,31 +636,18 @@ class Assembler {
             return false;
         }
         const eres = this.evalExpr(param);
-        if (eres !== null) {
-            const { lit, loc } = eres
-            if (bits === 8) {
-                if (lit < 0 || lit >= (1<<bits)) {
-                    return false
-                }
-                this.emit(opcode)
-                this.emit(lit)
-            } else {
-                this.emit(opcode)
-                this.emit16(lit)
+        const { lit, loc } = eres
+        if (bits === 8) {
+            if (lit < 0 || lit >= (1<<bits)) {
+                return false
             }
-            return true
+            this.emit(opcode)
+            this.emit(lit)
         } else {
-            if (bits === 8) {
-                this.emit(opcode);
-                this.emit(0);
-                return true
-            } else {
-                this.emit(opcode);
-                this.emit16(0);
-                return true
-            }
+            this.emit(opcode)
+            this.emit16(lit)
         }
-        return false
+        return true
     }
 
     checkBranch (param: any, opcode: number | null): boolean {
