@@ -1,0 +1,1 @@
+<unknown>:1:1: error: Object has no property 'no_such_function'
