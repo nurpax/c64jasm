@@ -6,7 +6,7 @@ const importFresh = require('import-fresh');
 import { readFileSync } from 'fs'
 import { toHex16 } from './util'
 import * as ast from './ast'
-import { Loc, SourceLoc } from './ast'
+import { SourceLoc } from './ast'
 import ParseCache from './parseCache'
 
 interface Error {
