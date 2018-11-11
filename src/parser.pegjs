@@ -330,8 +330,11 @@ unaryExpression =
 unaryOperator = op:(PLUS / MINUS / TILDA / BANG) { return op };
 
 callOrMemberExpression =
-   callExpression
- / head:primary tail:(
+  callExpression
+/ memberExpression
+
+memberExpression =
+  head:primary tail:(
       LBRK property:lastExpr RBRK {
         return { property, computed: true };
       }
@@ -350,8 +353,8 @@ callOrMemberExpression =
   }
 
 callExpression =
-  ident:labelIdent LPAR args:exprList? RPAR {
-    return ast.mkCallFunc(ident, args, loc());
+  callee:memberExpression LPAR args:exprList? RPAR {
+    return ast.mkCallFunc(callee, args, loc());
   }
 
 primary

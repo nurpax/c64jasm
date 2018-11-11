@@ -166,7 +166,7 @@ export interface StmtAssign extends Node {
 export interface StmtLoadPlugin extends Node {
   type: 'load-plugin',
   filename: string;
-  funcName: Ident;
+  moduleName: Ident;
 }
 
 export interface AsmLine extends Node {
@@ -307,11 +307,11 @@ export function mkAssign(name: Ident, value: Expr, loc: SourceLoc): StmtAssign {
   }
 }
 
-export function mkLoadPlugin(filename: string, funcName: Ident, loc: SourceLoc): StmtLoadPlugin {
+export function mkLoadPlugin(filename: string, moduleName: Ident, loc: SourceLoc): StmtLoadPlugin {
   return {
     type: 'load-plugin',
     filename,
-    funcName,
+    moduleName,
     loc
   }
 }

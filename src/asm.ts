@@ -593,11 +593,7 @@ class Assembler {
                 }
             }
             case 'callfunc': {
-                const sym = this.variables.find(node.name);
-                if (!sym) {
-                    this.error(`Calling an unknown function '${node.name}'`, node.loc);
-                }
-                const callee = sym.value;
+                const callee = this.evalExpr(node.name);
                 if (callee.type !== 'function') {
                     this.error(`Callee must be a function type.  Got '${callee.type}'`, node.loc);
                 }
@@ -609,7 +605,11 @@ class Assembler {
                 try {
                     return callee.func(argValues);
                 } catch(err) {
-                    this.error(`Plugin invocation '${node.name}' failed with an exception: ${err}`, node.loc);
+                    // TODO we lose the name for computed function names, like
+                    // !use 'foo' as x
+                    // x[3]()
+                    // This is not really supported now though.
+                    this.error(`Plugin invocation '${node.name.name}' failed with an exception: ${err}`, node.loc);
                 }
             }
             default:
@@ -775,6 +775,64 @@ class Assembler {
         }
     }
 
+    makeFunction (pluginFunc, loc) {
+        return {
+            type: 'function',
+            func: (args) => {
+                const res = pluginFunc({
+                    readFileSync,
+                    resolveRelative: fn => this.makeSourceRelativePath(fn)
+                }, ...args);
+                return ast.objectToAst(res, loc);
+            }
+        }
+    }
+
+    bindFunction (name: ast.Ident, pluginModule, loc) {
+        this.variables.add(name.name, {
+            arg: {
+                ident: name
+            },
+            value: this.makeFunction(pluginModule, loc)
+        })
+}
+
+    bindPlugin (node, pluginModule) {
+        const moduleName = node.moduleName;
+        // Bind default export as function
+        if (typeof pluginModule == 'function') {
+            this.bindFunction(moduleName, pluginModule, node.loc);
+        }
+        if (typeof pluginModule == 'object') {
+            const keys = Object.keys(pluginModule);
+            const dstProps = [];
+            for (let ki in keys) {
+                const key = keys[ki];
+                const p = pluginModule[key];
+                if (typeof p == 'function') {
+                    const funcName = ast.mkIdent(key, node.loc);
+                    dstProps.push({
+                        key,
+                        val: this.makeFunction(p, node.loc),
+                        loc: node.loc
+                    })
+                } else {
+                    this.error(`All plugin exported symbols must be functions.  Got ${typeof p} for ${key}`, node.loc)
+                }
+            }
+            this.variables.add(moduleName.name, {
+                arg: {
+                    ident: moduleName
+                },
+                value: {
+                    type: 'object',
+                    props: dstProps,
+                    loc: node.loc
+                }
+            });
+        }
+    }
+
     checkDirectives (node: ast.Stmt): void {
         switch (node.type) {
             case 'data': {
@@ -905,23 +963,8 @@ class Assembler {
             }
             case 'load-plugin': {
                 const fname = node.filename;
-                const pluginFunc = this.requirePlugin(fname);
-                const funcName = node.funcName.name;
-                this.variables.add(funcName, {
-                    arg: {
-                        ident: node.funcName
-                    },
-                    value: {
-                        type: 'function',
-                        func: (args) => {
-                            const res = pluginFunc({
-                                readFileSync,
-                                resolveRelative: fn => this.makeSourceRelativePath(fn)
-                            }, ...args);
-                            return ast.objectToAst(res, node.loc);
-                        }
-                    }
-                })
+                const pluginModule = this.requirePlugin(fname);
+                this.bindPlugin(node, pluginModule);
                 break;
             }
             default:
