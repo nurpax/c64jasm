@@ -89,6 +89,11 @@
 				"path": "./syntaxes/c64jasm.tmLanguage.json"
 			}
 		],
+        "breakpoints": [
+            {
+                "language": "asm"
+            }
+        ],
 		"debuggers": [
 			{
 				"type": "c64jasm",

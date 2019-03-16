@@ -4,11 +4,33 @@ import { EventEmitter } from 'events';
 
 import { ChildProcess } from 'child_process'
 import * as child_process from 'child_process'
+import * as net from 'net';
 
 export interface C64jasmBreakpoint {
 	id: number;
 	line: number;
 	verified: boolean;
+}
+
+class MonitorConnection {
+    private client: net.Socket;
+
+    constructor() {
+    }
+
+    connect() {
+        this.client = net.createConnection({ port: 6510, timeout:5000 }, () => {
+            console.log('Connected to VICE monitor');
+            this.client.write('disass\r\n');
+        })
+        this.client.on('data', function(data) {
+            console.log('Received: ' + data);
+        });
+    }
+}
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
@@ -37,6 +59,8 @@ export class C64jasmRuntime extends EventEmitter {
 
 	private _viceProcess: ChildProcess = null;
 
+    private _monitor: MonitorConnection;
+
 	constructor() {
 		super();
 	}
@@ -44,11 +68,15 @@ export class C64jasmRuntime extends EventEmitter {
 	/**
 	 * Start executing the given program.
 	 */
-	public start(program: string, stopOnEntry: boolean) {
+	public async start(program: string, stopOnEntry: boolean) {
 
 //		this.loadSource(program);
 
-		this._viceProcess = child_process.exec(`x64 ${program}`);
+		this._viceProcess = child_process.exec(`x64 -remotemonitor ${program}`);
+        await sleep(5000);
+
+        this._monitor = new MonitorConnection();
+        this._monitor.connect();
 
 		// Stop the debugger once the VICE process exits.
 		this._viceProcess.on('close', (code, signal) => {
@@ -164,26 +192,15 @@ export class C64jasmRuntime extends EventEmitter {
 	 * If stepEvent is specified only run a single step and emit the stepEvent.
 	 */
 	private run(reverse = false, stepEvent?: string) {
-		if (reverse) {
-			for (let ln = this._currentLine-1; ln >= 0; ln--) {
-				if (this.fireEventsForLine(ln, stepEvent)) {
-					this._currentLine = ln;
-					return;
-				}
-			}
-			// no more lines: stop at first line
-			this._currentLine = 0;
-			this.sendEvent('stopOnEntry');
-		} else {
-			for (let ln = this._currentLine+1; ln < this._sourceLines.length; ln++) {
-				if (this.fireEventsForLine(ln, stepEvent)) {
-					this._currentLine = ln;
-					return;
-				}
-			}
-			// no more lines: run to end
-			this.sendEvent('end');
-		}
+        return;
+/*        for (let ln = this._currentLine+1; ln < this._sourceLines.length; ln++) {
+            if (this.fireEventsForLine(ln, stepEvent)) {
+                this._currentLine = ln;
+                return;
+            }
+        }
+        // no more lines: run to end
+        this.sendEvent('end');*/
 	}
 
 	private verifyBreakpoints(path: string) : void {
