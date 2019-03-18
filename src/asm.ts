@@ -8,6 +8,7 @@ import { toHex16 } from './util'
 import * as ast from './ast'
 import { SourceLoc } from './ast'
 import ParseCache from './parseCache'
+import { DebugInfoTracker } from './debugInfo';
 
 interface Error {
     loc: SourceLoc,
@@ -320,6 +321,9 @@ class Assembler {
     errorList: Error[] = [];
     outOfRangeBranches: BranchOffset[] = [];
 
+    // PC<->source location tracking for debugging support.  Reset on each pass
+    debugInfo = new DebugInfoTracker();
+
     prg (): Buffer {
       // 1,8 is for encoding the $0801 starting address in the .prg file
       return Buffer.from([1, 8].concat(this.binary))
@@ -393,6 +397,7 @@ class Assembler {
       this.binary = [];
       this.scopes.startPass();
       this.outOfRangeBranches = [];
+      this.debugInfo = new DebugInfoTracker();
     }
 
     pushVariableScope (): void {
@@ -977,7 +982,9 @@ class Assembler {
             return;
         }
         for (let i = 0; i < lst.length; i++) {
+            this.debugInfo.startLine(lst[i].loc, this.codePC);
             this.assembleLine(lst[i]);
+            this.debugInfo.endLine(this.codePC);
         }
     }
 
@@ -1192,6 +1199,7 @@ export function assemble(filename) {
     return {
         prg: asm.prg(),
         errors: asm.errors(),
-        labels: asm.dumpLabels()
+        labels: asm.dumpLabels(),
+        debugInfo: asm.debugInfo
     }
 }
