@@ -21,68 +21,114 @@ class MonitorConnection {
     connect() {
         this.client = net.createConnection({ port: 6510, timeout:5000 }, () => {
             console.log('Connected to VICE monitor');
-            this.client.write('disass\r\n');
-        })
-
-        this.client.on('data', function(data) {
-            console.log('Received: ' + data);
         });
+
+        this.client.once('data', function(data) {
+            console.log('Received: ' + data.toString());
+        });
+    }
+
+    setBreakpoint(pc: number): Promise<void> {
+        return new Promise(resolve => {
+            const cmd = `break ${pc.toString(16)}\r\n`;
+            this.client.once('data', function (data) {
+                console.log(data.toString());
+                resolve();
+            });
+            this.client.write(cmd);
+        })
+    }
+
+    delBreakpoints(): Promise<void> {
+        return new Promise(resolve => {
+            this.client.once('data', function (data) {
+                console.log(data.toString());
+                resolve();
+            });
+            this.client.write('del\r\n');
+        })
+    }
+
+    go(pc?: number): Promise<void> {
+        return new Promise(resolve => {
+            const cmd = pc === undefined ?
+                'g' : `g ${pc.toString(16)}`;
+            this.client.once('data', function (data) {
+                console.log(data.toString());
+                resolve();
+            });
+            this.client.write(cmd + '\r\n');
+        })
+    }
+
+    disass(pc?: number): Promise<void> {
+        return new Promise(resolve => {
+            const cmd = pc === undefined ?
+                'disass' : `disass ${pc.toString(16)}`;
+            this.client.once('data', function (data) {
+                console.log(data.toString());
+                resolve();
+            });
+            this.client.write(cmd + '\r\n');
+        })
+    }
+
+    rawCommand(cmd: string): Promise<void> {
+        return new Promise(resolve => {
+            this.client.once('data', function (data) {
+                console.log('RAW OUT', data.toString());
+                resolve();
+            });
+            this.client.write(cmd + '\r\n');
+        })
     }
 }
 
-// Talk to a running c64jasm process that's watching a source file for changes.
-// It will report current output binary and debug information.
-class C64JasmDebugInfo {
-    private client: net.Socket;
-
-    c64jasm: {
-        outputPrg: string;
-        debugInfo: {
-            pcToLocs: {
-                [pc: string]: {
-                    lineNo: number, source: string
-                }[];
-            }
+type C64jasmDebugInfo = {
+    outputPrg: string;
+    debugInfo: {
+        pcToLocs: {
+            [pc: string]: {
+                lineNo: number, source: string
+            }[];
         }
-    } = undefined;
-
-    constructor() {
     }
+};
 
-    connect() {
+function queryC64jasmDebugInfo(): Promise<C64jasmDebugInfo> {
+    return new Promise((resolve) => {
         const port = 6502;
 
-        this.client = net.createConnection({ port, timeout:5000 }, () => {
+        const client = net.createConnection({ port, timeout:5000 }, () => {
             console.log('Connected to c64jasm');
-            this.client.write('debug-info\r\n');
+            client.write('debug-info\r\n');
         })
 
-        const self = this;
         const chunks: Buffer[] = [];
-        this.client.on('data', data => {
+        client.on('data', data => {
             chunks.push(data);
         }).on('end', () => {
-            self.c64jasm = JSON.parse(Buffer.concat(chunks).toString());
+            resolve(JSON.parse(Buffer.concat(chunks).toString()));
         });
-    }
+    });
+}
 
-    // This is a super expensive function but at least for now,
-    // it's only ever run when setting a breakpoint from the UI.
-    findSourceLoc (path: string, line: number): number|undefined {
-        if (this.c64jasm) {
-            const pclocs = this.c64jasm.debugInfo.pcToLocs;
-            for (const pc of Object.keys(pclocs)) {
-                const locList = pclocs[pc];
-                for (let i = 0; i < locList.length; i++) {
-                    const loc = locList[i];
-                    if (loc.source == path && loc.lineNo == line) {
-                        return parseInt(pc, 10);
-                    }
+// This is a super expensive function but at least for now,
+// it's only ever run when setting a breakpoint from the UI.
+function findSourceLoc (c64jasm: C64jasmDebugInfo|null, path: string, line: number): number|undefined {
+    if (c64jasm) {
+        const pclocs = c64jasm.debugInfo.pcToLocs;
+        for (const pc of Object.keys(pclocs)) {
+            const locList = pclocs[pc];
+            for (let i = 0; i < locList.length; i++) {
+                const loc = locList[i];
+                if (loc.source == path && loc.lineNo == line) {
+                    return parseInt(pc, 10);
                 }
             }
         }
-        return null;
     }
+    return null;
 }
 
 function sleep(ms: number) {
@@ -115,7 +161,7 @@ export class C64jasmRuntime extends EventEmitter {
 
     private _viceProcess: ChildProcess = null;
     private _monitor: MonitorConnection;
-    private _debugInfo: C64JasmDebugInfo = new C64JasmDebugInfo();
+    private _debugInfo: C64jasmDebugInfo = null;
 
     constructor() {
         super();
@@ -128,8 +174,7 @@ export class C64jasmRuntime extends EventEmitter {
         // Ask c64jasm compiler for debug information.  This is done
         // by connecting to a running c64jasm process that's watching
         // source files for changes.
-        this._debugInfo.connect();
-
+        this._debugInfo = await queryC64jasmDebugInfo();
         this._viceProcess = child_process.exec(`x64 -remotemonitor ${program}`);
         await sleep(5000);
 
@@ -142,11 +187,11 @@ export class C64jasmRuntime extends EventEmitter {
         })
         this._currentLine = -1;
 
-        this.verifyBreakpoints(this._sourceFile);
+        await this.verifyBreakpoints(this._sourceFile);
 
         if (stopOnEntry) {
             // we step once
-            this.step(false, 'stopOnEntry');
+            this.step('stopOnEntry');
         } else {
             // we just start to run until we hit a breakpoint or an exception
             this.continue();
@@ -160,15 +205,15 @@ export class C64jasmRuntime extends EventEmitter {
     /**
      * Continue execution to the end/beginning.
      */
-    public continue(reverse = false) {
-        this.run(reverse, undefined);
+    public continue() {
+        this.run(undefined);
     }
 
     /**
      * Step to the next/previous non empty line.
      */
-    public step(reverse = false, event = 'stopOnStep') {
-        this.run(reverse, event);
+    public step(event = 'stopOnStep') {
+        this.run(event);
     }
 
     /**
@@ -198,9 +243,7 @@ export class C64jasmRuntime extends EventEmitter {
     /*
      * Set breakpoint in file with given line.
      */
-    public setBreakPoint(path: string, line: number) : C64jasmBreakpoint {
-        const dbg = this._debugInfo.findSourceLoc(path, line);
-        console.log({dbg});
+    public async setBreakPoint(path: string, line: number): Promise<C64jasmBreakpoint> {
         const bp = <C64jasmBreakpoint> { verified: false, line, id: this._breakpointId++ };
         let bps = this._breakPoints.get(path);
         if (!bps) {
@@ -208,9 +251,7 @@ export class C64jasmRuntime extends EventEmitter {
             this._breakPoints.set(path, bps);
         }
         bps.push(bp);
-
-        this.verifyBreakpoints(path);
-
+        await this.verifyBreakpoints(path);
         return bp;
     }
 
@@ -233,8 +274,18 @@ export class C64jasmRuntime extends EventEmitter {
     /*
      * Clear all breakpoints for file.
      */
-    public clearBreakpoints(path: string): void {
+    public clearBreakpoints(path: string) {
         this._breakPoints.delete(path);
+    }
+
+    // Disassemble from current PC
+    public disass(pc?: number): void {
+        this._monitor.disass(pc);
+    }
+
+    // Disassemble from current PC
+    public rawCommand(c: string): void {
+        this._monitor.rawCommand(c);
     }
 
     // private methods
@@ -250,7 +301,8 @@ export class C64jasmRuntime extends EventEmitter {
      * Run through the file.
      * If stepEvent is specified only run a single step and emit the stepEvent.
      */
-    private run(reverse = false, stepEvent?: string) {
+    private run(stepEvent?: string) {
+        this._monitor.go();
         return;
 /*        for (let ln = this._currentLine+1; ln < this._sourceLines.length; ln++) {
             if (this.fireEventsForLine(ln, stepEvent)) {
@@ -262,30 +314,24 @@ export class C64jasmRuntime extends EventEmitter {
         this.sendEvent('end');*/
     }
 
-    private verifyBreakpoints(path: string) : void {
+    private async verifyBreakpoints(path: string) {
+        await this._monitor.delBreakpoints();
         let bps = this._breakPoints.get(path);
         if (bps) {
             this.loadSource(path);
-            bps.forEach(bp => {
+            for (const bp of bps) {
                 if (!bp.verified && bp.line < this._sourceLines.length) {
-                    const srcLine = this._sourceLines[bp.line].trim();
+                    const addr = findSourceLoc(this._debugInfo, path, bp.line);
 
-                    // if a line is empty or starts with '+' we don't allow to set a breakpoint but move the breakpoint down
-                    if (srcLine.length === 0 || srcLine.indexOf('+') === 0) {
-                        bp.line++;
-                    }
-                    // if a line starts with '-' we don't allow to set a breakpoint but move the breakpoint up
-                    if (srcLine.indexOf('-') === 0) {
-                        bp.line--;
-                    }
-                    // don't set 'verified' to true if the line contains the word 'lazy'
-                    // in this case the breakpoint will be verified 'lazy' after hitting it once.
-                    if (srcLine.indexOf('lazy') < 0) {
+                    if (addr) {
                         bp.verified = true;
+                        await this._monitor.setBreakpoint(addr);
                         this.sendEvent('breakpointValidated', bp);
+                    } else {
+                        console.log('XXX unable find', bp);
                     }
                 }
-            });
+            }
         }
     }
 
@@ -294,44 +340,15 @@ export class C64jasmRuntime extends EventEmitter {
      * Returns true is execution needs to stop.
      */
     private fireEventsForLine(ln: number, stepEvent?: string): boolean {
-
-        const line = this._sourceLines[ln].trim();
-
-        // if 'log(...)' found in source -> send argument to debug console
-        const matches = /log\((.*)\)/.exec(line);
-        if (matches && matches.length === 2) {
-            this.sendEvent('output', matches[1], this._sourceFile, ln, matches.index)
-        }
-
-        // if word 'exception' found in source -> throw exception
-        if (line.indexOf('exception') >= 0) {
-            this.sendEvent('stopOnException');
-            return true;
-        }
-
         // is there a breakpoint?
         const breakpoints = this._breakPoints.get(this._sourceFile);
         if (breakpoints) {
             const bps = breakpoints.filter(bp => bp.line === ln);
             if (bps.length > 0) {
-
                 // send 'stopped' event
                 this.sendEvent('stopOnBreakpoint');
-
-                // the following shows the use of 'breakpoint' events to update properties of a breakpoint in the UI
-                // if breakpoint is not yet verified, verify it now and send a 'breakpoint' update event
-                if (!bps[0].verified) {
-                    bps[0].verified = true;
-                    this.sendEvent('breakpointValidated', bps[0]);
-                }
                 return true;
             }
-        }
-
-        // non-empty line
-        if (stepEvent && line.length > 0) {
-            this.sendEvent(stepEvent);
-            return true;
         }
 
         // nothing interesting found -> continue

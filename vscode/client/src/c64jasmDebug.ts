@@ -147,19 +147,18 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 		// clear all breakpoints for this file
 		this._runtime.clearBreakpoints(path);
 
-		// set and verify breakpoint locations
-		const actualBreakpoints = clientLines.map(l => {
-			let { verified, line, id } = this._runtime.setBreakPoint(path, this.convertClientLineToDebugger(l));
+        Promise.all(clientLines.map(async l => {
+			let { verified, line, id } = await this._runtime.setBreakPoint(path, this.convertClientLineToDebugger(l));
 			const bp = <DebugProtocol.Breakpoint> new Breakpoint(verified, this.convertDebuggerLineToClient(line));
-			bp.id= id;
+			bp.id = id;
 			return bp;
-		});
-
-		// send back the actual breakpoint positions
-		response.body = {
-			breakpoints: actualBreakpoints
-		};
-		this.sendResponse(response);
+        })).then(actualBreakpoints => {
+            // send back the actual breakpoint positions
+            response.body = {
+                breakpoints: actualBreakpoints
+            };
+            this.sendResponse(response);
+        });
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
@@ -215,18 +214,8 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
-	protected reverseContinueRequest(response: DebugProtocol.ReverseContinueResponse, args: DebugProtocol.ReverseContinueArguments) : void {
-		this._runtime.continue(true);
-		this.sendResponse(response);
- 	}
-
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
 		this._runtime.step();
-		this.sendResponse(response);
-	}
-
-	protected stepBackRequest(response: DebugProtocol.StepBackResponse, args: DebugProtocol.StepBackArguments): void {
-		this._runtime.step(true);
 		this.sendResponse(response);
 	}
 
@@ -236,24 +225,18 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 
 		if (args.context === 'repl') {
 			// 'evaluate' supports to create and delete breakpoints from the 'repl':
-			const matches = /new +([0-9]+)/.exec(args.expression);
-			if (matches && matches.length === 2) {
-				const mbp = this._runtime.setBreakPoint(this._runtime.sourceFile, this.convertClientLineToDebugger(parseInt(matches[1])));
-				const bp = <DebugProtocol.Breakpoint> new Breakpoint(mbp.verified, this.convertDebuggerLineToClient(mbp.line), undefined, this.createSource(this._runtime.sourceFile));
-				bp.id= mbp.id;
-				this.sendEvent(new BreakpointEvent('new', bp));
-				reply = `breakpoint created`;
+			const matches = /c(ont)?/.exec(args.expression);
+			if (matches) {
+                // TODO this is a promise too now?!?!
+                this._runtime.continue();
+				reply = `continued`;
 			} else {
-				const matches = /del +([0-9]+)/.exec(args.expression);
-				if (matches && matches.length === 2) {
-					const mbp = this._runtime.clearBreakPoint(this._runtime.sourceFile, this.convertClientLineToDebugger(parseInt(matches[1])));
-					if (mbp) {
-						const bp = <DebugProtocol.Breakpoint> new Breakpoint(false);
-						bp.id= mbp.id;
-						this.sendEvent(new BreakpointEvent('removed', bp));
-						reply = `breakpoint deleted`;
-					}
-				}
+    			const matches = /disass/.exec(args.expression);
+                if (matches) {
+                    this._runtime.disass();
+                } else {
+                    this._runtime.rawCommand(args.expression);
+                }
 			}
 		}
 
