@@ -68,11 +68,8 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 		this._runtime.on('breakpointValidated', (bp) => {
 			this.sendEvent(new BreakpointEvent('changed', <DebugProtocol.Breakpoint>{ verified: bp.verified, id: bp.id }));
 		});
-		this._runtime.on('output', (text, filePath, line, column) => {
+		this._runtime.on('output', (text) => {
 			const e: DebugProtocol.OutputEvent = new OutputEvent(`${text}\n`);
-			e.body.source = this.createSource(filePath);
-			e.body.line = this.convertDebuggerLineToClient(line);
-			e.body.column = this.convertDebuggerColumnToClient(column);
 			this.sendEvent(e);
 		});
 		this._runtime.on('end', () => {
@@ -144,21 +141,21 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 		const path = <string>args.source.path;
 		const clientLines = args.lines || [];
 
-		// clear all breakpoints for this file
-		this._runtime.clearBreakpoints(path);
-
-        Promise.all(clientLines.map(async l => {
-			let { verified, line, id } = await this._runtime.setBreakPoint(path, this.convertClientLineToDebugger(l));
-			const bp = <DebugProtocol.Breakpoint> new Breakpoint(verified, this.convertDebuggerLineToClient(line));
-			bp.id = id;
-			return bp;
-        })).then(actualBreakpoints => {
-            // send back the actual breakpoint positions
-            response.body = {
-                breakpoints: actualBreakpoints
-            };
-            this.sendResponse(response);
-        });
+		// clear all breakpoints for this file and set new breakpoints
+        this._runtime.clearBreakpoints(path).then(() => {
+            Promise.all(clientLines.map(async l => {
+                let { verified, line, id } = await this._runtime.setBreakPoint(path, this.convertClientLineToDebugger(l));
+                const bp = <DebugProtocol.Breakpoint> new Breakpoint(verified, this.convertDebuggerLineToClient(line));
+                bp.id = id;
+                return bp;
+            })).then(actualBreakpoints => {
+                // send back the actual breakpoint positions
+                response.body = {
+                    breakpoints: actualBreakpoints
+                };
+                this.sendResponse(response);
+            });
+        })
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {

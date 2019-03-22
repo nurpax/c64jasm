@@ -14,8 +14,10 @@ export interface C64jasmBreakpoint {
 
 class MonitorConnection {
     private client: net.Socket;
+    private echo: (str: string) => void;
 
-    constructor() {
+    constructor(echo: (str: string) => void) {
+        this.echo = echo;
     }
 
     connect() {
@@ -23,16 +25,16 @@ class MonitorConnection {
             console.log('Connected to VICE monitor');
         });
 
-        this.client.once('data', function(data) {
-            console.log('Received: ' + data.toString());
+        this.client.once('data', data => {
+            this.echo(data.toString());
         });
     }
 
     setBreakpoint(pc: number): Promise<void> {
         return new Promise(resolve => {
             const cmd = `break ${pc.toString(16)}\r\n`;
-            this.client.once('data', function (data) {
-                console.log(data.toString());
+            this.client.once('data', data => {
+                this.echo(data.toString());
                 resolve();
             });
             this.client.write(cmd);
@@ -41,8 +43,8 @@ class MonitorConnection {
 
     delBreakpoints(): Promise<void> {
         return new Promise(resolve => {
-            this.client.once('data', function (data) {
-                console.log(data.toString());
+            this.client.once('data', data => {
+                this.echo(data.toString());
                 resolve();
             });
             this.client.write('del\r\n');
@@ -53,20 +55,20 @@ class MonitorConnection {
         return new Promise(resolve => {
             const cmd = pc === undefined ?
                 'g' : `g ${pc.toString(16)}`;
-            this.client.once('data', function (data) {
-                console.log(data.toString());
+            this.client.once('data', data => {
+                this.echo(data.toString());
                 resolve();
             });
             this.client.write(cmd + '\r\n');
-        })
+        });
     }
 
     disass(pc?: number): Promise<void> {
         return new Promise(resolve => {
             const cmd = pc === undefined ?
                 'disass' : `disass ${pc.toString(16)}`;
-            this.client.once('data', function (data) {
-                console.log(data.toString());
+            this.client.once('data', data => {
+                this.echo(data.toString());
                 resolve();
             });
             this.client.write(cmd + '\r\n');
@@ -75,8 +77,8 @@ class MonitorConnection {
 
     rawCommand(cmd: string): Promise<void> {
         return new Promise(resolve => {
-            this.client.once('data', function (data) {
-                console.log('RAW OUT', data.toString());
+            this.client.once('data', data => {
+                this.echo(data.toString());
                 resolve();
             });
             this.client.write(cmd + '\r\n');
@@ -178,7 +180,10 @@ export class C64jasmRuntime extends EventEmitter {
         this._viceProcess = child_process.exec(`x64 -remotemonitor ${program}`);
         await sleep(5000);
 
-        this._monitor = new MonitorConnection();
+        const echoLog = (logMsg: string) => {
+            this.sendEvent('output', logMsg);
+        }
+        this._monitor = new MonitorConnection(echoLog);
         this._monitor.connect();
 
         // Stop the debugger once the VICE process exits.
@@ -256,25 +261,10 @@ export class C64jasmRuntime extends EventEmitter {
     }
 
     /*
-     * Clear breakpoint in file with given line.
-     */
-    public clearBreakPoint(path: string, line: number) : C64jasmBreakpoint | undefined {
-        let bps = this._breakPoints.get(path);
-        if (bps) {
-            const index = bps.findIndex(bp => bp.line === line);
-            if (index >= 0) {
-                const bp = bps[index];
-                bps.splice(index, 1);
-                return bp;
-            }
-        }
-        return undefined;
-    }
-
-    /*
      * Clear all breakpoints for file.
      */
-    public clearBreakpoints(path: string) {
+    public async clearBreakpoints(path: string) {
+        await this._monitor.delBreakpoints();
         this._breakPoints.delete(path);
     }
 
