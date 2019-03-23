@@ -170,17 +170,16 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 	}
 
 	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
-
-		const startFrame = typeof args.startFrame === 'number' ? args.startFrame : 0;
-		const maxLevels = typeof args.levels === 'number' ? args.levels : 1000;
-		const endFrame = startFrame + maxLevels;
-		const stk = this._runtime.stack(startFrame, endFrame);
-		
-		response.body = {
-			stackFrames: stk.frames.map((f:any) => new StackFrame(f.index, f.name, this.createSource(f.file), this.convertDebuggerLineToClient(f.line))),
-			totalFrames: stk.count
-		};
-		this.sendResponse(response);
+		const stk = this._runtime.stack();
+        if (stk) {
+            response.body = {
+                stackFrames: [stk],
+                totalFrames: 1
+            };
+        } else {
+            response.body = { stackFrames: [], totalFrames: 0 };
+        }
+        this.sendResponse(response);
 	}
 
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
@@ -231,6 +230,8 @@ export class C64jasmDebugSession extends LoggingDebugSession {
     			const matches = /disass/.exec(args.expression);
                 if (matches) {
                     this._runtime.disass();
+                } else if (args.expression == 'n') {
+                    this._runtime.step();
                 } else {
                     this._runtime.rawCommand(args.expression);
                 }

@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 import { ChildProcess } from 'child_process'
 import * as child_process from 'child_process'
 import * as net from 'net';
+import { StackFrame, Source } from 'vscode-debugadapter';
 
 export interface C64jasmBreakpoint {
     id: number;
@@ -12,11 +13,14 @@ export interface C64jasmBreakpoint {
     verified: boolean;
 }
 
-class MonitorConnection {
+type Cmd = 'next' | 'step' | undefined;
+class MonitorConnection extends EventEmitter {
     private client: net.Socket;
     private echo: (str: string) => void;
+    private prevCommand: Cmd;
 
     constructor(echo: (str: string) => void) {
+        super();
         this.echo = echo;
     }
 
@@ -25,29 +29,53 @@ class MonitorConnection {
             console.log('Connected to VICE monitor');
         });
 
-        this.client.once('data', data => {
-            this.echo(data.toString());
+        this.client.on('data', data => {
+            const lines = data.toString().split('\n');
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                this.echo(line);
+                const breakRe = /^#([0-9]+) \(Stop on\s+exec ([0-9a-f]+)\).*/;
+                let match = line.match(breakRe);
+                if (match) {
+                    const addr = parseInt(match[2], 16);
+                    this.emit('break', addr);
+                    continue;
+                }
+                const breakRe2 = /^.*BREAK: ([0-9]+)\s+C:\$([0-9a-f]+)\s+.*/;
+                match = line.match(breakRe2);
+                if (match) {
+                    const addr = parseInt(match[2], 16);
+                    this.emit('break', addr);
+                    continue;
+                }
+
+                if (this.prevCommand == 'next' || this.prevCommand == 'step') {
+                    const stepRe = /^\.C:([0-9a-f]+)\s+.*/;
+                    match = line.match(stepRe);
+                    if (match) {
+                        const addr = parseInt(match[1], 16);
+                        // TODO this should be next/step/stop not break maybe?
+                        this.emit('stopOnStep', addr);
+                        this.prevCommand = undefined;
+                        continue;
+                    }
+                }
+            }
         });
     }
 
     setBreakpoint(pc: number): Promise<void> {
         return new Promise(resolve => {
             const cmd = `break ${pc.toString(16)}\r\n`;
-            this.client.once('data', data => {
-                this.echo(data.toString());
-                resolve();
-            });
-            this.client.write(cmd);
+            this.prevCommand = undefined;
+            this.client.write(cmd, () => resolve());
         })
     }
 
     delBreakpoints(): Promise<void> {
         return new Promise(resolve => {
-            this.client.once('data', data => {
-                this.echo(data.toString());
-                resolve();
-            });
-            this.client.write('del\r\n');
+            this.prevCommand = undefined;
+            this.client.write('del\r\n', () => resolve());
         })
     }
 
@@ -55,11 +83,15 @@ class MonitorConnection {
         return new Promise(resolve => {
             const cmd = pc === undefined ?
                 'g' : `g ${pc.toString(16)}`;
-            this.client.once('data', data => {
-                this.echo(data.toString());
-                resolve();
-            });
-            this.client.write(cmd + '\r\n');
+            this.prevCommand = undefined;
+            this.client.write(cmd+'\r\n', () => resolve());
+        });
+    }
+
+    next(): Promise<void> {
+        return new Promise(resolve => {
+            this.prevCommand = 'next';
+            this.client.write('next'+'\r\n', () => resolve());
         });
     }
 
@@ -67,21 +99,15 @@ class MonitorConnection {
         return new Promise(resolve => {
             const cmd = pc === undefined ?
                 'disass' : `disass ${pc.toString(16)}`;
-            this.client.once('data', data => {
-                this.echo(data.toString());
-                resolve();
-            });
-            this.client.write(cmd + '\r\n');
+            this.prevCommand = undefined;
+            this.client.write(cmd+'\r\n', () => resolve());
         })
     }
 
     rawCommand(cmd: string): Promise<void> {
         return new Promise(resolve => {
-            this.client.once('data', data => {
-                this.echo(data.toString());
-                resolve();
-            });
-            this.client.write(cmd + '\r\n');
+            this.prevCommand = undefined;
+            this.client.write(cmd+'\r\n', () => resolve());
         })
     }
 }
@@ -151,8 +177,8 @@ export class C64jasmRuntime extends EventEmitter {
     // the contents (= lines) of the one and only file
     private _sourceLines: string[];
 
-    // This is the next line that will be 'executed'
-    private _currentLine = 0;
+    // CPU address when last breakpoint was hit
+    private _stoppedAddr = 0;
 
     // maps from sourceFile to array of C64jasm breakpoints
     private _breakPoints = new Map<string, C64jasmBreakpoint[]>();
@@ -184,14 +210,21 @@ export class C64jasmRuntime extends EventEmitter {
             this.sendEvent('output', logMsg);
         }
         this._monitor = new MonitorConnection(echoLog);
+        // Handle stop on breakpoint
+        this._monitor.on('break', breakAddr => {
+            this._stoppedAddr = breakAddr;
+            this.sendEvent('stopOnBreakpoint');
+        });
+        this._monitor.on('stopOnStep', breakAddr => {
+            this._stoppedAddr = breakAddr;
+            this.sendEvent('stopOnStep');
+        });
         this._monitor.connect();
 
         // Stop the debugger once the VICE process exits.
         this._viceProcess.on('close', (code, signal) => {
             this.sendEvent('end');
         })
-        this._currentLine = -1;
-
         await this.verifyBreakpoints(this._sourceFile);
 
         if (stopOnEntry) {
@@ -214,35 +247,30 @@ export class C64jasmRuntime extends EventEmitter {
         this.run(undefined);
     }
 
-    /**
-     * Step to the next/previous non empty line.
-     */
     public step(event = 'stopOnStep') {
-        this.run(event);
+        this._monitor.next();
+    }
+
+    private findSourceLineByAddr(addr: number) {
+        // TODO [0] is wrong, single addr may have more than one?? no?
+        const info = this._debugInfo.debugInfo.pcToLocs[addr][0];
+        if (info) {
+            return {
+                src: new Source('test1', info.source),
+                line: info.lineNo
+            }
+        }
     }
 
     /**
      * Returns a fake 'stacktrace' where every 'stackframe' is a word from the current line.
      */
-    public stack(startFrame: number, endFrame: number): any {
-
-        const words = this._sourceLines[this._currentLine].trim().split(/\s+/);
-
-        const frames = new Array<any>();
-        // every word of the current line becomes a stack frame.
-        for (let i = startFrame; i < Math.min(endFrame, words.length); i++) {
-            const name = words[i];	// use a word of the line as the stackframe name
-            frames.push({
-                index: i,
-                name: `${name}(${i})`,
-                file: this._sourceFile,
-                line: this._currentLine
-            });
+    public stack(): StackFrame|undefined {
+        if (this._debugInfo && this._debugInfo.debugInfo) {
+            const { src, line } = this.findSourceLineByAddr(this._stoppedAddr);
+            return new StackFrame(1, src.name, src, line);
         }
-        return {
-            frames: frames,
-            count: words.length
-        };
+        return undefined;
     }
 
     /*
@@ -293,15 +321,6 @@ export class C64jasmRuntime extends EventEmitter {
      */
     private run(stepEvent?: string) {
         this._monitor.go();
-        return;
-/*        for (let ln = this._currentLine+1; ln < this._sourceLines.length; ln++) {
-            if (this.fireEventsForLine(ln, stepEvent)) {
-                this._currentLine = ln;
-                return;
-            }
-        }
-        // no more lines: run to end
-        this.sendEvent('end');*/
     }
 
     private async verifyBreakpoints(path: string) {
