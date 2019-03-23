@@ -41,13 +41,13 @@ class MonitorConnection extends EventEmitter {
                     this.emit('break', addr);
                     continue;
                 }
-                const breakRe2 = /^.*BREAK: ([0-9]+)\s+C:\$([0-9a-f]+)\s+.*/;
-                match = line.match(breakRe2);
-                if (match) {
-                    const addr = parseInt(match[2], 16);
-                    this.emit('break', addr);
-                    continue;
-                }
+                // const breakRe2 = /^.*BREAK: ([0-9]+)\s+C:\$([0-9a-f]+)\s+.*/;
+                // match = line.match(breakRe2);
+                // if (match) {
+                //     const addr = parseInt(match[2], 16);
+                //     this.emit('break', addr);
+                //     continue;
+                // }
 
                 if (this.prevCommand == 'next' || this.prevCommand == 'step') {
                     const stepRe = /^\.C:([0-9a-f]+)\s+.*/;
@@ -244,7 +244,7 @@ export class C64jasmRuntime extends EventEmitter {
      * Continue execution to the end/beginning.
      */
     public continue() {
-        this.run(undefined);
+        this._monitor.go();
     }
 
     public step(event = 'stopOnStep') {
@@ -263,7 +263,7 @@ export class C64jasmRuntime extends EventEmitter {
     }
 
     /**
-     * Returns a fake 'stacktrace' where every 'stackframe' is a word from the current line.
+     * Returns a stack trace for the addres where we're currently stopped at.
      */
     public stack(): StackFrame|undefined {
         if (this._debugInfo && this._debugInfo.debugInfo) {
@@ -315,14 +315,6 @@ export class C64jasmRuntime extends EventEmitter {
         }
     }
 
-    /**
-     * Run through the file.
-     * If stepEvent is specified only run a single step and emit the stepEvent.
-     */
-    private run(stepEvent?: string) {
-        this._monitor.go();
-    }
-
     private async verifyBreakpoints(path: string) {
         await this._monitor.delBreakpoints();
         let bps = this._breakPoints.get(path);
@@ -342,26 +334,6 @@ export class C64jasmRuntime extends EventEmitter {
                 }
             }
         }
-    }
-
-    /**
-     * Fire events if line has a breakpoint or the word 'exception' is found.
-     * Returns true is execution needs to stop.
-     */
-    private fireEventsForLine(ln: number, stepEvent?: string): boolean {
-        // is there a breakpoint?
-        const breakpoints = this._breakPoints.get(this._sourceFile);
-        if (breakpoints) {
-            const bps = breakpoints.filter(bp => bp.line === ln);
-            if (bps.length > 0) {
-                // send 'stopped' event
-                this.sendEvent('stopOnBreakpoint');
-                return true;
-            }
-        }
-
-        // nothing interesting found -> continue
-        return false;
     }
 
     private sendEvent(event: string, ... args: any[]) {
