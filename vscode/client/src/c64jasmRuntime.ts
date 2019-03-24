@@ -13,7 +13,7 @@ export interface C64jasmBreakpoint {
     verified: boolean;
 }
 
-type Cmd = 'next' | 'step' | undefined;
+type Cmd = 'next' | 'step' | 'pause' | undefined;
 class MonitorConnection extends EventEmitter {
     private client: net.Socket;
     private echo: (str: string) => void;
@@ -60,13 +60,57 @@ class MonitorConnection extends EventEmitter {
                         continue;
                     }
                 }
+
+                if (this.prevCommand == 'pause') {
+                    const curAddrRe = /^\(C:\$([0-9a-f]+)\)\s+.*/;
+                    match = line.match(curAddrRe);
+                    if (match) {
+                        const addr = parseInt(match[1], 16);
+                        // TODO this should be next/step/stop not break maybe?
+                        this.emit('stopOnStep', addr);
+                        this.prevCommand = undefined;
+                        continue;
+                    }
+                }
+
+                // registers:
+                //  ADDR A  X  Y  SP 00 01 NV-BDIZC LIN CYC  STOPWATCH
+                //.;080d 00 00 0a f3 2f 37 00100010 000 002    4147418
+
+                const regsRe = /^  ADDR A  X  Y  SP 00 01 NV-BDIZC LIN CYC  STOPWATCH/;
+                const valsRe = /.;([0-9a-f]+) ([0-9a-f]+) ([0-9a-f]+) ([0-9a-f]+) ([0-9a-f]+) ([0-9a-f]+) ([0-9a-f]+) ([01])+ ([0-9]+) ([0-9]+)\s+([0-9]+)/
+                if (line.match(regsRe)) {
+                    i++;
+                    if (i < lines.length) {
+                        const line = lines[i];
+                        this.echo(line);
+                        const m = line.match(valsRe);
+                        if (m) {
+                            const vals = {
+                                addr: parseInt(m[1], 16),
+                                a: parseInt(m[2], 16),
+                                x: parseInt(m[3], 16),
+                                y: parseInt(m[4], 16),
+                                sp: parseInt(m[5], 16),
+                                v00: parseInt(m[6], 16),
+                                v01: parseInt(m[7], 16),
+                                flags: parseInt(m[8], 2),
+                                line: parseInt(m[9], 10),
+                                cycle: parseInt(m[10], 10),
+                                stopwatch: parseInt(m[11], 10),
+                            }
+                            this.emit('registers', vals);
+                        }
+                    }
+                }
+
             }
         });
     }
 
     setBreakpoint(pc: number): Promise<void> {
         return new Promise(resolve => {
-            const cmd = `break ${pc.toString(16)}\r\n`;
+            const cmd = `break ${pc.toString(16)}\n`;
             this.prevCommand = undefined;
             this.client.write(cmd, () => resolve());
         })
@@ -75,7 +119,7 @@ class MonitorConnection extends EventEmitter {
     delBreakpoints(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = undefined;
-            this.client.write('del\r\n', () => resolve());
+            this.client.write('del\n', () => resolve());
         })
     }
 
@@ -84,21 +128,28 @@ class MonitorConnection extends EventEmitter {
             const cmd = pc === undefined ?
                 'g' : `g ${pc.toString(16)}`;
             this.prevCommand = undefined;
-            this.client.write(cmd+'\r\n', () => resolve());
+            this.client.write(cmd+'\n', () => resolve());
         });
     }
 
     next(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'next';
-            this.client.write('next'+'\r\n', () => resolve());
+            this.client.write('next'+'\n', () => resolve());
         });
     }
 
     step(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'step';
-            this.client.write('step'+'\r\n', () => resolve());
+            this.client.write('step'+'\n', () => resolve());
+        });
+    }
+
+    pause(): Promise<void> {
+        return new Promise(resolve => {
+            this.prevCommand = 'pause';
+            this.client.write('\n', () => resolve());
         });
     }
 
@@ -107,14 +158,14 @@ class MonitorConnection extends EventEmitter {
             const cmd = pc === undefined ?
                 'disass' : `disass ${pc.toString(16)}`;
             this.prevCommand = undefined;
-            this.client.write(cmd+'\r\n', () => resolve());
+            this.client.write(cmd+'\n', () => resolve());
         })
     }
 
     rawCommand(cmd: string): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = undefined;
-            this.client.write(cmd+'\r\n', () => resolve());
+            this.client.write(cmd+'\n', () => resolve());
         })
     }
 
@@ -276,6 +327,10 @@ export class C64jasmRuntime extends EventEmitter {
 
     public next() {
         this._monitor.next();
+    }
+
+    public pause() {
+        this._monitor.pause();
     }
 
     private findSourceLineByAddr(addr: number) {

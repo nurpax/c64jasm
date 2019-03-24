@@ -6,7 +6,7 @@ import {
 	Logger, logger,
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	Thread, Breakpoint
+	Thread, Breakpoint, Scope, Handles
 } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { C64jasmRuntime } from './c64jasmRuntime';
@@ -28,6 +28,11 @@ interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
 	trace?: boolean;
 }
 
+interface Register {
+	name: string;
+	value: number;
+}
+
 export class C64jasmDebugSession extends LoggingDebugSession {
 
 	// we don't support multiple threads, so we can use a hardcoded ID for the default thread
@@ -37,6 +42,8 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 	private _runtime: C64jasmRuntime;
 
 	private _configurationDone = new Subject();
+
+	private _variableHandles: Handles<Register>;
 
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
@@ -182,16 +189,17 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 	}
 
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
+		// TODO this doesn't work
+		// const scopes = new Array<Scope>();
 
-		/*
-		const frameReference = args.frameId;
-		const scopes = new Array<Scope>();
-		scopes.push(new Scope("Local", this._variableHandles.create("local_" + frameReference), false));
-		scopes.push(new Scope("Global", this._variableHandles.create("global_" + frameReference), true));
-		*/
+		// const defaultReg: Register = {
+		// 	name: 'a',
+		// 	value: 0
+		// };
+		// scopes.push(new Scope("Registers", this._variableHandles.create(defaultReg), true));
 
 		response.body = {
-			scopes: []
+			scopes: [] // scopes
 		};
 		this.sendResponse(response);
 	}
@@ -201,6 +209,7 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 		response.body = {
 			variables: []
 		};
+		console.log('XX got variables req')
 		this.sendResponse(response);
 	}
 
@@ -216,6 +225,11 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 
 	protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments): void {
 		this._runtime.step();
+		this.sendResponse(response);
+	}
+
+	protected pauseRequest(response: DebugProtocol.PauseResponse, args: DebugProtocol.PauseArguments): void {
+		this._runtime.pause();
 		this.sendResponse(response);
 	}
 
