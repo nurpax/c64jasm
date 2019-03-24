@@ -117,6 +117,15 @@ class MonitorConnection extends EventEmitter {
             this.client.write(cmd+'\r\n', () => resolve());
         })
     }
+
+    loadProgram(prgName: string, startAddress: number): Promise<void> {
+        return new Promise(resolve => {
+            this.prevCommand = 'step'; // parse next output to mean we've stopped at that address
+            const addrHex = startAddress.toString(16);
+//            this.client.write(`l "${prgName}" 0 801\nbreak ${addrHex}\ngoto ${addrHex}\n`, () => resolve());
+            this.client.write(`l "${prgName}" 0 801\ngoto ${addrHex}\n`, () => resolve());
+        })
+    }
 }
 
 type C64jasmDebugInfo = {
@@ -170,6 +179,27 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Parse .prg BASIC start header.  This matches with what c64jasm
+// authored prgs output.  We use this for setting an initial breakpoint
+// for the program entry point.
+function parseBasicSysAddress(progName: string): number {
+    const buf = readFileSync(progName);
+//    00000000: 0108 0c08 0000 9e32 3036 3100 0000 a900  .......2061.....
+
+    if (buf[0] == 0x01 && buf[1] == 0x08 && buf[2] == 0x0c && buf[3] == 0x08 && 
+        buf[4] == 0x00 && buf[5] == 0x00 && buf[6] == 0x9e) {
+        let offs = 7;
+        let addr = 0;
+        while(buf[offs] != 0) {
+            addr *= 10;
+            addr += buf[offs] - 0x30;
+            offs++;
+        }
+        return addr;
+    }
+    throw new Error('couldn\'t parse entry point address');
+}
+
 /**
  * A C64jasm runtime with minimal debugger functionality.
  */
@@ -210,8 +240,12 @@ export class C64jasmRuntime extends EventEmitter {
         // by connecting to a running c64jasm process that's watching
         // source files for changes.
         this._debugInfo = await queryC64jasmDebugInfo();
-        this._viceProcess = child_process.exec(`x64 -remotemonitor ${program}`);
-        await sleep(5000);
+        // 6b20
+        const startAddress = parseBasicSysAddress(program);
+        console.log('START ADDRESS', startAddress.toString(16));
+        //-initbreak ${startAddress} # this doesn't work with vscode as it breaks into VICE monitor, not remote monitor
+        this._viceProcess = child_process.exec(`x64 -remotemonitor`);// ${program}`);
+        await sleep(2000);
 
         const echoLog = (logMsg: string) => {
             this.sendEvent('output', logMsg);
@@ -228,19 +262,15 @@ export class C64jasmRuntime extends EventEmitter {
         });
         this._monitor.connect();
 
+        this._monitor.loadProgram(program, startAddress);
+
         // Stop the debugger once the VICE process exits.
         this._viceProcess.on('close', (code, signal) => {
             this.sendEvent('end');
         })
-        await this.verifyBreakpoints(this._sourceFile);
 
-        if (stopOnEntry) {
-            // we step once
-            this.step('stopOnEntry');
-        } else {
-            // we just start to run until we hit a breakpoint or an exception
-            this.continue();
-        }
+        // TODO figure out a way to support stopOnEntry using
+        // vice commands here.
     }
 
     public terminate() {
