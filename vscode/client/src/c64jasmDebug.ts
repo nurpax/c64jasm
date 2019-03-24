@@ -211,6 +211,11 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 	}
 
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
+		this._runtime.next();
+		this.sendResponse(response);
+	}
+
+	protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments): void {
 		this._runtime.step();
 		this.sendResponse(response);
 	}
@@ -231,6 +236,8 @@ export class C64jasmDebugSession extends LoggingDebugSession {
                 if (matches) {
                     this._runtime.disass();
                 } else if (args.expression == 'n') {
+                    this._runtime.next();
+                } else if (args.expression == 's') {
                     this._runtime.step();
                 } else {
                     this._runtime.rawCommand(args.expression);

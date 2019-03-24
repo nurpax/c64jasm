@@ -95,6 +95,13 @@ class MonitorConnection extends EventEmitter {
         });
     }
 
+    step(): Promise<void> {
+        return new Promise(resolve => {
+            this.prevCommand = 'step';
+            this.client.write('step'+'\r\n', () => resolve());
+        });
+    }
+
     disass(pc?: number): Promise<void> {
         return new Promise(resolve => {
             const cmd = pc === undefined ?
@@ -241,13 +248,17 @@ export class C64jasmRuntime extends EventEmitter {
     }
 
     /**
-     * Continue execution to the end/beginning.
+     * Continue execution.
      */
     public continue() {
         this._monitor.go();
     }
 
-    public step(event = 'stopOnStep') {
+    public step() {
+        this._monitor.step();
+    }
+
+    public next() {
         this._monitor.next();
     }
 
@@ -260,6 +271,7 @@ export class C64jasmRuntime extends EventEmitter {
                 line: info.lineNo
             }
         }
+        return undefined;
     }
 
     /**
