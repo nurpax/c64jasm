@@ -6,10 +6,9 @@ import {
 	Logger, logger,
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	Thread, Source, StackFrame, Breakpoint
+	Thread, Breakpoint
 } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { basename } from 'path';
 import { C64jasmRuntime } from './c64jasmRuntime';
 const { Subject } = require('await-notify');
 
@@ -250,10 +249,5 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 			variablesReference: 0
 		};
 		this.sendResponse(response);
-	}
-
-	//---- helpers
-	private createSource(filePath: string): Source {
-		return new Source(basename(filePath), this.convertDebuggerPathToClient(filePath), undefined, undefined, 'c64jasm-adapter-data');
 	}
 }

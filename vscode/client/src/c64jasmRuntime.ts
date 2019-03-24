@@ -122,8 +122,7 @@ class MonitorConnection extends EventEmitter {
         return new Promise(resolve => {
             this.prevCommand = 'step'; // parse next output to mean we've stopped at that address
             const addrHex = startAddress.toString(16);
-//            this.client.write(`l "${prgName}" 0 801\nbreak ${addrHex}\ngoto ${addrHex}\n`, () => resolve());
-            this.client.write(`l "${prgName}" 0 801\ngoto ${addrHex}\n`, () => resolve());
+            this.client.write(`l "${prgName}" 0 801\nbreak ${addrHex}\ngoto ${addrHex}\n`, () => resolve());
         })
     }
 }
@@ -205,15 +204,6 @@ function parseBasicSysAddress(progName: string): number {
  */
 export class C64jasmRuntime extends EventEmitter {
 
-    // the initial (and one and only) file we are 'debugging'
-    private _sourceFile: string;
-    public get sourceFile() {
-        return this._sourceFile;
-    }
-
-    // the contents (= lines) of the one and only file
-    private _sourceLines: string[];
-
     // CPU address when last breakpoint was hit
     private _stoppedAddr = 0;
 
@@ -240,12 +230,10 @@ export class C64jasmRuntime extends EventEmitter {
         // by connecting to a running c64jasm process that's watching
         // source files for changes.
         this._debugInfo = await queryC64jasmDebugInfo();
-        // 6b20
         const startAddress = parseBasicSysAddress(program);
-        console.log('START ADDRESS', startAddress.toString(16));
-        //-initbreak ${startAddress} # this doesn't work with vscode as it breaks into VICE monitor, not remote monitor
-        this._viceProcess = child_process.exec(`x64 -remotemonitor`);// ${program}`);
-        await sleep(2000);
+         //# this doesn't work with vscode as it breaks into VICE monitor, not remote monitor
+        this._viceProcess = child_process.exec(`x64 -remotemonitor`);
+        await sleep(6000);
 
         const echoLog = (logMsg: string) => {
             this.sendEvent('output', logMsg);
@@ -261,9 +249,7 @@ export class C64jasmRuntime extends EventEmitter {
             this.sendEvent('stopOnStep');
         });
         this._monitor.connect();
-
         this._monitor.loadProgram(program, startAddress);
-
         // Stop the debugger once the VICE process exits.
         this._viceProcess.on('close', (code, signal) => {
             this.sendEvent('end');
@@ -334,6 +320,9 @@ export class C64jasmRuntime extends EventEmitter {
      * Clear all breakpoints for file.
      */
     public async clearBreakpoints(path: string) {
+        // TODO this deletes all VICE monitor breakpoints.
+        // Should keep track of set BPs instead and delete the
+        // ones that are set for this file.
         await this._monitor.delBreakpoints();
         this._breakPoints.delete(path);
     }
@@ -348,22 +337,12 @@ export class C64jasmRuntime extends EventEmitter {
         this._monitor.rawCommand(c);
     }
 
-    // private methods
-
-    private loadSource(file: string) {
-        if (this._sourceFile !== file) {
-            this._sourceFile = file;
-            this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
-        }
-    }
-
     private async verifyBreakpoints(path: string) {
         await this._monitor.delBreakpoints();
         let bps = this._breakPoints.get(path);
         if (bps) {
-            this.loadSource(path);
             for (const bp of bps) {
-                if (!bp.verified && bp.line < this._sourceLines.length) {
+                if (!bp.verified) {
                     const addr = findSourceLoc(this._debugInfo, path, bp.line);
 
                     if (addr) {
