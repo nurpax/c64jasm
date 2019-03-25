@@ -127,8 +127,9 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 	}
 
 	protected async disconnectRequest(response: DebugProtocol.DisconnectResponse) {
-		this._runtime.terminate();
-		this.sendResponse(response);
+		// TODO this probably shouldn't terminate VICE but rather just exit the
+		// remote monitor
+		this._runtime.terminate().then(() => this.sendResponse(response));
 	}
 
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
