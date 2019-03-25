@@ -6,7 +6,7 @@ import {
 	Logger, logger,
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	Thread, Breakpoint, Scope, Handles
+	Thread, Breakpoint, Handles
 } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { C64jasmRuntime } from './c64jasmRuntime';
@@ -138,7 +138,6 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 	protected async disconnectRequest(response: DebugProtocol.DisconnectResponse) {
 		// start the program in the runtime
 		this._runtime.terminate();
-
 		this.sendResponse(response);
 	}
 
@@ -209,28 +208,23 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 		response.body = {
 			variables: []
 		};
-		console.log('XX got variables req')
 		this.sendResponse(response);
 	}
 
 	protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
-		this._runtime.continue();
-		this.sendResponse(response);
+		this._runtime.continue().then(() => this.sendResponse(response));
 	}
 
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
-		this._runtime.next();
-		this.sendResponse(response);
+		this._runtime.next().then(() => this.sendResponse(response));
 	}
 
 	protected stepInRequest(response: DebugProtocol.StepInResponse, args: DebugProtocol.StepInArguments): void {
-		this._runtime.step();
-		this.sendResponse(response);
+		this._runtime.step().then(() => this.sendResponse(response));
 	}
 
 	protected pauseRequest(response: DebugProtocol.PauseResponse, args: DebugProtocol.PauseArguments): void {
-		this._runtime.pause();
-		this.sendResponse(response);
+		this._runtime.pause().then(() => this.sendResponse(response));
 	}
 
 	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {

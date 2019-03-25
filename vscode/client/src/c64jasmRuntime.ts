@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 import { ChildProcess } from 'child_process'
 import * as child_process from 'child_process'
 import * as net from 'net';
+import * as path from 'path';
 import { StackFrame, Source } from 'vscode-debugadapter';
 
 export interface C64jasmBreakpoint {
@@ -22,6 +23,11 @@ class MonitorConnection extends EventEmitter {
     constructor(echo: (str: string) => void) {
         super();
         this.echo = echo;
+    }
+
+    write(msg: string, resolve: Function) {
+        this.echo('VICE mon cmd: ' + msg);
+        this.client.write(msg, resolve);
     }
 
     connect() {
@@ -112,14 +118,14 @@ class MonitorConnection extends EventEmitter {
         return new Promise(resolve => {
             const cmd = `break ${pc.toString(16)}\n`;
             this.prevCommand = undefined;
-            this.client.write(cmd, () => resolve());
+            this.write(cmd, () => resolve());
         })
     }
 
     delBreakpoints(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = undefined;
-            this.client.write('del\n', () => resolve());
+            this.write('del\n', () => resolve());
         })
     }
 
@@ -128,44 +134,44 @@ class MonitorConnection extends EventEmitter {
             const cmd = pc === undefined ?
                 'g' : `g ${pc.toString(16)}`;
             this.prevCommand = undefined;
-            this.client.write(cmd+'\n', () => resolve());
+            this.write(cmd+'\n', () => resolve());
         });
     }
 
     next(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'next';
-            this.client.write('next'+'\n', () => resolve());
+            this.write('next\n', () => resolve());
         });
     }
 
     step(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'step';
-            this.client.write('step'+'\n', () => resolve());
+            this.write('step\n', () => resolve());
         });
     }
 
     pause(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'pause';
-            this.client.write('\n', () => resolve());
+            this.write('\n', () => resolve());
         });
     }
 
     disass(pc?: number): Promise<void> {
         return new Promise(resolve => {
-            const cmd = pc === undefined ?
+                const cmd = pc === undefined ?
                 'disass' : `disass ${pc.toString(16)}`;
             this.prevCommand = undefined;
-            this.client.write(cmd+'\n', () => resolve());
+            this.write(cmd+'\n', () => resolve());
         })
     }
 
     rawCommand(cmd: string): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = undefined;
-            this.client.write(cmd+'\n', () => resolve());
+            this.write(cmd+'\n', () => resolve());
         })
     }
 
@@ -173,7 +179,7 @@ class MonitorConnection extends EventEmitter {
         return new Promise(resolve => {
             this.prevCommand = 'step'; // parse next output to mean we've stopped at that address
             const addrHex = startAddress.toString(16);
-            this.client.write(`l "${prgName}" 0 801\nbreak ${addrHex}\ngoto ${addrHex}\n`, () => resolve());
+            this.write(`l "${prgName}" 0 801\nbreak ${addrHex}\ngoto ${addrHex}\n`, () => resolve());
         })
     }
 }
@@ -318,19 +324,19 @@ export class C64jasmRuntime extends EventEmitter {
      * Continue execution.
      */
     public continue() {
-        this._monitor.go();
+        return this._monitor.go();
     }
 
     public step() {
-        this._monitor.step();
+        return this._monitor.step();
     }
 
     public next() {
-        this._monitor.next();
+        return this._monitor.next();
     }
 
     public pause() {
-        this._monitor.pause();
+        return this._monitor.pause();
     }
 
     private findSourceLineByAddr(addr: number) {
@@ -338,7 +344,7 @@ export class C64jasmRuntime extends EventEmitter {
         const info = this._debugInfo.debugInfo.pcToLocs[addr][0];
         if (info) {
             return {
-                src: new Source('test1', info.source),
+                src: new Source(path.basename(info.source), info.source),
                 line: info.lineNo
             }
         }
@@ -383,13 +389,13 @@ export class C64jasmRuntime extends EventEmitter {
     }
 
     // Disassemble from current PC
-    public disass(pc?: number): void {
-        this._monitor.disass(pc);
+    public disass(pc?: number) {
+        return this._monitor.disass(pc);
     }
 
     // Disassemble from current PC
-    public rawCommand(c: string): void {
-        this._monitor.rawCommand(c);
+    public rawCommand(c: string) {
+        return this._monitor.rawCommand(c);
     }
 
     private async verifyBreakpoints(path: string) {
