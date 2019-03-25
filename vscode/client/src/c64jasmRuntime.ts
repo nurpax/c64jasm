@@ -159,6 +159,13 @@ class MonitorConnection extends EventEmitter {
         });
     }
 
+    quitEmulator(): Promise<void> {
+        return new Promise(resolve => {
+            this.prevCommand = undefined;
+            this.write('quit\n', () => resolve());
+        });
+    }
+
     disass(pc?: number): Promise<void> {
         return new Promise(resolve => {
                 const cmd = pc === undefined ?
@@ -317,7 +324,7 @@ export class C64jasmRuntime extends EventEmitter {
     }
 
     public terminate() {
-        this._viceProcess.kill();
+        return this._monitor.quitEmulator();
     }
 
     /**

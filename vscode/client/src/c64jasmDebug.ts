@@ -6,7 +6,7 @@ import {
 	Logger, logger,
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	Thread, Breakpoint, Handles
+	Thread, Breakpoint
 } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { C64jasmRuntime } from './c64jasmRuntime';
@@ -28,11 +28,6 @@ interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
 	trace?: boolean;
 }
 
-interface Register {
-	name: string;
-	value: number;
-}
-
 export class C64jasmDebugSession extends LoggingDebugSession {
 
 	// we don't support multiple threads, so we can use a hardcoded ID for the default thread
@@ -42,8 +37,6 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 	private _runtime: C64jasmRuntime;
 
 	private _configurationDone = new Subject();
-
-	private _variableHandles: Handles<Register>;
 
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
@@ -130,13 +123,10 @@ export class C64jasmDebugSession extends LoggingDebugSession {
 	}
 
 	protected async terminateRequest(response: DebugProtocol.TerminateResponse) {
-		this._runtime.terminate();
-
-		this.sendResponse(response);
+		this._runtime.terminate().then(() => this.sendResponse(response));
 	}
 
 	protected async disconnectRequest(response: DebugProtocol.DisconnectResponse) {
-		// start the program in the runtime
 		this._runtime.terminate();
 		this.sendResponse(response);
 	}
