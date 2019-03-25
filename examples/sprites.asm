@@ -87,6 +87,7 @@ set_sprites: {
     lda #30
     sta xtmp
     ldx #0
+    ldy #0
 xloop:
     lda xtmp        ; x coord
     sta $d000, x
@@ -94,11 +95,9 @@ xloop:
     adc #28
     sta xtmp
 
-    txa
-    lsr
-    tay
     lda sprite_ypos, y
     sta $d001, x
+    iny
     inx
     inx
     cpx #16
