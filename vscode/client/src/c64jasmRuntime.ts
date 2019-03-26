@@ -186,7 +186,7 @@ class MonitorConnection extends EventEmitter {
         return new Promise(resolve => {
             this.prevCommand = 'step'; // parse next output to mean we've stopped at that address
             const addrHex = startAddress.toString(16);
-            this.write(`l "${prgName}" 0 801\nbreak ${addrHex}\ngoto ${addrHex}\n`, () => resolve());
+            this.write(`l "${prgName}" 0 801\nbreak ${addrHex}\ngoto ${addrHex}\ndel\n`, () => resolve());
         })
     }
 }
@@ -207,7 +207,6 @@ function queryC64jasmDebugInfo(): Promise<C64jasmDebugInfo> {
         const port = 6502;
 
         const client = net.createConnection({ port, timeout:5000 }, () => {
-            console.log('Connected to c64jasm');
             client.write('debug-info\r\n');
         })
 
