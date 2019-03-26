@@ -79,9 +79,9 @@ set_sprites: {
     sta $d017       ; no double height
     sta $d01c       ; single color sprites
 
-    lda #1
+    lda #sprite_data/64
     !for i in range(8) {
-        sta $d027+i     ; white sprites 0-8
+        sta $07f8+i     ; sprite ptr
     }
 
     lda #30
@@ -94,6 +94,9 @@ xloop:
     clc
     adc #28
     sta xtmp
+
+    lda sprite_color, y
+    sta $d027, y
 
     lda sprite_ypos, y
     sta $d001, x
@@ -121,9 +124,34 @@ wait_first_line: {
 
 animcnt:        !byte 0
 sprite_ypos:    !fill 8, 0
+sprite_color:   !byte 1, 7, 8, 9, 10, 2, 13, 14
 
 !let sinvals = math.sintab(SIN_LEN, 30)
 sintab:
 !for v in sinvals {
     !byte v
 }
+
+!align 64
+sprite_data:
+!for y in range(21) {
+    !for x in range(3) {
+        !let bits = 0
+        !for xi in range(8) {
+            !let xx = x*8 + xi
+            !let ox = xx - 24/2
+            !let oy = y - 21/2
+            !let r = ox*ox + oy*oy
+            !let v = 0
+            !if (r < 10*10) {
+                v = 1
+            }
+            !if (r < 5*5) {
+                v = 0
+            }
+            bits = bits | (v << (7-xi))
+        }
+        !byte bits
+    }
+}
+!byte 0  ; pad to 64 bytes
