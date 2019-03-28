@@ -6,7 +6,7 @@ title: C64jasm -- The extensible C64 symbolic assembler and VSCode environment
 
 C64jasm is a C64 symbolic assembler that supports:
 
-- multiplatform (runs on [Node.js](https://nodejs.org/en/))
+- Windows, Linux and macOS (it runs on [Node.js](https://nodejs.org/en/))
 - fast, automatic recompilation (save a file and c64jasm automatically recompiles your .prg)
 - extensions: extend the assembler standard library in JavaScript.  See [this blog post](https://nurpax.github.io/posts/2018-11-08-c64jasm.html) for more details.
 - integrates with VSCode for recompilation, error diagnostics and debugging on VICE directly from the VSCode editor.
