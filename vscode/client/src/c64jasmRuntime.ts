@@ -182,11 +182,15 @@ class MonitorConnection extends EventEmitter {
         })
     }
 
-    loadProgram(prgName: string, startAddress: number): Promise<void> {
+    loadProgram(prgName: string, startAddress: number, stopOnEntry: boolean): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'step'; // parse next output to mean we've stopped at that address
             const addrHex = startAddress.toString(16);
-            this.write(`l "${prgName}" 0 801\nbreak ${addrHex}\ngoto ${addrHex}\ndel\n`, () => resolve());
+            if (stopOnEntry) {
+                this.write(`l "${prgName}" 0 801\nbreak ${addrHex}\ngoto ${addrHex}\ndel\n`, () => resolve());
+            } else {
+                this.write(`l "${prgName}" 0 801\ngoto ${addrHex}\n`, () => resolve());
+            }
         })
     }
 }
@@ -312,7 +316,7 @@ export class C64jasmRuntime extends EventEmitter {
             this.sendEvent('stopOnStep');
         });
         this._monitor.connect();
-        this._monitor.loadProgram(program, startAddress);
+        this._monitor.loadProgram(program, startAddress, stopOnEntry);
         // Stop the debugger once the VICE process exits.
         this._viceProcess.on('close', (code, signal) => {
             this.sendEvent('end');

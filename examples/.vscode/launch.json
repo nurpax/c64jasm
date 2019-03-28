@@ -10,7 +10,7 @@
             "name": "sprites.prg",
             "program": "${workspaceFolder}/sprites.prg",
             "preLaunchTask": "watch",
-            "stopOnEntry": true
+            "stopOnEntry": false
         },
     ]
 }
