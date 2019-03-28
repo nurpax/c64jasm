@@ -1,6 +1,6 @@
 {
   "name": "c64jasm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A C64 macro assembler",
   "license": "MIT",
   "repository": {
