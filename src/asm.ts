@@ -473,6 +473,8 @@ class Assembler {
                     case '<=': return runBinop(left, right, (a,b) => a <= b)
                     case '>':  return runBinop(left, right, (a,b) => a >  b)
                     case '>=': return runBinop(left, right, (a,b) => a >= b)
+                    case '&&': return runBinop(left, right, (a,b) => a && b)
+                    case '||': return runBinop(left, right, (a,b) => a || b)
                     default:
                         throw new Error(`Unhandled binary operator ${node.op}`);
                 }
