@@ -1,0 +1,4 @@
+theme: jekyll-theme-minimal
+google_analytics: UA-37082285-1
+title: c64jasm
+description: The extensible C64 symbolic assembler and VSCode environment.
