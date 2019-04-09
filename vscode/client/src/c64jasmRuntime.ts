@@ -158,21 +158,21 @@ class MonitorConnection extends EventEmitter {
     next(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'next';
-            this.write('next\nr\n', () => resolve());
+            this.write('next\nr\n\n', () => resolve());
         });
     }
 
     step(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'step';
-            this.write('step\nr\n', () => resolve());
+            this.write('step\nr\n\n', () => resolve());
         });
     }
 
     pause(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'pause';
-            this.write('r\n', () => resolve());
+            this.write('r\n\n', () => resolve());
         });
     }
 
