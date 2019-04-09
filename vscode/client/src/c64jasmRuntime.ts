@@ -6,7 +6,7 @@ import { ChildProcess } from 'child_process'
 import * as child_process from 'child_process'
 import * as net from 'net';
 import * as path from 'path';
-import { StackFrame, Source } from 'vscode-debugadapter';
+import { StackFrame, Source, Module } from 'vscode-debugadapter';
 
 export interface C64jasmBreakpoint {
     id: number;
@@ -14,11 +14,27 @@ export interface C64jasmBreakpoint {
     verified: boolean;
 }
 
+export interface C64Regs {
+    addr: number;
+    a: number;
+    x: number;
+    y: number;
+    sp: number;
+    v00: number;
+    v01: number;
+    flags: number;
+    line: number;
+    cycle: number;
+    stopwatch: number;
+}
+
 type Cmd = 'next' | 'step' | 'pause' | undefined;
 class MonitorConnection extends EventEmitter {
     private client: net.Socket;
     private echo: (str: string) => void;
     private prevCommand: Cmd;
+    private emitStepOrNext: number | undefined;
+    private emitBreak: number | undefined;
 
     constructor(echo: (str: string) => void) {
         super();
@@ -39,51 +55,21 @@ class MonitorConnection extends EventEmitter {
             const lines = data.toString().split('\n');
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
-                this.echo(line);
+                this.echo(`'${line}' len: ${lines.length}`);
                 const breakRe = /^#([0-9]+) \(Stop on\s+exec ([0-9a-f]+)\).*/;
                 let match = line.match(breakRe);
                 if (match) {
                     const addr = parseInt(match[2], 16);
-                    this.emit('break', addr);
+                    this.emitBreak = addr;
+                    this.write('r\n', () => {});
                     continue;
-                }
-                // const breakRe2 = /^.*BREAK: ([0-9]+)\s+C:\$([0-9a-f]+)\s+.*/;
-                // match = line.match(breakRe2);
-                // if (match) {
-                //     const addr = parseInt(match[2], 16);
-                //     this.emit('break', addr);
-                //     continue;
-                // }
-
-                if (this.prevCommand == 'next' || this.prevCommand == 'step') {
-                    const stepRe = /^\.C:([0-9a-f]+)\s+.*/;
-                    match = line.match(stepRe);
-                    if (match) {
-                        const addr = parseInt(match[1], 16);
-                        // TODO this should be next/step/stop not break maybe?
-                        this.emit('stopOnStep', addr);
-                        this.prevCommand = undefined;
-                        continue;
-                    }
-                }
-
-                if (this.prevCommand == 'pause') {
-                    const curAddrRe = /^\(C:\$([0-9a-f]+)\)\s+.*/;
-                    match = line.match(curAddrRe);
-                    if (match) {
-                        const addr = parseInt(match[1], 16);
-                        // TODO this should be next/step/stop not break maybe?
-                        this.emit('stopOnStep', addr);
-                        this.prevCommand = undefined;
-                        continue;
-                    }
                 }
 
                 // registers:
                 //  ADDR A  X  Y  SP 00 01 NV-BDIZC LIN CYC  STOPWATCH
                 //.;080d 00 00 0a f3 2f 37 00100010 000 002    4147418
 
-                const regsRe = /^  ADDR A  X  Y  SP 00 01 NV-BDIZC LIN CYC  STOPWATCH/;
+                const regsRe = /^(\(C:\$([0-9a-f]+)\))?\s+ADDR A  X  Y  SP 00 01 NV-BDIZC LIN CYC  STOPWATCH/;
                 const valsRe = /.;([0-9a-f]+) ([0-9a-f]+) ([0-9a-f]+) ([0-9a-f]+) ([0-9a-f]+) ([0-9a-f]+) ([0-9a-f]+) ([01])+ ([0-9]+) ([0-9]+)\s+([0-9]+)/
                 if (line.match(regsRe)) {
                     i++;
@@ -92,7 +78,7 @@ class MonitorConnection extends EventEmitter {
                         this.echo(line);
                         const m = line.match(valsRe);
                         if (m) {
-                            const vals = {
+                            const vals: C64Regs = {
                                 addr: parseInt(m[1], 16),
                                 a: parseInt(m[2], 16),
                                 x: parseInt(m[3], 16),
@@ -106,7 +92,38 @@ class MonitorConnection extends EventEmitter {
                                 stopwatch: parseInt(m[11], 10),
                             }
                             this.emit('registers', vals);
+                            if (this.emitStepOrNext) {
+                                this.emit('stopOnStep', this.emitStepOrNext);
+                                this.emitStepOrNext = undefined;
+                            }
+                            if (this.emitBreak) {
+                                this.emit('break', this.emitBreak);
+                                this.emitBreak = undefined;
+                            }
                         }
+                    }
+                }
+                
+                if (this.prevCommand == 'next' || this.prevCommand == 'step') {
+                    const stepRe = /^\.C:([0-9a-f]+)\s+.*/;
+                    match = line.match(stepRe);
+                    if (match) {
+                        const addr = parseInt(match[1], 16);
+                        this.emitStepOrNext = addr;
+                        this.prevCommand = undefined;
+                        continue;
+                    }
+                }
+
+                if (this.prevCommand == 'pause') {
+                    const curAddrRe = /^\(C:\$([0-9a-f]+)\)\s+.*/;
+                    match = line.match(curAddrRe);
+                    if (match) {
+                        const addr = parseInt(match[1], 16);
+                        // TODO this should be next/step/stop not break maybe?
+                        this.emitStepOrNext = addr;
+                        this.prevCommand = undefined;
+                        continue;
                     }
                 }
 
@@ -141,21 +158,21 @@ class MonitorConnection extends EventEmitter {
     next(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'next';
-            this.write('next\n', () => resolve());
+            this.write('next\nr\n', () => resolve());
         });
     }
 
     step(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'step';
-            this.write('step\n', () => resolve());
+            this.write('step\nr\n', () => resolve());
         });
     }
 
     pause(): Promise<void> {
         return new Promise(resolve => {
             this.prevCommand = 'pause';
-            this.write('\n', () => resolve());
+            this.write('r\n', () => resolve());
         });
     }
 
@@ -314,6 +331,9 @@ export class C64jasmRuntime extends EventEmitter {
         this._monitor.on('stopOnStep', breakAddr => {
             this._stoppedAddr = breakAddr;
             this.sendEvent('stopOnStep');
+        });
+        this._monitor.on('registers', (regs: C64Regs) => {
+            this.sendEvent('registers', regs);
         });
         this._monitor.connect();
         this._monitor.loadProgram(program, startAddress, stopOnEntry);
