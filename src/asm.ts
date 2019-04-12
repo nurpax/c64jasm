@@ -539,6 +539,7 @@ class Assembler {
                         }
                     }
                 }
+                let triedNestedLabels = undefined;
                 // Does the object access match a foo.bar.baz style label access?
                 // If yes, resolve as label
                 if (node.type == 'member' && !node.computed) {
@@ -567,6 +568,7 @@ class Assembler {
                         if (lbl) {
                             return this.evalExpr(ast.mkIdent(nestedLabel, node.loc));
                         }
+                        triedNestedLabels = names.join('.');
                     }
                 }
                 const object = this.evalExpr(node.object);
@@ -574,10 +576,13 @@ class Assembler {
                     const { name } = object.unresolved
                     this.error(`Cannot access properties of an unresolved symbol '${name}'`, object.unresolved.loc);
                 }
-                const { property, computed } = node
+                const { property, computed } = node;
                 if (!computed) {
                     if (object.type !== 'object') {
-                        this.error(`The dot . operator can only operate on objects. Got ${object.type}.`, node.loc)
+                        if (triedNestedLabels !== undefined) {
+                            this.error(`Couldn't resolve symbol '${triedNestedLabels}'`, node.loc)
+                        }
+                        this.error(` . operator can only operate on objects. Got ${object.type}.`, node.loc)
                     }
                     const elt = findObjectField(object.props, property);
                     if (elt) {

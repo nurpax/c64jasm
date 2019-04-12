@@ -1,0 +1,1 @@
+<unknown>:1:1: error: Couldn't resolve symbol 'outer.inner2'
