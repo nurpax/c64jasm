@@ -1,1 +1,1 @@
-test/errors/plugin2.input.asm:4:12: error: Plugin invocation 'bin' failed with an exception: Error: ENOENT: no such file or directory, open 'test/errors/filenotfound.txt'
+test/errors/plugin2.input.asm:4:12: error: Call to 'bin' failed with an error: ENOENT: no such file or directory, open 'test/errors/filenotfound.txt'

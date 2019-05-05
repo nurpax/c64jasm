@@ -1,0 +1,1 @@
+test/errors/local_scopes2.input.asm:10:5: error: Variable 'x' already defined

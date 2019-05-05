@@ -1,1 +1,1 @@
-<unknown>:1:1: error: Object has no property 'no_such_function'
+test/errors/plugin3.input.asm:5:16: error: Property 'no_such_function' does not exist in object

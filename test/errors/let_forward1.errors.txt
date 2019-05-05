@@ -1,0 +1,1 @@
+test/errors/let_forward1.input.asm:4:10: error: Undeclared variable 'state_length

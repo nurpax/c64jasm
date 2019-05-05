@@ -1,0 +1,1 @@
+test/errors/scopes5.input.asm:6:10: error: Must have a label or a variable identifier here, got macro name

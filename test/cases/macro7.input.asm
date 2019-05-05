@@ -14,6 +14,7 @@
 }
 
 foo: {
+lbl:
     +speedcode()
     +speedcode()
 }

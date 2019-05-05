@@ -22,12 +22,17 @@ export interface Label extends Node {
 export interface Literal extends Node {
   type: 'literal',
   lit: number | string
-  unresolved: Label | Ident | null;
 }
 
 export interface Ident extends Node {
   type: 'ident';
   name: string;
+}
+
+export interface ScopeQualifiedIdent extends Node {
+  type: 'qualified-ident';
+  path: string[];
+  absolute: boolean;
 }
 
 export interface Unary extends Node {
@@ -36,21 +41,72 @@ export interface Unary extends Node {
   expr: Expr;
 }
 
-export function mkLiteral(lit: number | string, loc: SourceLoc, unresolved = null): Literal {
-  return { type: 'literal', lit, loc, unresolved };
+export interface BinaryOp extends Node {
+  type: 'binary';
+  op: string;
+  left: Expr;
+  right: Expr;
+}
+
+export interface ExprArray extends Node {
+  type: 'array';
+  list: Expr[];
+}
+
+export interface CallFunc extends Node {
+  type: 'callfunc';
+  name: Ident;
+  args: Expr[];
+}
+
+export interface Member extends Node {
+  type: 'member';
+  object: Expr;
+  property: Expr;
+  computed: boolean;
+}
+
+export function mkLiteral(lit: number | string, loc: SourceLoc): Literal {
+  return { type: 'literal', lit, loc };
+}
+
+export function mkScopeQualifiedIdent(path: string[], absolute: boolean, loc: SourceLoc): ScopeQualifiedIdent {
+  return { type: 'qualified-ident', path, absolute, loc };
 }
 
 export function mkIdent(name: string, loc: SourceLoc): Ident {
   return { type: 'ident', name, loc };
 }
 
-export function mkUnary(op: string, expr: Expr, loc: SourceLoc): Expr {
+export function mkUnary(op: string, expr: Expr, loc: SourceLoc): Unary {
   return { type: 'unary', op, expr, loc };
+}
+
+export function mkBinaryOp(op: string, left: Expr, right: Expr, loc: SourceLoc): BinaryOp {
+  return { type: 'binary', op, left, right, loc };
+}
+
+export function mkExprArray(list: Expr[], loc: SourceLoc): ExprArray {
+  return { type: 'array', list, loc };
+}
+
+export function mkCallFunc(name: Ident, args: Expr[], loc: SourceLoc): CallFunc {
+  return {
+    type: 'callfunc',
+    name,
+    args: args == null ? [] : args,
+    loc
+  }
+}
+
+export function mkMember(object: Expr, property: Ident, computed: boolean, loc: SourceLoc): Member {
+  return { type: 'member', object, property, computed, loc };
 }
 
 export enum DataSize { Byte, Word };
 
-export type Expr = any | Ident | Literal | Unary
+export type Expr = Ident | ScopeQualifiedIdent | Literal | Unary | BinaryOp | ExprArray | CallFunc | Member
+
 export type Stmt =
     StmtInsn
   | StmtSetPC
@@ -64,7 +120,6 @@ export type Stmt =
   | StmtFor
   | StmtMacro
   | StmtCallMacro
-  | StmtCallFunc
   | StmtLet
   | StmtAssign
   | StmtLoadPlugin
@@ -89,7 +144,7 @@ export interface StmtData extends Node {
 
 export interface StmtFill extends Node {
   type: 'fill';
-  numBytes: number;
+  numBytes: Expr;
   fillValue: Expr;
 }
 
@@ -100,25 +155,25 @@ export interface StmtAlign extends Node {
 
 export interface StmtInclude extends Node {
   type: 'include';
-  filename: string;
+  filename: Literal;
 }
 
 export interface StmtBinary extends Node {
   type: 'binary';
-  filename: string;
+  filename: Literal;
   size: Expr;
   offset: Expr;
 }
 
 export interface StmtIfElse extends Node {
   type: 'if';
-  cases: [Expr, AsmLine[]];
+  cases: [Expr, AsmLine[]][];
   elseBranch: AsmLine[];
 }
 
 export interface StmtError extends Node {
   type: 'error';
-  error: string;
+  error: Literal;
 }
 
 export interface StmtFor extends Node {
@@ -141,13 +196,7 @@ export interface StmtMacro extends Node {
 
 export interface StmtCallMacro extends Node {
   type: 'callmacro',
-  name: Ident;
-  args: Expr[];
-}
-
-export interface StmtCallFunc extends Node {
-  type: 'callfunc',
-  name: Ident;
+  name: ScopeQualifiedIdent;
   args: Expr[];
 }
 
@@ -159,13 +208,13 @@ export interface StmtLet extends Node {
 
 export interface StmtAssign extends Node {
   type: 'assign',
-  name: Ident;
+  name: ScopeQualifiedIdent;
   value: Expr;
 }
 
 export interface StmtLoadPlugin extends Node {
   type: 'load-plugin',
-  filename: string;
+  filename: Literal;
   moduleName: Ident;
 }
 
@@ -204,7 +253,7 @@ export function mkData(dataSize: DataSize, values: Expr[], loc: SourceLoc): Stmt
   }
 }
 
-export function mkFill(numBytes: number, fillValue: Expr, loc: SourceLoc): StmtFill {
+export function mkFill(numBytes: Expr, fillValue: Expr, loc: SourceLoc): StmtFill {
   return { type: 'fill', numBytes, fillValue, loc }
 }
 
@@ -212,7 +261,7 @@ export function mkAlign(alignBytes: Expr, loc: SourceLoc): StmtAlign {
   return { type: 'align', alignBytes, loc }
 }
 
-export function mkInclude(filename: string, loc: SourceLoc): StmtInclude {
+export function mkInclude(filename: Literal, loc: SourceLoc): StmtInclude {
   return {
     type: 'include',
     filename,
@@ -220,7 +269,7 @@ export function mkInclude(filename: string, loc: SourceLoc): StmtInclude {
   }
 }
 
-export function mkError(error: string, loc: SourceLoc): StmtError {
+export function mkError(error: Literal, loc: SourceLoc): StmtError {
   return {
     type: 'error',
     error,
@@ -228,7 +277,7 @@ export function mkError(error: string, loc: SourceLoc): StmtError {
   }
 }
 
-export function mkBinary(filename: Expr, size: Expr, offset: Expr, loc: SourceLoc): StmtBinary {
+export function mkBinary(filename: Literal, size: Expr, offset: Expr, loc: SourceLoc): StmtBinary {
   return {
     type: 'binary',
     filename,
@@ -238,7 +287,7 @@ export function mkBinary(filename: Expr, size: Expr, offset: Expr, loc: SourceLo
   }
 }
 
-export function mkIfElse(cases: [Expr, AsmLine[]], elseBranch: AsmLine[], loc: SourceLoc): StmtIfElse {
+export function mkIfElse(cases: [Expr, AsmLine[]][], elseBranch: AsmLine[], loc: SourceLoc): StmtIfElse {
   return {
     type: 'if',
     cases,
@@ -271,18 +320,9 @@ export function mkMacro(name: Ident, args: MacroArg[] | null, body: AsmLine[], l
   }
 }
 
-export function mkCallMacro(name: Ident, args: Expr[], loc: SourceLoc): StmtCallMacro {
+export function mkCallMacro(name: ScopeQualifiedIdent, args: Expr[], loc: SourceLoc): StmtCallMacro {
   return {
     type: 'callmacro',
-    name,
-    args: args == null ? [] : args,
-    loc
-  }
-}
-
-export function mkCallFunc(name: Ident, args: Expr[], loc: SourceLoc): StmtCallFunc {
-  return {
-    type: 'callfunc',
     name,
     args: args == null ? [] : args,
     loc
@@ -298,7 +338,7 @@ export function mkLet(name: Ident, value: Expr, loc: SourceLoc): StmtLet {
   }
 }
 
-export function mkAssign(name: Ident, value: Expr, loc: SourceLoc): StmtAssign {
+export function mkAssign(name: ScopeQualifiedIdent, value: Expr, loc: SourceLoc): StmtAssign {
   return {
     type: 'assign',
     name,
@@ -307,7 +347,7 @@ export function mkAssign(name: Ident, value: Expr, loc: SourceLoc): StmtAssign {
   }
 }
 
-export function mkLoadPlugin(filename: string, moduleName: Ident, loc: SourceLoc): StmtLoadPlugin {
+export function mkLoadPlugin(filename: Literal, moduleName: Ident, loc: SourceLoc): StmtLoadPlugin {
   return {
     type: 'load-plugin',
     filename,
@@ -317,16 +357,16 @@ export function mkLoadPlugin(filename: string, moduleName: Ident, loc: SourceLoc
 }
 
 export function mkAsmLine(
-    label: Label = null,
-    stmt: Stmt = null,
-    scopedStmts: AsmLine[] = null,
+    label: Label | null ,
+    stmt: Stmt | null,
+    scopedStmts: AsmLine[] | null,
     loc: SourceLoc
   ): AsmLine {
   return { label, stmt, scopedStmts, loc };
 }
 
 // Convert a Javascript object to AST nodes
-export function objectToAst(o, loc) {
+export function objectToAst(o: any, loc: SourceLoc): any {
     if (Array.isArray(o)) {
       return {
         type: 'array',

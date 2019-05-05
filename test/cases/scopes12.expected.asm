@@ -1,0 +1,15 @@
+0801: A9 0D        LDA #0D
+0803: AD 01 08     LDA $0801
+0806: 4C 03 08     JMP $0803
+0809: 60           RTS
+080A: 20 03 08     JSR $0803
+080D: 20 03 08     JSR $0803
+0810: 4C 01 08     JMP $0801
+0813: 60           RTS
+0814: A9 0E        LDA #0E
+0816: A9 0F        LDA #0F
+0818: AD 03 08     LDA $0803
+081B: A9 FC        LDA #FC
+081D: A9 FC        LDA #FC
+081F: A9 FC        LDA #FC
+0821: A9 FD        LDA #FD

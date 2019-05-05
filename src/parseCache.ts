@@ -4,11 +4,13 @@ import { SourceLoc } from './ast'
 
 var parser = require('./g_parser')
 
+type readFileSyncFunc = (fname: string, loc: SourceLoc | undefined) => Buffer;
+
 export default class {
     filenameToSource = new Map<string, Buffer>();
     sourceToAst = new Map<string, ast.AsmLine[]>();
 
-    getFileContents(filename, loc: SourceLoc | null, guardedReadFileSync): Buffer {
+    getFileContents(filename: string, loc: SourceLoc | undefined, guardedReadFileSync: readFileSyncFunc): Buffer {
         const contents = this.filenameToSource.get(filename);
         if (contents !== undefined) {
             return contents;
@@ -20,8 +22,8 @@ export default class {
 
     parse(
         filename: string,
-        loc: SourceLoc | null,
-        guardedReadFileSync: (string, SourceLoc) => Buffer
+        loc: SourceLoc | undefined,
+        guardedReadFileSync: readFileSyncFunc
     ): ast.AsmLine[] {
         const source = this.getFileContents(filename, loc, guardedReadFileSync);
         const cachedAst = this.sourceToAst.get(filename);

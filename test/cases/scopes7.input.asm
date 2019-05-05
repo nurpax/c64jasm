@@ -17,7 +17,7 @@ outer2: {
 }
 
     lda #1
-    sta outer.inner-1
+    sta outer::inner-1
     nop
-    sta outer2.inner.innermost
-    sta outer2.inner.innermost+1
+    sta outer2::inner::innermost
+    sta outer2::inner::innermost+1

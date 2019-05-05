@@ -1,0 +1,1 @@
+test/errors/scopes4.input.asm:4:1: error: Variable 'a' already defined

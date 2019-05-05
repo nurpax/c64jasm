@@ -1,0 +1,1 @@
+test/errors/array_access1.input.asm:9:20: error: Out of bounds array index 4

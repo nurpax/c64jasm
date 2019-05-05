@@ -7,6 +7,14 @@
         "outDir": "build",
         "sourceMap": true,
         "allowJs": true,
+
+        "noImplicitAny": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "noImplicitThis": true,
+        "alwaysStrict": true,
+        "noImplicitReturns": true,
+
         "lib": ["es2017"]
     },
     "files": [

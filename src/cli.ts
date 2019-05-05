@@ -8,10 +8,11 @@ import { writeFileSync } from 'fs'
 import { assemble } from './asm'
 import { ArgumentParser } from 'argparse'
 import { toHex16 } from './util'
+
 const chokidar = require('chokidar');
 
-let args = null;
-let latestSuccessfulCompile = undefined;
+let args: any = null;
+let latestSuccessfulCompile: any = undefined;
 
 const PORT = 6502;
 const HOST = 'localhost';
@@ -24,7 +25,7 @@ function startDebugInfoServer() {
         console.log('server listening on %j', server.address());
     });
 
-    function onConnected(sock) {
+    function onConnected(sock: net.Socket) {
         var remoteAddress = sock.remoteAddress + ':' + sock.remotePort;
         console.log('new client connected: %s', remoteAddress);
 
@@ -44,11 +45,14 @@ function startDebugInfoServer() {
     }
 }
 
-function compile(args) {
+function compile(args: any) {
     console.log(`Compiling ${args.source}`)
     const hrstart = process.hrtime();
 
     const result = assemble(args.source);
+    if (!result) {
+        return;
+    }
     const { errors, prg, labels } = result;
 
     if (errors.length !== 0) {
@@ -70,7 +74,7 @@ function compile(args) {
     }
 
     if (args.dumpLabels) {
-        labels.forEach(({name, addr, size, loc}) => {
+        labels.forEach(({name, addr, size}) => {
             const msg = sprintf("%s %4d %s", toHex16(addr), size, name);
             console.log(msg);
         })
@@ -129,5 +133,5 @@ if (args.watch) {
         recursive:true
     })
     startDebugInfoServer();
-    watcher.on('change', (path, stats) => compile(args));
+    watcher.on('change', (path: string, stats: any) => compile(args));
 }

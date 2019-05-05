@@ -1,1 +1,1 @@
-test/errors/for2.input.asm:5:11: error: range(start, end) expression end must be greater than start, start=3, end=1 given
+test/errors/for2.input.asm:5:11: error: Call to 'range' failed with an error: range 'end' must be larger or equal to 'start'

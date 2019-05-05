@@ -15,264 +15,262 @@ interface Error {
     msg: string
 }
 
-const filterMap = (lst, mf) => {
-    return lst.map((l,i) => mf(l, i)).filter(elt => elt !== null);
-}
-
-function tryParseInt(s): number | null {
-    if (s.length < 1) {
-        return null
-    }
-    if (s[0] == '$') {
-        const v = parseInt(s.slice(1), 16);
-        return isNaN(v) ? null : v
-    } else {
-        const v = parseInt(s, 10);
-        return isNaN(v) ? null : v
-    }
-}
-
-function tryParseSymbol(s): string | null {
-    const m = /^([a-zA-Z_]+[0-9a-zA-Z_]*)$/.exec(s)
-    if (m !== null) {
-        return m[1];
-    }
-    return null
-}
-
-function toHex(num) {
-    const h = num.toString(16)
-    return num < 16 ? `0${h}` : `${h}`
-}
-
-interface Label {
+interface LabelAddr {
     addr: number,
     loc: SourceLoc
 }
 
-class SeenLabels {
-    seenLabels = new Map<string, ast.Label>();
+class NamedScope<T> {
+    syms: Map<string, {val: T, seen: number}> = new Map();
+    readonly parent: NamedScope<T> | null = null;
+    readonly name: string;
+    children: Map<string, NamedScope<T>> = new Map();
 
-    clear () {
-        this.seenLabels.clear();
+    constructor (parent: NamedScope<T> | null, name: string) {
+        this.parent = parent;
+        this.name = name;
     }
 
-    find = (name) => {
-        return this.seenLabels.get(name);
-    }
-
-    declare = (name, sym) => {
-        this.seenLabels.set(name, sym);
-    }
-}
-
-class Labels {
-    labels = {}
-    macroCount = 0
-    labelPrefix = []
-
-    startPass(): void {
-        this.macroCount = 0;
-    }
-
-    pushLabelScope(name: string): void {
-        this.labelPrefix.push(name)
-    }
-
-    popMacroExpandScope(): void {
-        this.labelPrefix.pop();
-    }
-
-    pushMacroExpandScope(name: string): void {
-        this.labelPrefix.push(`${name}/${this.macroCount}`)
-        this.macroCount++;
-    }
-
-    popLabelScope(): void {
-        this.labelPrefix.pop();
-    }
-
-    makeScopePrefix(maxDepth): string {
-        if (this.labelPrefix.length === 0) {
-            return ''
+    enter(name: string): NamedScope<T> {
+        const s = this.children.get(name);
+        if (s !== undefined) {
+            return s;
         }
-        return this.labelPrefix.slice(0, maxDepth).join('/');
+        const newScope = new NamedScope<T>(this, name);
+        this.children.set(name, newScope);
+        return newScope;
     }
 
-    currentScopePrefix(): string {
-        return this.makeScopePrefix(this.labelPrefix.length)
+    leave(): NamedScope<T> {
+        return this.parent!;
     }
 
-    currentPrefixName(name: string): string {
-        const prefix = this.currentScopePrefix();
-        if (prefix == '') {
-            return name;
-        }
-        return `${prefix}/${name}`
-    }
-
-    prefixName(name: string, depth): string {
-        const prefix = this.makeScopePrefix(depth);
-        if (prefix == '') {
-            return name;
-        }
-        return `${prefix}/${name}`
-    }
-
-    add(name: string, addr: number, loc: SourceLoc): void {
-        const lbl: Label = {
-            addr,
-            loc
-        }
-        const prefixedName = this.currentPrefixName(name);
-        this.labels[prefixedName] = lbl
-    }
-
-    // Find a label with fully specified scope path
-    findFq(nameFq): Label {
-        return this.labels[nameFq];
-    }
-
-    find(name: string): Label {
-        const scopeDepth = this.labelPrefix.length;
-        if (scopeDepth == 0) {
-            return this.labels[name];
-        }
-        for (let depth = scopeDepth; depth >= 0; depth--) {
-            const pn = this.prefixName(name, depth);
-            const lbl = this.labels[pn];
-            if (lbl) {
-                return lbl;
-            }
-        }
-        return undefined;
-    }
-}
-
-interface Constant {
-    arg: ast.MacroArg,
-    value: any
-}
-
-class SymbolTab<S> {
-    symbols: Map<string, S> = new Map();
-
-    add = (name: string, s: S) => {
-        this.symbols[name] = s
-    }
-
-    find (name: string): S {
-        return this.symbols[name]
-    }
-}
-
-class ScopeStack<S> {
-    stack: SymbolTab<S>[] = [];
-
-    push = () => {
-        this.stack.push(new SymbolTab<S>());
-    }
-
-    pop = () => {
-        this.stack.pop();
-    }
-
-    find (name: string): S | undefined {
-        const last = this.stack.length-1;
-        for (let idx = last; idx >= 0; idx--) {
-            const elt = this.stack[idx].find(name);
-            if (elt) {
-                return elt;
+    // Find symbol from current and all parent scopes
+    findSymbol(name: string): {val: T, seen: number} | undefined {
+        for (let cur: NamedScope<T>|null = this; cur !== null; cur = cur.parent) {
+            const n = cur.syms.get(name);
+            if (n !== undefined) {
+                return n;
             }
         }
         return undefined;
     }
 
-    add = (name: string, sym: S) => {
-        const last = this.stack.length-1;
-        this.stack[last].add(name, sym);
+    // Find relative label::path::sym style references from the symbol table
+    findSymbolPath(path: string[]): {val: T, seen: number} | undefined {
+        if (path.length == 1) {
+            return this.findSymbol(path[0]);
+        }
+
+        // Go up the scope tree until we find the start of
+        // the relative path.
+        let tab: NamedScope<T> | null | undefined = this;
+        while (tab.children.get(path[0]) == undefined) {
+            tab = tab.parent;
+            if (tab == null) {
+                return undefined;
+            }
+        }
+
+        // Go down the tree to match the path to a symbol
+        for (let i = 0; i < path.length-1; i++) {
+            tab = tab.children.get(path[i]);
+            if (tab == undefined) {
+                return undefined;
+            }
+        }
+        return tab.syms.get(path[path.length-1]);
     }
+
+    addSymbol(name: string, val: T, pass: number): void {
+        this.syms.set(name, { val, seen: pass });
+    }
+
+    updateSymbol(name: string, val: T, pass: number) {
+        for (let cur: NamedScope<T>|null = this; cur !== null; cur = cur.parent) {
+            const v = cur.syms.get(name);
+            if (v !== undefined) {
+                cur.syms.set(name, { val, seen: pass });
+                return;
+            }
+        }
+    }
+
+}
+
+type SymEntry  = SymLabel | SymVar | SymMacro;
+
+interface SymLabel {
+    type: 'label';
+    data: LabelAddr;
+}
+
+interface SymVar {
+    type: 'var';
+    data: any;
+}
+
+interface SymMacro {
+    type: 'macro';
+    data: ast.StmtMacro;
 }
 
 class Scopes {
-    labels = new Labels();
-    seenLabels = new SeenLabels();
-    macros = new ScopeStack<ast.StmtMacro>();
+    passCount: number = 0;
+    root: NamedScope<SymEntry> = new NamedScope<SymEntry>(null, '');
+    curSymtab = this.root;
+    private anonScopeCount = 0;
 
-    constructor () {
-        this.macros.push();
+    startPass(pass: number): void {
+        this.curSymtab = this.root;
+        this.anonScopeCount = 0;
+        this.passCount = pass;
     }
 
-    startPass(): void {
-        this.labels.startPass();
-        this.seenLabels.clear();
+    pushAnonScope(): void {
+        this.pushLabelScope(`__anon_scope_${this.anonScopeCount}`);
+        this.anonScopeCount++;
+    }
+    popAnonScope(): void {
+        this.popLabelScope();
     }
 
     pushLabelScope(name: string): void {
-        this.labels.pushLabelScope(name);
+        this.curSymtab = this.curSymtab.enter(name);
     }
 
     popLabelScope(): void {
-        this.labels.popLabelScope();
+        this.curSymtab = this.curSymtab.leave();
     }
 
-    pushMacroExpandScope(macroName: string): void {
-        this.labels.pushMacroExpandScope(macroName);
+    findPath(path: string[], absolute: boolean): { sym: SymEntry, seen: number } | undefined {
+        if (absolute) {
+            const n = this.root.findSymbolPath(path);
+            if (n !== undefined) {
+                return {
+                    sym: n.val,
+                    seen: n.seen
+                }
+            }
+            return undefined;
+        }
+        const n = this.curSymtab.findSymbolPath(path);
+        if (n !== undefined) {
+            return {
+                sym: n.val,
+                seen: n.seen
+            }
+    }
+        return undefined;
     }
 
-    popMacroExpandScope(): void {
-        this.labels.popMacroExpandScope();
+    findQualifiedSym(path: string[], absolute: boolean): { sym: SymEntry, seen: number } | undefined {
+        return this.findPath(path, absolute);
     }
 
-    findMacro(name: string): ast.StmtMacro | undefined {
-        return this.macros.find(name);
+    findQualifiedVar(path: string[], absolute: boolean): any | undefined {
+        const se = this.findPath(path, absolute);
+        if (se !== undefined && se.sym.type == 'var') {
+            return se.sym.data;
+        }
+        return undefined;
     }
 
-    addMacro(name: string, macro: ast.StmtMacro): void {
-        return this.macros.add(name, macro);
-    }
 
-    addLabel(name: string, addr: number, loc: SourceLoc): void {
-        this.labels.add(name, addr, loc);
-    }
-
-    findLabel(name: string): Label {
-        return this.labels.find(name);
-    }
-
-    findLabelFq(name: string): Label {
-        return this.labels.findFq(name);
-    }
-
-    findSeenLabel(name: string): ast.Label {
-        return this.seenLabels.find(this.labels.currentPrefixName(name));
+    symbolSeen(name: string): boolean {
+        const n = this.curSymtab.syms.get(name);
+        if (n !== undefined) {
+            return n.seen == this.passCount;
+        }
+        return false;
     }
 
     declareLabelSymbol(symbol: ast.Label, codePC: number): boolean {
-        const { name, loc } = symbol
-        const labelFq = this.labels.currentPrefixName(name);
-        this.seenLabels.declare(labelFq, symbol);
-        const oldLabel = this.findLabelFq(labelFq);
-        if (oldLabel === undefined) {
-            this.addLabel(name, codePC, loc);
+        const { name, loc } = symbol;
+
+        // As we allow name shadowing, we must look up the name
+        // only from the current scope.  If we lookup parent
+        // scopes for label declarations, we end up
+        // mutating some unrelated, but same-named label names.
+        const prevLabel = this.curSymtab.syms.get(name);
+        const lblsym: SymLabel = {
+            type: 'label',
+            data: { addr: codePC, loc }
+        };
+        if (prevLabel == undefined) {
+            this.curSymtab.addSymbol(name, lblsym, this.passCount);
             return false;
         }
+        if (prevLabel.val.type !== 'label') {
+            throw new Error('ICE: declareLabelSymbol should be called only on labels');
+        }
+        const lbl = prevLabel.val;
         // If label address has changed change, need one more pass
-        if (oldLabel.addr !== codePC) {
-            this.addLabel(name, codePC, loc);
+        if (lbl.data.addr !== codePC) {
+            this.curSymtab.updateSymbol(name, lblsym, this.passCount);
             return true;
         }
         return false;
     }
 
+    declareVar(name: string, value: any): void {
+        this.curSymtab.addSymbol(name, {
+            type: 'var',
+            data: value
+        }, this.passCount)
+    }
+
+    updateVar(path: string[], absolute: boolean, val:any) {
+        if (path.length !== 1 || absolute) {
+            throw new Error('should not happen TBD');
+        }
+        const prevVar = this.curSymtab.findSymbol(path[0]);
+        if (prevVar == undefined || prevVar.val.type !== 'var') {
+            throw new Error('should not happen');
+        }
+        const newVar: SymVar = {
+            type: 'var',
+            data: val
+        };
+        this.curSymtab.updateSymbol(path[0], newVar, this.passCount);
+    }
+
+    findMacro(path: string[], absolute: boolean): ast.StmtMacro | undefined {
+        const sym = this.findPath(path, absolute);
+        if (sym !== undefined && sym.sym.type == 'macro') {
+            return sym.sym.data;
+        }
+        return undefined;
+    }
+
+    declareMacro(name: string, value: ast.StmtMacro): void {
+        this.curSymtab.addSymbol(name, {
+            type: 'macro',
+            data: value
+        }, this.passCount)
+    }
+
     dumpLabels(codePC: number) {
-        const labels = Object.keys(this.labels.labels).map(name => {
-            return {
-                name,
-                ...this.labels.labels[name],
-                size: 0
+        type StackEntry = {prefix: string, sym: NamedScope<SymEntry>};
+        const stack: StackEntry[] = [];
+        const pushScope = (prefix: string, sym: NamedScope<SymEntry>) => {
+            stack.push({ prefix: `${prefix}/${sym.name}`, sym });
+        }
+        pushScope('', this.root);
+
+        const labels = [];
+        while (stack.length > 0) {
+            const s = stack.pop()!;
+            for (let [k,lbl] of s.sym.syms) {
+                if (lbl.val.type == 'label') {
+                    labels.push({ name: `${s.prefix}/${k}`, addr: lbl.val.data.addr, size: 0 });
+                }
             }
-        })
+            for (let [k, sym] of s.sym.children) {
+                pushScope(s.prefix, sym);
+            }
+        }
+
         const sortedLabels = labels.sort((a, b) => {
             return a.addr - b.addr;
         })
@@ -285,7 +283,6 @@ class Scopes {
             const last = sortedLabels[numLabels-1];
             last.size = codePC - last.addr;
         }
-
         return sortedLabels;
     }
 }
@@ -294,15 +291,32 @@ function isTrueVal(cond: number | boolean): boolean {
     return (cond === true || cond != 0);
 }
 
+function makeCompileLoc(filename: string) {
+    // SourceLoc can be undefined here if parse is executed out of AST
+    // (e.g., source file coming from CLI), so make up an error loc for it.
+    return {
+        source: filename,
+        start: { offset: 0, line: 0, column: 0 },
+        end: { offset: 0, line: 0, column: 0 }
+    };
+}
+
+function formatSymbolPath(p: ast.ScopeQualifiedIdent): string {
+    return `${p.absolute ? '::' : ''}${p.path.join('::')}`;
+}
+
 interface BranchOffset {
     offset: number;
     loc: SourceLoc;
 }
 
-const runBinop = (a: ast.Literal, b: ast.Literal, f) => {
-    // TODO combine a&b locs
+const runBinopNum = (a: any, b: any, f: (a: number, b: number) => number | boolean) => {
     // TODO a.type, b.type must be literal
-    return ast.mkLiteral(f(a.lit, b.lit), a.loc);
+    const res = f(a as number, b as number);
+    if (typeof res == 'boolean') {
+        return res ? 1 : 0;
+    }
+    return res;
 }
 
 class Assembler {
@@ -317,7 +331,6 @@ class Assembler {
     pass = 0;
     needPass = false;
     scopes = new Scopes();
-    variables = new ScopeStack<Constant>();
     errorList: Error[] = [];
     outOfRangeBranches: BranchOffset[] = [];
 
@@ -329,8 +342,9 @@ class Assembler {
       return Buffer.from([1, 8].concat(this.binary))
     }
 
-    parse (filename, loc) {
-        return this.parseCache.parse(filename, loc, ((fname, loc) => this.guardedReadFileSync(fname, loc)));
+    parse (filename: string, loc: SourceLoc | undefined) {
+        const l = loc == undefined ? makeCompileLoc(filename) : loc;
+        return this.parseCache.parse(filename, loc, ((fname, _loc) => this.guardedReadFileSync(fname, l)));
     }
 
     // Cache plugin require's so that we fresh require() them only in the first pass.
@@ -338,7 +352,7 @@ class Assembler {
     // intentionally.  We don't want it completely cached because changes to plugin
     // code must trigger a recompile and in that case we want the plugins really
     // reloaded too.
-    requirePlugin(fname) {
+    requirePlugin(fname: string): any {
         const p = this.pluginCache.get(fname);
         if (p !== undefined) {
             return p;
@@ -395,19 +409,9 @@ class Assembler {
       this.pass = pass;
       this.needPass = false;
       this.binary = [];
-      this.scopes.startPass();
+      this.scopes.startPass(pass);
       this.outOfRangeBranches = [];
       this.debugInfo = new DebugInfoTracker();
-    }
-
-    pushVariableScope (): void {
-        this.scopes.macros.push();
-        this.variables.push();
-    }
-
-    popVariableScope (): void {
-        this.variables.pop();
-        this.scopes.macros.pop();
     }
 
     emitBasicHeader () {
@@ -430,19 +434,18 @@ class Assembler {
 
     emitBinary (ast: ast.StmtBinary): void {
         const { filename } = ast
-        const fname = this.makeSourceRelativePath(filename)
+        const fname = this.makeSourceRelativePath(this.evalExpr(filename));
         const buf: Buffer = this.guardedReadFileSync(fname, ast.loc);
 
         let offset = 0
         let size = buf.byteLength
-        if (ast.size) {
+        if (ast.size !== null) {
             if (ast.offset !== null) {
-                const offsetExpr = this.evalExpr(ast.offset);
-                offset = offsetExpr ? offsetExpr.lit : 0;
+                offset = this.evalExpr(ast.offset);
             }
             if (ast.size !== null) {
-                const sizeExpr = this.evalExpr(ast.size);
-                size = sizeExpr ? sizeExpr.lit : buf.byteLength - offset;
+                const sizeExprVal = this.evalExpr(ast.size);
+                size = sizeExprVal;
             }
         }
         // TODO buffer overflow
@@ -451,163 +454,136 @@ class Assembler {
         }
     }
 
-    evalExpr (node): ast.Expr {
+    evalExpr(node: ast.Expr): any {
         switch (node.type) {
             case 'binary': {
                 const left = this.evalExpr(node.left);
                 const right = this.evalExpr(node.right);
                 switch (node.op) {
-                    case '+': return  runBinop(left, right, (a,b) => a + b)
-                    case '-': return  runBinop(left, right, (a,b) => a - b)
-                    case '*': return  runBinop(left, right, (a,b) => a * b)
-                    case '/': return  runBinop(left, right, (a,b) => a / b)
-                    case '%': return  runBinop(left, right, (a,b) => a % b)
-                    case '&': return  runBinop(left, right, (a,b) => a & b)
-                    case '|': return  runBinop(left, right, (a,b) => a | b)
-                    case '^': return  runBinop(left, right, (a,b) => a ^ b)
-                    case '<<': return runBinop(left, right, (a,b) => a << b)
-                    case '>>': return runBinop(left, right, (a,b) => a >> b)
-                    case '==': return runBinop(left, right, (a,b) => a == b)
-                    case '!=': return runBinop(left, right, (a,b) => a != b)
-                    case '<':  return runBinop(left, right, (a,b) => a <  b)
-                    case '<=': return runBinop(left, right, (a,b) => a <= b)
-                    case '>':  return runBinop(left, right, (a,b) => a >  b)
-                    case '>=': return runBinop(left, right, (a,b) => a >= b)
-                    case '&&': return runBinop(left, right, (a,b) => a && b)
-                    case '||': return runBinop(left, right, (a,b) => a || b)
+                    case '+': return  runBinopNum(left, right, (a,b) => a + b)
+                    case '-': return  runBinopNum(left, right, (a,b) => a - b)
+                    case '*': return  runBinopNum(left, right, (a,b) => a * b)
+                    case '/': return  runBinopNum(left, right, (a,b) => a / b)
+                    case '%': return  runBinopNum(left, right, (a,b) => a % b)
+                    case '&': return  runBinopNum(left, right, (a,b) => a & b)
+                    case '|': return  runBinopNum(left, right, (a,b) => a | b)
+                    case '^': return  runBinopNum(left, right, (a,b) => a ^ b)
+                    case '<<': return runBinopNum(left, right, (a,b) => a << b)
+                    case '>>': return runBinopNum(left, right, (a,b) => a >> b)
+                    case '==': return runBinopNum(left, right, (a,b) => a == b)
+                    case '!=': return runBinopNum(left, right, (a,b) => a != b)
+                    case '<':  return runBinopNum(left, right, (a,b) => a <  b)
+                    case '<=': return runBinopNum(left, right, (a,b) => a <= b)
+                    case '>':  return runBinopNum(left, right, (a,b) => a >  b)
+                    case '>=': return runBinopNum(left, right, (a,b) => a >= b)
+                    case '&&': return runBinopNum(left, right, (a,b) => a && b)
+                    case '||': return runBinopNum(left, right, (a,b) => a || b)
                     default:
                         throw new Error(`Unhandled binary operator ${node.op}`);
                 }
             }
             case 'unary': {
-                const { lit } = this.evalExpr(node.expr);
+                const v = this.evalExpr(node.expr);
                 switch (node.op) {
-                    case '+': return ast.mkLiteral(+lit, node.loc);
-                    case '-': return ast.mkLiteral(-lit, node.loc);
-                    case '~': return ast.mkLiteral(~lit, node.loc);
+                    case '+': return +v;
+                    case '-': return -v;
+                    case '~': return ~v;
                     default:
                         throw new Error(`Unhandled unary operator ${node.op}`);
                 }
             }
             case 'literal': {
-                return node;
+                return node.lit;
             }
             case 'array': {
-                return {
-                    ...node,
-                    values: node.values.map(v => this.evalExpr(v))
-                }
+                return node.list.map(v => this.evalExpr(v));
             }
             case 'ident': {
-                let label = node.name
-                const variable = this.variables.find(label);
-                if (variable) {
-                    if (variable.value) {
-                        return variable.value;
-                    }
-                    // Return something that we can continue compilation with in case this
-                    // is a legit forward reference.
-                    if (this.pass == 0) {
-                        return ast.mkLiteral(0, node.name.loc, node);
-                    }
-                    this.error(`Couldn't resolve value for identifier '${label}'`, node.name.loc);
-                }
-                const lbl = this.scopes.findLabel(label);
-                if (!lbl) {
+                throw new Error('should not see an ident here -- if you do, it is probably a wrong type node in parser')
+            }
+            case 'qualified-ident': {
+                // Namespace qualified ident, like foo::bar::baz
+                const sym = this.scopes.findQualifiedSym(node.path, node.absolute);
+                if (sym == undefined) {
                     if (this.pass === 1) {
-                        this.error(`Undefined symbol '${label}'`, node.loc)
+                        this.error(`Undefined symbol '${formatSymbolPath(node)}'`, node.loc)
                     }
                     // Return a placeholder that should be resolved in the next pass
                     this.needPass = true;
-                    return ast.mkLiteral(0, node.loc, node);
+                    return 0;
                 }
-                return ast.mkLiteral(lbl.addr, lbl.loc);
+
+                switch (sym.sym.type) {
+                    case 'label':
+                        return sym.sym.data.addr;
+                    case 'var':
+                        if (sym.seen < this.pass) {
+                            return this.error(`Undeclared variable '${formatSymbolPath(node)}`, node.loc);
+                        }
+                        return sym.sym.data;
+                    case 'macro':
+                        return this.error(`Must have a label or a variable identifier here, got macro name`, node.loc);
+                }
+                break;
             }
             case 'member': {
-                const findObjectField = (props, prop) => {
-                    for (let pi = 0; pi < props.length; pi++) {
-                        const p = props[pi]
-                        // TODO THIS IS SUPER MESSY!! and doesn't handle errors
-                        if (typeof prop == 'object') {
-                            if (p.key === prop.lit) {
-                                return p.val
-                            }
-                        } else {
-                            if (p.key === prop) {
-                                return p.val;
-                            }
-                        }
-                    }
-                }
-                let triedNestedLabels = undefined;
-                // Does the object access match a foo.bar.baz style label access?
-                // If yes, resolve as label
-                if (node.type == 'member' && !node.computed) {
-                    const names = [];
-                    let n = node;
-                    let allMatched = true;
-                    do {
-                        if (n.type !== 'member') {
-                            allMatched = false;
-                            break;
-                        }
-                        if (n.computed) {
-                            allMatched = false;
-                            break;
-                        }
-                        names.push(n.property)
-                        n = n.object;
-                    } while(n.type != 'ident');
-                    if (allMatched && n.type == 'ident') {
-                        names.push(n.name);
-                        names.reverse();
-                        const nestedLabel = names.join('/');
-                        const lbl = this.scopes.findLabel(nestedLabel);
-                        // If this is a legit label, treat it as such.  Otherwise fall-thru
-                        // to object property lookup.
-                        if (lbl) {
-                            return this.evalExpr(ast.mkIdent(nestedLabel, node.loc));
-                        }
-                        triedNestedLabels = names.join('.');
-                    }
-                }
                 const object = this.evalExpr(node.object);
-                if (object.unresolved) {
-                    const { name } = object.unresolved
-                    this.error(`Cannot access properties of an unresolved symbol '${name}'`, object.unresolved.loc);
+
+                if (object == undefined) {
+                    return this.error(`Cannot access properties of an unresolved symbol'`, node.loc);
                 }
-                const { property, computed } = node;
-                if (!computed) {
-                    if (object.type !== 'object') {
-                        if (triedNestedLabels !== undefined) {
-                            this.error(`Couldn't resolve symbol '${triedNestedLabels}'`, node.loc)
-                        }
-                        this.error(` . operator can only operate on objects. Got ${object.type}.`, node.loc)
+
+                if (object instanceof Array) {
+                    if (!node.computed) {
+                        return this.error(`Cannot use the dot-operator on array values`, node.loc)
                     }
-                    const elt = findObjectField(object.props, property);
-                    if (elt) {
-                        return elt;
-                    }
-                    this.error(`Object has no property '${property}'`, node.loc)
-                } else {
-                    // TODO assert type int
                     const idx = this.evalExpr(node.property);
-                    if (object.type === 'array') {
-                        return this.evalExpr(object.values[idx.lit]);
-                    } else if (object.type === 'object') {
-                        const elt = findObjectField(object.props, idx);
-                        if (elt) {
-                            return elt;
-                        }
-                        this.error(`Object has no property named '${property}'`, node.loc)
+                    if (typeof idx !== 'number') {
+                        return this.error(`Array index must be an integer, got ${typeof idx}`, node.loc);
                     }
-                    this.error('Cannot index a non-array object', object.loc)
+                    if (!(idx in object)) {
+                        return this.error(`Out of bounds array index ${idx}`, node.property.loc)
+                    }
+                    return object[idx];
+                }  else if (typeof object == 'object') {
+                    const checkProp = (obj: any, prop: string|number, loc: SourceLoc) => {
+                        if (!(prop in object)) {
+                            this.error(`Property '${prop}' does not exist in object`, loc);
+                        }
+                    }
+                    if (!node.computed) {
+                        if (node.property.type !== 'ident') {
+                            return this.error(`Object property must be a string, got ${typeof node.property.type}`, node.loc);
+                        }
+                        checkProp(object, node.property.name, node.property.loc);
+                        return object[node.property.name];
+                    } else {
+                        let prop = this.evalExpr(node.property);
+                        if (typeof prop !== 'string' && typeof prop !== 'number') {
+                            return this.error(`Object property must be a string or an integer, got ${typeof prop}`, node.loc);
+                        }
+                        checkProp(object, prop, node.property.loc);
+                        return object[prop];
+                    }
                 }
+
+                // Don't report in first compiler pass because an identifier may
+                // still have been unresolved.  These cases should be reported by
+                // name resolution in pass 1.
+                if (this.pass !== 0) {
+                    if (node.computed) {
+                        return this.error(`Cannot use []-operator on non-array/object values`, node.loc)
+                    } else {
+                        return this.error(`Cannot use the dot-operator on non-object values`, node.loc)
+                    }
+                    return 0;
+                }
+                break;
             }
             case 'callfunc': {
                 const callee = this.evalExpr(node.name);
-                if (callee.type !== 'function') {
-                    this.error(`Callee must be a function type.  Got '${callee.type}'`, node.loc);
+                if (typeof callee !== 'function') {
+                    this.error(`Callee must be a function type.  Got '${typeof callee}'`, node.loc);
                 }
                 const argValues = [];
                 for (let argIdx = 0; argIdx < node.args.length; argIdx++) {
@@ -615,17 +591,23 @@ class Assembler {
                     argValues.push(e);
                 }
                 try {
-                    return callee.func(argValues);
+                    return callee(argValues);
                 } catch(err) {
                     // TODO we lose the name for computed function names, like
                     // !use 'foo' as x
                     // x[3]()
                     // This is not really supported now though.
-                    this.error(`Plugin invocation '${node.name.name}' failed with an exception: ${err}`, node.loc);
+
+                    // TODO callee is in fact an expression so we don't
+                    // have a name for it here.  But it's mostly an identifier
+                    // so show that just to pass tests for now.
+                    const nn = ((node.name) as unknown) as ast.ScopeQualifiedIdent;
+                    this.error(`Call to '${formatSymbolPath(nn)}' failed with an error: ${err.message}`, node.loc);
                 }
             }
             default:
-                this.error(`Don't know what to do with node '${node.type}'`, node.loc);
+                throw new Error('unhandled type ' + node.type);
+                break;
         }
     }
 
@@ -653,27 +635,25 @@ class Assembler {
             return false;
         }
         const eres = this.evalExpr(param);
-        const { lit, loc } = eres
-        this.emit(opcode)
-        this.emit(lit)
-        return true
+        this.emit(opcode);
+        this.emit(eres);
+        return true;
     }
 
     checkAbs (param: any, opcode: number | null, bits: number): boolean {
         if (opcode === null || param === null) {
             return false;
         }
-        const eres = this.evalExpr(param);
-        const { lit, loc } = eres
+        const v = this.evalExpr(param);
         if (bits === 8) {
-            if (lit < 0 || lit >= (1<<bits)) {
-                return false
+            if (v < 0 || v >= (1<<bits)) {
+                return false;
             }
-            this.emit(opcode)
-            this.emit(lit)
+            this.emit(opcode);
+            this.emit(v);
         } else {
-            this.emit(opcode)
-            this.emit16(lit)
+            this.emit(opcode);
+            this.emit16(v);
         }
         return true
     }
@@ -682,8 +662,7 @@ class Assembler {
         if (opcode === null || param === null) {
             return false;
         }
-        const eres = this.evalExpr(param);
-        const { lit: addr, loc } = eres;
+        const addr = this.evalExpr(param);
         const addrDelta = addr - this.codePC - 2;
         this.emit(opcode);
         if (addrDelta > 0x7f || addrDelta < -128) {
@@ -695,27 +674,27 @@ class Assembler {
         return true;
       }
 
-    setPC (valueExpr): void {
-        const { lit } = this.evalExpr(valueExpr);
-        if (this.codePC > lit) {
+    setPC (valueExpr: ast.Expr): void {
+        const v = this.evalExpr(valueExpr);
+        if (this.codePC > v) {
             // TODO this is not great.  Actually need to track which ranges of memory have something in them.
-            this.error(`Cannot set program counter to a smaller value than current (current: $${toHex16(this.codePC)}, trying to set $${toHex16(lit)})`, valueExpr.loc)
+            this.error(`Cannot set program counter to a smaller value than current (current: $${toHex16(this.codePC)}, trying to set $${toHex16(v)})`, valueExpr.loc)
         }
-        while (this.codePC < lit) {
+        while (this.codePC < v) {
             this.emit(0);
         }
     }
 
-    guardedReadFileSync(fname, loc): Buffer {
+    guardedReadFileSync(fname: string, loc: SourceLoc): Buffer {
         try {
             return readFileSync(fname);
         } catch (err) {
-            this.error(`Couldn't open file '${fname}'`, loc);
+            return this.error(`Couldn't open file '${fname}'`, loc);
         }
     }
 
     fileInclude (inclStmt: ast.StmtInclude): void {
-        const fname = this.makeSourceRelativePath(inclStmt.filename);
+        const fname = this.makeSourceRelativePath(this.evalExpr(inclStmt.filename));
         this.pushSource(fname);
         this.assemble(fname, inclStmt.loc);
         this.popSource();
@@ -724,46 +703,46 @@ class Assembler {
     fillBytes (n: ast.StmtFill): void {
         const numVals = this.evalExpr(n.numBytes);
         const fillValue = this.evalExpr(n.fillValue);
-        const fv = fillValue.lit;
+        const fv = fillValue;
         if (fv < 0 || fv >= 256) {
             this.error(`!fill value to repeat must be in 8-bit range, '${fv}' given`, fillValue.loc);
         }
-        for (let i = 0; i < numVals.lit; i++) {
+        for (let i = 0; i < numVals; i++) {
             this.emit(fv);
         }
     }
 
     alignBytes (n: ast.StmtAlign): void {
-        const alignBytes = this.evalExpr(n.alignBytes);
-        const { lit } = alignBytes;
-        if (lit < 1) {
-            this.error(`Alignment must be a positive integer, ${lit} given`, n.loc);
+        const nb = this.evalExpr(n.alignBytes);
+        if (typeof nb !== 'number') {
+            this.error(`Alignment must be a number, ${typeof nb} given`, n.alignBytes.loc);
         }
-        if ((lit & (lit-1)) != 0) {
-            this.error(`Alignment must be a power of two, ${lit} given`, n.loc);
+        if (nb < 1) {
+            this.error(`Alignment must be a positive integer, ${nb} given`, n.alignBytes.loc);
         }
-        while ((this.codePC & (lit-1)) != 0) {
+        if ((nb & (nb-1)) != 0) {
+            this.error(`Alignment must be a power of two, ${nb} given`, n.loc);
+        }
+        while ((this.codePC & (nb-1)) != 0) {
             this.emit(0);
         }
     }
 
-    withLabelScope (name: string, compileScope): void {
-        this.pushVariableScope();
+    // Enter anonymous block scope
+    withAnonScope(compileScope: () => void): void {
+        this.scopes.pushAnonScope();
+        compileScope();
+        this.scopes.popAnonScope();
+    }
+
+    // Enter named scope
+    withLabelScope (name: string, compileScope: () => void): void {
         this.scopes.pushLabelScope(name);
         compileScope();
         this.scopes.popLabelScope();
-        this.popVariableScope();
     }
 
-    withMacroExpandScope (name: string, compileScope): void {
-        this.pushVariableScope();
-        this.scopes.pushMacroExpandScope(name);
-        compileScope();
-        this.scopes.popMacroExpandScope();
-        this.popVariableScope();
-    }
-
-    emit8or16(v, bits) {
+    emit8or16(v: number, bits: number) {
         if (bits == 8) {
             this.emit(v);
             return;
@@ -771,77 +750,51 @@ class Assembler {
         this.emit16(v);
     }
 
-    emitData (exprList: ast.Expr[], bits) {
+    emitData (exprList: ast.Expr[], bits: number) {
         for (let i = 0; i < exprList.length; i++) {
             const e = this.evalExpr(exprList[i]);
-            if (e.type === 'literal') {
-                this.emit8or16(e.lit, bits);
-            } else if (e.type === 'array') {
+            if (typeof e == 'number') {
+                this.emit8or16(e, bits);
+            } else if (e instanceof Array) {
                 // TODO function 'assertType' that returns the value and errors otherwise
-                for (let bi in e.values) {
-                    this.emit8or16(e.values[bi].lit, bits);
+                for (let bi in e) {
+                    this.emit8or16(e[bi], bits);
                 }
             } else {
-                this.error(`Only literal (int constants) or array types can be emitted.  Got ${e.type}`, exprList[i].loc);
+                this.error(`Only literal (int constants) or array types can be emitted.  Got ${typeof e}`, exprList[i].loc);
             }
         }
     }
 
-    makeFunction (pluginFunc, loc) {
-        return {
-            type: 'function',
-            func: (args) => {
-                const res = pluginFunc({
-                    readFileSync,
-                    resolveRelative: fn => this.makeSourceRelativePath(fn)
-                }, ...args);
-                return ast.objectToAst(res, loc);
-            }
+    makeFunction (pluginFunc: Function, loc: SourceLoc) {
+        return (args: any[]) => {
+            const res = pluginFunc({
+                readFileSync,
+                resolveRelative: (fn: string) => this.makeSourceRelativePath(fn)
+            }, ...args);
+            return res;
         }
     }
 
-    bindFunction (name: ast.Ident, pluginModule, loc) {
-        this.variables.add(name.name, {
-            arg: {
-                ident: name
-            },
-            value: this.makeFunction(pluginModule, loc)
-        })
-}
+    bindFunction (name: ast.Ident, pluginModule: any, loc: SourceLoc) {
+        this.scopes.declareVar(name.name, this.makeFunction(pluginModule, loc));
+    }
 
-    bindPlugin (node, pluginModule) {
+    bindPlugin (node: ast.StmtLoadPlugin, pluginModule: any) {
         const moduleName = node.moduleName;
         // Bind default export as function
         if (typeof pluginModule == 'function') {
             this.bindFunction(moduleName, pluginModule, node.loc);
         }
         if (typeof pluginModule == 'object') {
+            const moduleObj: any = {};
             const keys = Object.keys(pluginModule);
-            const dstProps = [];
             for (let ki in keys) {
                 const key = keys[ki];
-                const p = pluginModule[key];
-                if (typeof p == 'function') {
-                    const funcName = ast.mkIdent(key, node.loc);
-                    dstProps.push({
-                        key,
-                        val: this.makeFunction(p, node.loc),
-                        loc: node.loc
-                    })
-                } else {
-                    this.error(`All plugin exported symbols must be functions.  Got ${typeof p} for ${key}`, node.loc)
-                }
+                const func = pluginModule[key];
+                moduleObj[key] = this.makeFunction(func, node.loc);
             }
-            this.variables.add(moduleName.name, {
-                arg: {
-                    ident: moduleName
-                },
-                value: {
-                    type: 'object',
-                    props: dstProps,
-                    loc: node.loc
-                }
-            });
+            this.scopes.declareVar(moduleName.name, moduleObj);
         }
     }
 
@@ -872,36 +825,35 @@ class Assembler {
                 break;
             }
             case 'error': {
-                this.error(node.error, node.loc);
+                this.error(this.evalExpr(node.error), node.loc);
                 break;
             }
             case 'if': {
                 const { cases, elseBranch } = node
                 for (let ci in cases) {
                     const [condExpr, body] = cases[ci];
-                    const { lit: condition } = this.evalExpr(condExpr);
+                    const condition = this.evalExpr(condExpr);
                     if (isTrueVal(condition)) {
-                        return this.assembleLines(body);
+                        return this.withAnonScope(() => {
+                            this.assembleLines(body);
+                        });
                     }
                 }
-                this.assembleLines(elseBranch);
+                return this.withAnonScope(() => {
+                    this.assembleLines(elseBranch);
+                })
                 break;
             }
             case 'for': {
                 const { index, list, body, loc } = node
                 const lst = this.evalExpr(list);
-                if (lst.type !== 'array') {
-                    this.error(`for-loop range must be an array expression (e.g., a range() or an array)`, list.loc)
+                if (!(lst instanceof Array)) {
+                    this.error(`for-loop range must be an array expression (e.g., a range() or an array)`, list.loc);
                 }
-                const elts = lst.values
-                for (let i = 0; i < elts.length; i++) {
-                    this.withMacroExpandScope('__forloop', () => {
-                        const value = elts[i];
-                        const loopVar: Constant = {
-                            arg: ast.mkMacroArg(index),
-                            value
-                        };
-                        this.variables.add(index.name, loopVar);
+                for (let i = 0; i < lst.length; i++) {
+                    this.withAnonScope(() => {
+                        const value = lst[i];
+                        this.scopes.declareVar(index.name, value);
                         return this.assembleLines(body);
                     });
                 }
@@ -910,41 +862,37 @@ class Assembler {
             case 'macro': {
                 const { name, args, body } = node;
                 // TODO check for duplicate arg names!
-                const prevMacro = this.scopes.findMacro(name.name);
-                if (prevMacro !== undefined) {
+                const prevMacro = this.scopes.findMacro([name.name], false);
+                if (prevMacro !== undefined && this.scopes.symbolSeen(name.name)) {
                     // TODO previous declaration from prevMacro
-                    this.error(`Macro '${name.name}' already defined`, name.loc);
+                    return this.error(`Macro '${name.name}' already defined`, name.loc);
                 }
-                this.scopes.addMacro(name.name, node);
+                this.scopes.declareMacro(name.name, node);
                 break;
             }
             case 'callmacro': {
-                let argValues = [];
+                let argValues: any[] = [];
                 const { name, args } = node;
-                const macro = this.scopes.findMacro(name.name);
+                const macro = this.scopes.findMacro(name.path, name.absolute);
 
-                if (!macro) {
-                    this.error(`Undefined macro '${name.name}'`, name.loc);
+                if (macro == undefined) {
+                    return this.error(`Undefined macro '${formatSymbolPath(name)}'`, name.loc);
                 }
+
                 if (macro.args.length !== args.length) {
-                    this.error(`Macro '${name.name}' declared with ${macro.args.length} args but called here with ${args.length}`,
+                    this.error(`Macro '${formatSymbolPath(name)}' declared with ${macro.args.length} args but called here with ${args.length}`,
                         name.loc);
                 }
 
-                for (let argIdx = 0; argIdx < macro.args.length; argIdx++) {
-                    const eres = this.evalExpr(args[argIdx]);
-                    argValues.push({
-                        type: 'value',
-                        value: eres
-                    });
+                for (let i = 0; i < macro.args.length; i++) {
+                    const eres = this.evalExpr(args[i]);
+                    argValues.push(eres);
                 }
-                this.withMacroExpandScope(name.name, () => {
-                    for (let argIdx = 0; argIdx < argValues.length; argIdx++) {
-                        const argName = macro.args[argIdx].ident;
-                        this.variables.add(argName.name, {
-                            arg: { ident: argName },
-                            value: argValues[argIdx].value
-                        });
+
+                this.withAnonScope(() => {
+                    for (let i = 0; i < argValues.length; i++) {
+                        const argName = macro.args[i].ident.name;
+                        this.scopes.declareVar(argName, argValues[i]);
                     }
                     this.assembleLines(macro.body);
                 });
@@ -952,30 +900,28 @@ class Assembler {
             }
             case 'let': {
                 const name = node.name;
-                const prevVariable = this.variables.find(name.name);
-                if (prevVariable) {
-                    this.error(`Variable '${name.name}' already defined`, node.loc);
-                }
+                const sym = this.scopes.findQualifiedSym([name.name], false);
                 const eres = this.evalExpr(node.value);
-                this.variables.add(name.name, {
-                    arg: { ident: name },
-                    value: eres
-                });
+
+                if (sym !== undefined && this.scopes.symbolSeen(name.name)) {
+                    return this.error(`Variable '${name.name}' already defined`, node.loc);
+                }
+                this.scopes.declareVar(name.name, eres);
                 break;
             }
             case 'assign': {
                 const name = node.name;
-                const prevVariable = this.variables.find(name.name);
-                if (!prevVariable) {
-                    this.error(`Assignment to undeclared variable '${name.name}'`, node.loc);
+                const prevValue = this.scopes.findQualifiedVar(node.name.path, node.name.absolute);
+                if (prevValue == undefined) {
+                    return this.error(`Assignment to undeclared variable '${formatSymbolPath(name)}'`, node.loc);
                 }
-                const lit: ast.Expr = this.evalExpr(node.value);
-                prevVariable.value = lit;
+                const evalValue = this.evalExpr(node.value);
+                this.scopes.updateVar(name.path, name.absolute, evalValue);
                 break;
             }
             case 'load-plugin': {
                 const fname = node.filename;
-                const pluginModule = this.requirePlugin(fname);
+                const pluginModule = this.requirePlugin(this.evalExpr(fname));
                 this.bindPlugin(node, pluginModule);
                 break;
             }
@@ -1003,11 +949,8 @@ class Assembler {
 
         if (line.label !== null) {
             let lblSymbol = line.label;
-            const seenSymbol = this.scopes.findSeenLabel(lblSymbol.name);
-            if (seenSymbol) {
-                this.error(`Label '${seenSymbol.name}' already defined`, lblSymbol.loc);
-                // this.note
-                // on line ${lineNo}`)
+            if (this.scopes.symbolSeen(lblSymbol.name)) {
+                this.error(`Label '${lblSymbol.name}' already defined`, lblSymbol.loc);
             } else {
                 const labelChanged = this.scopes.declareLabelSymbol(lblSymbol, this.codePC);
                 if (labelChanged) {
@@ -1016,9 +959,13 @@ class Assembler {
             }
         }
 
-        if (line.scopedStmts) {
+        const scopedStmts = line.scopedStmts;
+        if (scopedStmts != null) {
+            if (!line.label) {
+                throw new Error('ICE: line.label cannot be undefined');
+            }
             this.withLabelScope(line.label.name, () => {
-                this.assembleLines(line.scopedStmts);
+                this.assembleLines(scopedStmts);
             });
             return;
         }
@@ -1094,7 +1041,7 @@ class Assembler {
         return path.join(path.dirname(curSource), filename);
     }
 
-    assemble (filename, loc: SourceLoc | null): void {
+    assemble (filename: string, loc: SourceLoc | undefined): void {
         try {
             const astLines = this.parse(filename, loc);
             this.assembleLines(astLines);
@@ -1112,49 +1059,43 @@ class Assembler {
         }
     }
 
+    _requireType(e: any, type: string): (any | never) {
+        if (typeof e == type) {
+            return e;
+        }
+        return this.error(`Expecting a ${type} value, got ${typeof e}`, e.loc);
+    }
+
+    requireString(e: any): (string | never) { return this._requireType(e, 'string') as string; }
+    requireNumber(e: ast.Literal): (number | never) { return this._requireType(e, 'number') as number; }
+
     registerPlugins () {
-        const json = {
-            type: 'function',
-            func: (args) => {
-                const name = args[0].lit;
-                const fname = this.makeSourceRelativePath(name)
-                return ast.objectToAst(JSON.parse(readFileSync(fname, 'utf-8')), null);
+        const json = (args: any[]) => {
+            const name = this.requireString(args[0]);
+            const fname = this.makeSourceRelativePath(name);
+            return JSON.parse(readFileSync(fname, 'utf-8'));
+        }
+        const range = (args: any[]) => {
+            let start = 0;
+            let end = undefined;
+            if (args.length == 1) {
+                end = this.requireNumber(args[0]);
+            } else if (args.length == 2) {
+                start = this.requireNumber(args[0]);
+                end = this.requireNumber(args[1]);
+            } else {
+                throw new Error(`Invalid number of args to 'range'.  Expecting 1 or 2 arguments.`)
             }
-        };
-        const range = {
-            type: 'function',
-            func: (args) => {
-                let start = 0;
-                let end = undefined;
-                if (args.length == 1) {
-                    end = args[0].lit
-                } else if (args.length == 2) {
-                    start = args[0].lit
-                    end = args[1].lit
-                } else {
-                    // TODO errors reporting via a context parameter
-                    return null;
-                }
-                if (end == start) {
-                    return ast.objectToAst([], null);
-                }
-                if (end < start) {
-                    this.error(`range(start, end) expression end must be greater than start, start=${start}, end=${end} given`, null)
-                    return null;
-                }
-                return ast.objectToAst(
-                    Array(end-start).fill(null).map((_,idx) => idx + start),
-                    null
-                )
+            if (end == start) {
+                return [];
             }
+            if (end < start) {
+                throw new Error(`range 'end' must be larger or equal to 'start'`)
+            }
+            return Array(end-start).fill(null).map((_,idx) => idx + start);
         };
-        const addPlugin = (name, handler) => {
-            this.variables.add(name, {
-                arg: {
-                    ident: ast.mkIdent(name, null) // TODO loc?
-                },
-                value: handler
-            })
+        const addPlugin = (name: string, handler: any) => {
+            this.scopes.declareVar(name, handler);
         }
         addPlugin('loadJson', json);
         addPlugin('range', range);
@@ -1165,25 +1106,25 @@ class Assembler {
     }
 }
 
-export function assemble(filename) {
+export function assemble(filename: string) {
     const asm = new Assembler();
     asm.pushSource(filename);
-    asm.pushVariableScope();
-    asm.registerPlugins();
 
     let pass = 0;
     do {
-        asm.pushVariableScope();
         asm.startPass(pass);
+        asm.registerPlugins();
+        asm.assemble(filename, makeCompileLoc(filename));
 
-        asm.assemble(filename, null);
         if (asm.anyErrors()) {
             return {
+                prg: Buffer.from([]),
+                labels: [],
+                debugInfo: undefined,
                 errors: asm.errors()
             }
         }
 
-        asm.popVariableScope();
         const maxPass = 10;
         if (pass > maxPass) {
             console.error(`Exceeded max pass limit ${maxPass}`);
@@ -1200,7 +1141,6 @@ export function assemble(filename) {
         }
     } while(asm.needPass && !asm.anyErrors());
 
-    asm.popVariableScope();
     asm.popSource();
 
     return {

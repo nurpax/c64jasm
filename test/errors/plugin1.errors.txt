@@ -1,1 +1,1 @@
-test/errors/plugin1.input.asm:5:10: error: Plugin invocation 'plug' failed with an exception: Error: this is an error
+test/errors/plugin1.input.asm:5:10: error: Call to 'plug' failed with an error: this is an error

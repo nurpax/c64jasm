@@ -26,6 +26,9 @@ export class DebugInfoTracker {
 
     endLine(curPC: number) {
         const entry = this.lineStack.pop();
+        if (!entry) {
+            throw new Error('internal compiler error, mismatching start/end lines in debugInfo')
+        }
         const numBytesEmitted = curPC - entry.pc;
         if (numBytesEmitted > 0) {
             const locList = this.pcToLocs[entry.pc] || ([] as LineLoc[]);

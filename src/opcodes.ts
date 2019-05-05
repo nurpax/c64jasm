@@ -1,5 +1,5 @@
 // this stolen from here: https://github.com/skilldrick/6502js/blob/master/assembler.js
-const opcodes = {
+const opcodes: {[index: string]: (number | null)[]} = {
   /* Name, Imm,  ZP,   ZPX,  ZPY,  ABS, ABSX, ABSY,  IND, INDX, INDY, SNGL, BRA */
   'ADC': [0x69, 0x65, 0x75, null, 0x6d, 0x7d, 0x79, null, 0x61, 0x71, null, null],
   'AND': [0x29, 0x25, 0x35, null, 0x2d, 0x3d, 0x39, null, 0x21, 0x31, null, null],

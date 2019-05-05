@@ -73,15 +73,6 @@
     return [head].concat(extractList(tail, index));
   }
 
-  function binop(op, left, right) {
-    return {
-      type: 'binary',
-      op,
-      left,
-      right
-    }
-  }
-
   function loc() {
     return { ...location(), source: options.source }
   }
@@ -122,7 +113,7 @@ statement =
     directive:directive     { return directive; }
   / instruction:instruction { return ast.mkInsn(instruction, loc()); }
 
-label = lbl:labelIdent ":" __  { return ast.mkLabel(lbl, loc()); }
+label = lbl:identNoWS ":" __  { return ast.mkLabel(lbl, loc()); }
 
 setPC = STAR EQU pc:expr { return ast.mkSetPC(pc, loc()); }
 
@@ -154,17 +145,19 @@ directive =
       const cases = conds.map((c,i) => [c, trueBodies[i]])
       return ast.mkIfElse(cases, elseBody, loc());
     }
-  / PSEUDO_FOR index:labelIdent "in" __ list:expr LWING body:statements RWING {
-      return ast.mkFor(ast.mkIdent(index), list, body, loc());
+  / PSEUDO_FOR index:identifier "in" __ list:expr LWING body:statements RWING {
+      return ast.mkFor(index, list, body, loc());
     }
   / PSEUDO_MACRO name:macroName LPAR args:macroArgNameList? RPAR LWING body:statements RWING {
       return ast.mkMacro(name, args, body, loc());
     }
-  / "+" name:macroName LPAR args:exprList? RPAR  {
+  / "+" name:scopeQualifiedIdentifier LPAR args:exprList? RPAR  {
       return ast.mkCallMacro(name, args, loc());
     }
   / PSEUDO_LET name:identifier EQU value:expr  { return ast.mkLet(name, value, loc()); }
-  / name:identifier EQU value:expr             { return ast.mkAssign(name, value, loc()); }
+  / name:scopeQualifiedIdentifier EQU value:expr {
+      return ast.mkAssign(name, value, loc());
+    }
   / PSEUDO_USE filename:string "as" __ plugin:identifier  {
       return ast.mkLoadPlugin(filename, plugin, loc());
     }
@@ -184,7 +177,7 @@ elseBody = PSEUDO_ELSE LWING elseBody:statements RWING {
 }
 
 string
-  = '"' chars:doubleStringCharacter* '"' __ { return chars.join(''); }
+  = '"' chars:doubleStringCharacter* '"' __ { return ast.mkLiteral(chars.join(''), loc()); }
 
 doubleStringCharacter
   = !'"' char:. { return char; }
@@ -226,7 +219,14 @@ identNoWS = (alpha+ alphanum*) { return text(); }
 
 labelIdent =
     ident:identNoWS __         { return ident; }
-  / ident:("_" identNoWS) __   { return ident.join(''); }
+
+scopeQualifiedIdentifier =
+    head:identNoWS tail:('::' identNoWS)* __ {
+      return ast.mkScopeQualifiedIdent(buildList(head, tail, 1), false, loc());
+    }
+  / '::' head:identNoWS tail:('::' identNoWS)* __ {
+      return ast.mkScopeQualifiedIdent(buildList(head, tail, 1), true, loc());
+    }
 
 identifier = ident:ident {
   return ast.mkIdent(ident, loc());
@@ -238,11 +238,11 @@ mnemonic = ident:identNoWS __  { return ident; }
 imm = '#' lh:loOrHi? expr:expr {
   if (lh !== null) {
     if (lh === 'lo') {
-      return binop('&', expr, ast.mkLiteral(255, loc()));
+      return ast.mkBinaryOp('&', expr, ast.mkLiteral(255, loc(), loc()));
     }
     const lit8 = ast.mkLiteral(8, loc());
     const lit255 = ast.mkLiteral(255, loc());
-    return binop('&', binop('>>', expr, lit8), lit255);
+    return ast.mkBinaryOp('&', ast.mkBinaryOp('>>', expr, lit8, loc()), lit255, loc());
   }
   return expr
 }
@@ -257,62 +257,62 @@ expr = lastExpr
 
 multiplicative = first:unaryExpression rest:((STAR / DIV / MOD) unaryExpression)* {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
+      return ast.mkBinaryOp(curr[0], memo, curr[1], loc());
     }, first);
   }
 / primary
 
 additive = first:multiplicative rest:((PLUS / MINUS) multiplicative)* {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
+      return ast.mkBinaryOp(curr[0], memo, curr[1], loc());
     }, first);
   }
 
 shift = first:additive rest:((LEFT / RIGHT) additive)* {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
+      return ast.mkBinaryOp(curr[0], memo, curr[1], loc());
     }, first);
   }
 
 relational = first:shift rest:((LE / GE / LT / GT) shift)* {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
+      return ast.mkBinaryOp(curr[0], memo, curr[1], loc());
     }, first);
   }
 
 equality = first:relational rest:((EQUEQU / BANGEQU) relational)* {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
+      return ast.mkBinaryOp(curr[0], memo, curr[1], loc());
     }, first);
   }
 
 andExpr = first:equality rest:(AND equality)* {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
+      return ast.mkBinaryOp(curr[0], memo, curr[1], loc());
     }, first);
   }
 
 xorExpr = first:andExpr rest:(HAT andExpr)* {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
+      return ast.mkBinaryOp(curr[0], memo, curr[1], loc());
     }, first);
   }
 
 orExpr = first:xorExpr rest:(OR xorExpr)* {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
+      return ast.mkBinaryOp(curr[0], memo, curr[1], loc());
     }, first);
   }
 
 boolAndExpr = first:orExpr rest:(ANDAND orExpr)* {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
+      return ast.mkBinaryOp(curr[0], memo, curr[1], loc());
     }, first);
   }
 
 boolOrExpr = first:boolAndExpr rest:(OROR boolAndExpr)* {
     return rest.reduce(function(memo, curr) {
-      return binop(curr[0], memo, curr[1]);
+      return ast.mkBinaryOp(curr[0], memo, curr[1], loc());
     }, first);
   }
 
@@ -339,16 +339,11 @@ memberExpression =
         return { property, computed: true };
       }
     / DOT property:labelIdent {
-        return { property, computed: false };
+        return { property: ast.mkIdent(property, loc()), computed: false };
       }
   )* {
       return tail.reduce(function(result, element) {
-        return {
-          type: "member",
-          object: result,
-          property: element.property,
-          computed: element.computed
-        };
+        return ast.mkMember(result, element.property, element.computed, loc());
       }, head);
   }
 
@@ -358,14 +353,14 @@ callExpression =
   }
 
 primary
-  = num:num              { return ast.mkLiteral(num, loc()); }
-  / ident:labelIdent     { return ast.mkIdent(ident, loc()); }
-  / string:string        { return ast.mkLiteral(string, loc()); }
-  / LPAR e:lastExpr RPAR { return e; }
+  = num:num                        { return ast.mkLiteral(num, loc()); }
+  / ident:scopeQualifiedIdentifier { return ident; }
+  / string:string                  { return string; }
+  / LPAR e:lastExpr RPAR           { return e; }
 
 num =
    "$"i hex:$hexdig+ __     { return parseInt(hex, 16); }
- / "%" binary:$zeroone+ __ { return parseInt(binary, 2); }
+ / "%" binary:$zeroone+ __  { return parseInt(binary, 2); }
  / digs:$digit+      __     { return parseInt(digs, 10); }
 
 alpha = [a-zA-Z_]

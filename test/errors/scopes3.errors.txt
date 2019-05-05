@@ -1,1 +1,1 @@
-<unknown>:1:1: error: Couldn't resolve symbol 'outer.inner2'
+test/errors/scopes3.input.asm:11:9: error: Undefined symbol 'outer::inner2'

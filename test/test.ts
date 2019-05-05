@@ -8,30 +8,51 @@ import * as colors from 'colors'
 import { ArgumentParser } from 'argparse'
 
 import { assemble } from '../src/asm'
+import * as ast  from '../src/ast'
 import { disassemble } from '../src/disasm'
 import { fail } from 'assert';
 
 let verbose = false;
 
-class TestReporter<Test> {
-    tests: Test[];
+type Test = string;
+
+const blacklist: Test[] = [
+];
+
+interface Diagnostic {
+    loc: ast.SourceLoc,
+    msg: string
+}
+
+class TestReporter {
+    tests: string[];
 
     constructor (tests: Test[], description: string) {
         this.tests = tests;
         stdout.write(`Running ${description} tests\n`);
     }
 
-    runTests(run: (Test) => 'pass' | 'fail') {
+    runTests(run: (t: Test) => 'pass' | 'fail') {
         const numTests = this.tests.length;
         let failedTests = 0;
+        let skippedTests = 0;
 
         for (let i = 0; i < numTests; i++) {
             const test = this.tests[i];
 
+            const skipTest = blacklist.indexOf(test) >= 0;
             if (verbose) {
                 stdout.write(`Test ${i+1}/${numTests}: ${test}\n`);
+                if (skipTest) {
+                    stdout.write(' [test skipped]\n');
+                }
             } else {
                 stdout.write(`\rTest ${i+1}/${numTests}`);
+            }
+
+            if (skipTest) {
+                skippedTests++;
+                continue;
             }
 
             switch (run(test)) {
@@ -45,8 +66,11 @@ class TestReporter<Test> {
             }
         }
 
+        if (skippedTests !== 0) {
+            stdout.write(colors.yellow(`\nSkipped tests: ${skippedTests} (out of ${numTests})\n`))
+        }
         if (failedTests !== 0) {
-            stdout.write(colors.red(`\nFailing tests: ${failedTests}\n`))
+            stdout.write(colors.red(`\nFailing tests: ${failedTests} (out of ${numTests})\n`))
         } else {
             stdout.write(colors.green(`\nAll passed.\n`))
         }
@@ -55,17 +79,17 @@ class TestReporter<Test> {
     }
 }
 
-function readLines(fname) {
+function readLines(fname: string) {
     const lines = fs.readFileSync(fname).toString().split('\n');
     return lines.map(line => line.trimRight());
 }
 
-function outputTest(testcase) {
+function outputTest(testcase: string) {
     const g = glob();
-    let inputs = g.readdirSync('test/cases/*.input.asm').filter(t => testcase ? t == testcase : true);
+    let inputs = g.readdirSync('test/cases/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
 
-    const runTest = (fname) => {
-        const { prg, errors } = assemble(fname);
+    const runTest = (fname: string) => {
+        const { prg, errors } = assemble(fname)!;
 
         if (errors.length > 0) {
             console.error(errors);
@@ -117,7 +141,7 @@ cp ${actualFname} ${expectedFname}
     reporter.runTests(runTest);
 }
 
-function cleanSyntaxError(msg) {
+function cleanSyntaxError(msg: string) {
     const m = /(((.*): error:) (Syntax error: )).*$/.exec(msg);
     if (m) {
         return m[1];
@@ -125,13 +149,13 @@ function cleanSyntaxError(msg) {
     return msg;
 }
 
-function testErrors(testcase) {
+function testErrors(testcase: string) {
     const g = glob();
-    let inputs = g.readdirSync('test/errors/*.input.asm').filter(t => testcase ? t == testcase : true);
+    let inputs = g.readdirSync('test/errors/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
 
-    const runTest = (fname) => {
+    const runTest = (fname: string) => {
         const x = assemble(fname);
-        const { errors } = assemble(fname);
+        const { errors } = assemble(fname)!;
         const errorMessages = errors.map(e => cleanSyntaxError(e.formatted));
         const errorsFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'errors.txt');
 
@@ -147,7 +171,7 @@ function testErrors(testcase) {
             for (let ei in expectedErrors) {
                 const cleanedExpected = cleanSyntaxError(expectedErrors[ei])
                 const emsg = /^(.*:.* - |.*: error: )(.*)$/.exec(cleanedExpected);
-                const msgOnly = emsg[2];
+                const msgOnly = emsg![2];
 
                 const found = errorMessages.some((msg) => {
                     const m = /^(.*:.* - |.*: error: )(.*)$/.exec(msg);
@@ -171,6 +195,7 @@ cp ${actualFname} ${errorsFname}
                     return 'fail';
                 }
             }
+            return 'pass';
         }
     }
 

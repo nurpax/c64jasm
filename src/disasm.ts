@@ -15,7 +15,7 @@ function toHex16(v: number): string {
 class Disassembler {
     private curAddr: number;
     private curOffs: number;
-    private opToDecl: object;
+    private opToDecl: {[index: number]: { mnemonic: string, decode: (number|null)[] }};
     private output: string[];
     constructor (private buf: Buffer) {
         this.output = [];
@@ -26,7 +26,10 @@ class Disassembler {
         Object.keys(opcodes).forEach(key => {
             let decl = opcodes[key]
             for (let i = 0; i < decl.length; i++) {
-                this.opToDecl[decl[i]] = { mnemonic: key, decode: decl };
+                const d = decl[i];
+                if (d !== null) {
+                    this.opToDecl[d] = { mnemonic: key, decode: decl };
+                }
             }
         })
     }
@@ -37,83 +40,83 @@ class Disassembler {
         return b
     }
 
-    print = (addr, bytes, decoded) => {
+    print = (addr: number, bytes: number[], decoded: string) => {
         const b0 = toHex8(bytes[0]);
         const b1 = bytes.length >= 2 ? toHex8(bytes[1]) : '  ';
         const b2 = bytes.length >= 3 ? toHex8(bytes[2]) : '  ';
         this.output.push(`${toHex16(addr)}: ${b0} ${b1} ${b2}     ${decoded}`)
     }
 
-    disImm = (mnemonic, op) => {
+    disImm(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const imm = this.byte();
         this.print(addr, [op, imm], `${mnemonic} #${toHex8(imm)}`)
     }
 
-    disZp = (mnemonic, op) => {
+    disZp(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const zp = this.byte();
         this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)}`)
     }
 
-    disZpX = (mnemonic, op) => {
+    disZpX(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const zp = this.byte();
         this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)},X`)
     }
 
-    disZpY = (mnemonic, op) => {
+    disZpY(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const zp = this.byte();
         this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)},Y`)
     }
 
-    disAbs = (mnemonic, op) => {
+    disAbs(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
         this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)}`)
     }
 
-    disAbsX = (mnemonic, op) => {
+    disAbsX(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
         this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)},X`)
     }
 
-    disAbsY = (mnemonic, op) => {
+    disAbsY(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
         this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)},Y`)
     }
 
-    disInd = (mnemonic, op) => {
+    disInd(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
         this.print(addr, [op, lo, hi], `${mnemonic} ($${toHex16(lo + hi*256)})`)
     }
 
-    disIndX = (mnemonic, op) => {
+    disIndX(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const lo = this.byte();
         this.print(addr, [op, lo], `${mnemonic} ($${toHex8(lo)},X)`)
     }
 
-    disIndY = (mnemonic, op) => {
+    disIndY (mnemonic: string, op: number) {
         const addr = this.curAddr;
         const lo = this.byte();
         this.print(addr, [op, lo], `${mnemonic} ($${toHex8(lo)}),Y`)
     }
 
-    disSingle = (mnemonic, op) => {
+    disSingle(mnemonic: string, op: number) {
         const addr = this.curAddr;
         this.print(addr, [op], `${mnemonic}`)
     }
 
-    disBranch = (mnemonic, op) => {
+    disBranch(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const lo = this.byte();
         const bofs = lo >= 128 ? -(256-lo) : lo
@@ -121,11 +124,11 @@ class Disassembler {
         this.print(addr, [op, lo], `${mnemonic} $${toHex16(tgt)}`)
     }
 
-    disUnknown = (op) => {
+    disUnknown(op: number) {
         this.print(this.curAddr, [op], '');
     }
 
-    disassemble = () => {
+    disassemble() {
         const len = this.buf.byteLength;
 
         let oldOffs = this.curOffs
@@ -194,7 +197,7 @@ class Disassembler {
     }
 }
 
-export function disassemble(prg) {
+export function disassemble(prg: Buffer) {
     let disasm = new Disassembler(prg);
     return disasm.disassemble();
 }
