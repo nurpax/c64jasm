@@ -949,13 +949,29 @@ class Assembler {
             }
         }
 
+        // Scan for the first real instruction line to skip
+        // comments and empty lines at the start of a file.
+        let firstLine = 0;
+        while (firstLine < lst.length) {
+            const { label, stmt, scopedStmts } = lst[firstLine];
+            if (label == null && stmt == null && scopedStmts == null) {
+                firstLine++;
+            } else {
+                break;
+            }
+        }
+        if (firstLine >= lst.length) {
+            return;
+        }
+
+
         // Handle 'whole file scope' directive !filescope.  This puts everything
         // below the first line inside a named scope.
-        const labelScope = lst[0]!;
+        const labelScope = lst[firstLine]!;
         if (labelScope.stmt != null && labelScope.stmt.type == 'filescope') {
             this.checkAndDeclareLabel(labelScope.stmt.name);
             return this.withLabelScope(labelScope.stmt.name.name, () => {
-                return assemble(lst.slice(1));
+                return assemble(lst.slice(firstLine+1));
             });
         }
         return assemble(lst);
