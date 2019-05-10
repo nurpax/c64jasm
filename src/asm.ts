@@ -925,19 +925,51 @@ class Assembler {
                 this.bindPlugin(node, pluginModule);
                 break;
             }
+            case 'filescope': {
+                this.error(`The !filescope directive is only allowed as the first directive in a source file`, node.loc);
+            }
             default:
                 this.error(`unknown directive ${node.type}`, node.loc);
         }
     }
 
     assembleLines (lst: ast.AsmLine[]): void {
-        if (lst === null) {
+        if (lst === null || lst.length == 0) {
             return;
         }
-        for (let i = 0; i < lst.length; i++) {
-            this.debugInfo.startLine(lst[i].loc, this.codePC);
-            this.assembleLine(lst[i]);
-            this.debugInfo.endLine(this.codePC);
+        if (lst.length == 0) {
+            return;
+        }
+
+        const assemble = (lines: ast.AsmLine[]) => {
+            for (let i = 0; i < lines.length; i++) {
+                this.debugInfo.startLine(lines[i].loc, this.codePC);
+                this.assembleLine(lines[i]);
+                this.debugInfo.endLine(this.codePC);
+            }
+        }
+
+        // Handle 'whole file scope' directive !filescope.  This puts everything
+        // below the first line inside a named scope.
+        const labelScope = lst[0]!;
+        if (labelScope.stmt != null && labelScope.stmt.type == 'filescope') {
+            this.checkAndDeclareLabel(labelScope.stmt.name);
+            return this.withLabelScope(labelScope.stmt.name.name, () => {
+                return assemble(lst.slice(1));
+            });
+        }
+        return assemble(lst);
+
+    }
+
+    checkAndDeclareLabel(label: ast.Label) {
+        if (this.scopes.symbolSeen(label.name)) {
+            this.error(`Label '${label.name}' already defined`, label.loc);
+        } else {
+            const labelChanged = this.scopes.declareLabelSymbol(label, this.codePC);
+            if (labelChanged) {
+                this.needPass = true;
+            }
         }
     }
 
@@ -948,15 +980,7 @@ class Assembler {
         }
 
         if (line.label !== null) {
-            let lblSymbol = line.label;
-            if (this.scopes.symbolSeen(lblSymbol.name)) {
-                this.error(`Label '${lblSymbol.name}' already defined`, lblSymbol.loc);
-            } else {
-                const labelChanged = this.scopes.declareLabelSymbol(lblSymbol, this.codePC);
-                if (labelChanged) {
-                    this.needPass = true;
-                }
-            }
+            this.checkAndDeclareLabel(line.label);
         }
 
         const scopedStmts = line.scopedStmts;

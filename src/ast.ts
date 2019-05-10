@@ -123,6 +123,7 @@ export type Stmt =
   | StmtLet
   | StmtAssign
   | StmtLoadPlugin
+  | StmtFilescope
 
 export type Insn = any
 
@@ -216,6 +217,11 @@ export interface StmtLoadPlugin extends Node {
   type: 'load-plugin',
   filename: Literal;
   moduleName: Ident;
+}
+
+export interface StmtFilescope extends Node {
+  type: 'filescope',
+  name: Ident;
 }
 
 export interface AsmLine extends Node {
@@ -352,6 +358,14 @@ export function mkLoadPlugin(filename: Literal, moduleName: Ident, loc: SourceLo
     type: 'load-plugin',
     filename,
     moduleName,
+    loc
+  }
+}
+
+export function mkFilescope(name: Ident, loc: SourceLoc): StmtFilescope {
+  return {
+    type: 'filescope',
+    name,
     loc
   }
 }

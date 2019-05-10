@@ -154,11 +154,11 @@ directive =
   / "+" name:scopeQualifiedIdentifier LPAR args:exprList? RPAR  {
       return ast.mkCallMacro(name, args, loc());
     }
-  / PSEUDO_LET name:identifier EQU value:expr  { return ast.mkLet(name, value, loc()); }
+  / PSEUDO_LET name:identifier EQU value:expr { return ast.mkLet(name, value, loc()); }
   / name:scopeQualifiedIdentifier EQU value:expr {
       return ast.mkAssign(name, value, loc());
     }
-  / PSEUDO_USE filename:string "as" __ plugin:identifier  {
+  / PSEUDO_USE filename:string "as" __ plugin:identifier {
       return ast.mkLoadPlugin(filename, plugin, loc());
     }
   / PSEUDO_ERROR error:string {
@@ -166,6 +166,9 @@ directive =
     }
   / PSEUDO_ALIGN alignBytes:expr {
       return ast.mkAlign(alignBytes, loc());
+    }
+  / PSEUDO_FILESCOPE name:identifier {
+      return ast.mkFilescope(name, loc());
     }
 
 elif = PSEUDO_ELIF LPAR condition:expr RPAR LWING trueBranch:statements RWING {
@@ -373,20 +376,21 @@ hexdig  = [0-9a-f]
 ws "whitespace" = [ \t\r]*
 __ = ws
 
-PSEUDO_ALIGN   = "!align" ws
-PSEUDO_BYTE    = "!byte" ws { return 'byte'; }
-PSEUDO_WORD    = "!word" ws { return 'word'; }
-PSEUDO_BINARY  = "!binary" ws
-PSEUDO_LET     = "!let" ws
-PSEUDO_MACRO   = "!macro" ws
-PSEUDO_IF      = "!if" ws
-PSEUDO_ELSE    = "else" ws
-PSEUDO_ELIF    = "elif" ws
-PSEUDO_ERROR   = "!error" ws
-PSEUDO_FOR     = "!for" ws
-PSEUDO_INCLUDE = "!include" ws
-PSEUDO_FILL    = "!fill" ws
-PSEUDO_USE     = "!use" ws
+PSEUDO_ALIGN     = "!align" ws
+PSEUDO_BYTE      = "!byte" ws { return 'byte'; }
+PSEUDO_WORD      = "!word" ws { return 'word'; }
+PSEUDO_BINARY    = "!binary" ws
+PSEUDO_LET       = "!let" ws
+PSEUDO_MACRO     = "!macro" ws
+PSEUDO_IF        = "!if" ws
+PSEUDO_ELSE      = "else" ws
+PSEUDO_ELIF      = "elif" ws
+PSEUDO_ERROR     = "!error" ws
+PSEUDO_FOR       = "!for" ws
+PSEUDO_INCLUDE   = "!include" ws
+PSEUDO_FILL      = "!fill" ws
+PSEUDO_USE       = "!use" ws
+PSEUDO_FILESCOPE = "!filescope" ws
 
 LBRK      =  s:'['         ws { return s; }
 RBRK      =  s:']'         ws { return s; }

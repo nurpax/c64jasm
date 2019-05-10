@@ -1,0 +1,1 @@
+test/errors/filescope1.input.asm:4:1: error: The !filescope directive is only allowed as the first directive in a source file
