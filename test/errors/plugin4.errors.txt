@@ -1,0 +1,1 @@
+test/errors/plugin4.input.asm:5:10: error: Plugin call failed with an error: div by zero

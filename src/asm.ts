@@ -581,7 +581,7 @@ class Assembler {
                 break;
             }
             case 'callfunc': {
-                const callee = this.evalExpr(node.name);
+                const callee = this.evalExpr(node.callee);
                 if (typeof callee !== 'function') {
                     this.error(`Callee must be a function type.  Got '${typeof callee}'`, node.loc);
                 }
@@ -593,16 +593,13 @@ class Assembler {
                 try {
                     return callee(argValues);
                 } catch(err) {
-                    // TODO we lose the name for computed function names, like
-                    // !use 'foo' as x
-                    // x[3]()
-                    // This is not really supported now though.
-
-                    // TODO callee is in fact an expression so we don't
-                    // have a name for it here.  But it's mostly an identifier
-                    // so show that just to pass tests for now.
-                    const nn = ((node.name) as unknown) as ast.ScopeQualifiedIdent;
-                    this.error(`Call to '${formatSymbolPath(nn)}' failed with an error: ${err.message}`, node.loc);
+                    if (node.callee.type == 'qualified-ident') {
+                        this.error(`Call to '${formatSymbolPath(node.callee)}' failed with an error: ${err.message}`, node.loc);
+                    } else {
+                        // Generic error message as callees that are computed
+                        // expressions have lost their name once we get here.
+                        this.error(`Plugin call failed with an error: ${err.message}`, node.loc);
+                    }
                 }
             }
             default:

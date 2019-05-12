@@ -55,7 +55,7 @@ export interface ExprArray extends Node {
 
 export interface CallFunc extends Node {
   type: 'callfunc';
-  name: Ident;
+  callee: Expr;
   args: Expr[];
 }
 
@@ -90,10 +90,10 @@ export function mkExprArray(list: Expr[], loc: SourceLoc): ExprArray {
   return { type: 'array', list, loc };
 }
 
-export function mkCallFunc(name: Ident, args: Expr[], loc: SourceLoc): CallFunc {
+export function mkCallFunc(callee: Expr, args: Expr[], loc: SourceLoc): CallFunc {
   return {
     type: 'callfunc',
-    name,
+    callee,
     args: args == null ? [] : args,
     loc
   }
