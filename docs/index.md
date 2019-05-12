@@ -25,7 +25,7 @@ Command line assembler:
 npm install -g c64jasm
 ```
 
-You should try that it successfullu runs when you type `c64jasm --help` in your shell.
+You should try that it successfully runs when you type `c64jasm --help` in your shell.
 
 VSCode extension:
 
@@ -36,6 +36,9 @@ VICE:
 See [VICE website](http://vice-emu.sourceforge.net/) for download and installation instructions.  Once you have it installed, make sure the VICE emulator binary `x64` is in your PATH.
 
 ## Release history
+
+c64jasm 0.3.0:
+- Improved scoping support, relative name references.  Various bug fixes.
 
 c64jasm 0.2.0:
 - Support "server" mode for debug info.  Required for VSCode+VICE source level debugging.
