@@ -726,7 +726,10 @@ class Assembler {
     }
 
     // Enter anonymous block scope
-    withAnonScope(compileScope: () => void): void {
+    withAnonScope(name: string | null, compileScope: () => void): void {
+        if (name !== null) {
+            return this.withLabelScope(name, compileScope);
+        }
         this.scopes.pushAnonScope();
         compileScope();
         this.scopes.popAnonScope();
@@ -795,7 +798,7 @@ class Assembler {
         }
     }
 
-    checkDirectives (node: ast.Stmt): void {
+    checkDirectives (node: ast.Stmt, localScopeName: string | null): void {
         switch (node.type) {
             case 'data': {
                 this.emitData(node.values, node.dataSize === ast.DataSize.Byte ? 8 : 16);
@@ -831,12 +834,12 @@ class Assembler {
                     const [condExpr, body] = cases[ci];
                     const condition = this.evalExpr(condExpr);
                     if (isTrueVal(condition)) {
-                        return this.withAnonScope(() => {
+                        return this.withAnonScope(localScopeName, () => {
                             this.assembleLines(body);
                         });
                     }
                 }
-                return this.withAnonScope(() => {
+                return this.withAnonScope(localScopeName, () => {
                     this.assembleLines(elseBranch);
                 })
                 break;
@@ -848,7 +851,11 @@ class Assembler {
                     this.error(`for-loop range must be an array expression (e.g., a range() or an array)`, list.loc);
                 }
                 for (let i = 0; i < lst.length; i++) {
-                    this.withAnonScope(() => {
+                    let scopeName = null;
+                    if (localScopeName !== null) {
+                        scopeName = `${localScopeName}__${i}`
+                    }
+                    this.withAnonScope(scopeName, () => {
                         const value = lst[i];
                         this.scopes.declareVar(index.name, value);
                         return this.assembleLines(body);
@@ -886,7 +893,7 @@ class Assembler {
                     argValues.push(eres);
                 }
 
-                this.withAnonScope(() => {
+                this.withAnonScope(localScopeName, () => {
                     for (let i = 0; i < argValues.length; i++) {
                         const argName = macro.args[i].ident.name;
                         this.scopes.declareVar(argName, argValues[i]);
@@ -1012,7 +1019,7 @@ class Assembler {
         }
 
         if (line.stmt.type !== 'insn') {
-            this.checkDirectives(line.stmt);
+            this.checkDirectives(line.stmt, line.label == null ? null : line.label.name);
             return;
         }
 
