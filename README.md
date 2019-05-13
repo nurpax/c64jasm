@@ -1,3 +1,5 @@
 # c64jasm
 
-C64 6502 assembler in TypeScript
+See [C64jasm manual](https://nurpax.github.io/c64jasm)
+
+C64 6502 assembler in TypeScript.
