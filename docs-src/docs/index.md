@@ -55,7 +55,7 @@ C64jasm has fairly extensive symbolic macro assembly support.  This includes mac
 
 Assembler pseudo directives start with a bang `!`.  Examples: `!let`, `!if`, `!include`.
 
-#### Labels and nested label scopes
+### Labels and nested label scopes
 
 ```c64
 ; Clear the screen RAM (all 1024 bytes)
@@ -118,7 +118,7 @@ Using `util.asm` from another file:
     +util::inc_border()
 ```
 
-#### Data directives
+### Data directives
 
 Emitting bytes/words:
 
@@ -145,7 +145,7 @@ Including binary data:
 !binary "file2.bin",256,8 ; 256 bytes from offset 8
 ```
 
-#### Variables
+### Variables
 
 You can declare a variable with `!let`.  You can use standard C operators like `+`, `-`, `*`, `/`, `<<`, `>>` with them.
 
@@ -158,7 +158,7 @@ You can declare a variable with `!let`.  You can use standard C operators like `
 
 Variables take on JavaScript values such as numbers, strings, arrays and objects.  We will explore later in this document why array and object values are useful.
 
-#### If...else
+### If...else
 
 Conditional assembly is supported by `!if/elif/else`.
 
@@ -175,7 +175,7 @@ Conditional assembly is supported by `!if/elif/else`.
 }
 ```
 
-#### For-loops
+### For-loops
 
 To repeat a particular set of instructions or data statements, use `!for`.
 
@@ -206,7 +206,7 @@ shift_lut:
 ```
 
 
-#### Macros
+### Macros
 
 Macros are declared using the `!macro` keyword and expanded by `+macroname()`.
 
