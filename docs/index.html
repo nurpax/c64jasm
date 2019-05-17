@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Janne Hellsten" />
+  <title>C64jasm</title>
+	<link href="https://fonts.googleapis.com/css?family=Montserrat|Source+Sans+Pro" rel="stylesheet" />
+  <style type="text/css">
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  
+  body {
+      font-family: 'Source Sans Pro', sans-serif;
+      color: #222;
+      line-height: 1.5;
+  }
+  h1, h2, h3, h4, h5, h6 {
+      font-family: 'Montserrat', serif;
+  }
+  h1 {
+      line-height: 1.2;
+      font-size: 3em;
+  }
+  p {
+      margin: 0 0 1em 0;
+  }
+  .max-width {
+      margin: 1em;
+  }
+  @media screen and (min-width: 680px) {
+      .max-width {
+          margin: 0 100px 0 170px;
+          max-width: 640px;
+      }
+  }
+  @media screen and (min-width: 980px) {
+      .max-width {
+          margin: 0 auto;
+      }
+  }
+  .title {
+      text-align: center;
+  }
+  
+  .centered {
+      text-align: center;
+  }
+  
+  .spaced {
+      margin: 2em 0;
+  }
+  .no-bottom-margin {
+      margin-bottom: 0;
+  }
+  .top-lined {
+      padding-top: 2em;
+      border-top: 1px solid #000;
+  }
+  .bottom-lined {
+      padding-bottom: 2em;
+      border-bottom: 1px solid #000;
+  }
+  .intro {
+      display: flex;
+      flex-direction: column;
+  }
+  .leftcol {
+      order: 1;
+  }
+  @media screen and (min-width: 680px) {
+      .leftcol {
+          order: inherit;
+      }
+  }
+  .permalinked {
+      color: #222;
+      text-decoration: none;
+  }
+  .permalinked:hover,
+  .permalinked:focus {
+      text-decoration: underline;
+  }
+  .flattr-note {
+      vertical-align: top;
+  }
+  
+  #left-toc {
+    position: sticky;
+    top: 0px;
+  
+    display: block;
+    overflow: hidden;
+    margin-left: -160px;
+    max-width: 130px;
+    text-align: left;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  /*
+  #carbonads a {
+    color: inherit;
+    text-decoration: none;
+  }
+  #carbonads a:hover {
+    color: inherit;
+  }
+  
+  #carbonads span {
+    display: block;
+    overflow: hidden;
+  }
+  .carbon-img {
+    display: block;
+    margin: 0 auto 8px;
+    line-height: 1;
+  }
+  .carbon-text {
+    display: block;
+    margin-bottom: 8px;
+  }
+  .carbon-poweredby {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 10px;
+    line-height: 1;
+  }
+  
+  @media only screen and (min-width: 320px) and (max-width: 679px) {
+    #carbonads {
+      position: relative;
+      float: none;
+      margin: 0 auto;
+      padding: 10px;
+      max-width: 330px;
+      border: solid 1px #8f8f8f;
+      text-align: left;
+    }
+    #carbonads span {
+      position: relative;
+    }
+    #carbonads > span {
+      max-width: none;
+    }
+    .carbon-img {
+      float: left;
+      margin: 0 1em 0 0;
+    }
+    .carbon-text {
+      float: left;
+      margin-bottom: 0;
+      max-width: calc(100% - 130px - 1em);
+    }
+    .carbon-poweredby {
+      position: absolute;
+      bottom: 0;
+      left: 144px;
+      display: block;
+    }
+  }
+  */
+  
+  img {
+    image-rendering: pixelated;
+  }
+  
+  pre {
+    color: #555349;
+    background: #f1f1f1;
+    padding: 0.1em 0.3em;
+  }
+  
+  code {
+    border-radius: 3px;
+    font-size: 1.0em;
+    color: #555349;
+    background: #f1f1f1;
+  }
+  
+  .asm-block {
+    border-radius: 0.5em;
+    border: .3em solid hsl(0, 0%, 8%);
+    margin: .5em 0;
+    padding: 0.4em;
+    background: hsl(0, 0%, 8%);
+  
+    font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+    font-size: 0.8em;
+  
+    color: white;
+  }
+  
+  .asm-comment {
+    color: rgb(87, 161, 87);
+  }
+  
+  .asm-pseudo {
+    color: #ffa7c4;
+  }
+  
+  .asm-num {
+    color: #f78c6c;
+  }
+  
+  .asm-mnemonic {
+    color: rgb(207, 207, 207);
+  }
+  
+  .asm-other {
+    color: rgb(150, 150, 150);
+  }
+  
+  .asm-label {
+    color: #82aaff;
+  }
+  
+  .asm-ident {
+    color: #82aaff;
+  }
+  
+  .asm-string {
+    color: #addb67;
+  }
+  </style>
+</head>
+<body class="max-width">
+<header id="title-block-header">
+<h1 class="title">C64jasm</h1>
+</header>
+Table of contents:
+<nav id="TOC">
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#installation">Installation</a></li>
+<li><a href="#getting-started">Getting started</a></li>
+<li><a href="#macro-assembler">Macro assembler</a></li>
+<li><a href="#c64jasm--javascript">C64jasm <span style='color:red'>❤</span> JavaScript</a></li>
+<li><a href="#release-history">Release history</a></li>
+</ul>
+</nav>
+<h2 id="overview">Overview</h2>
+<p>C64jasm is a symbolic assembler for the Commodore 64 that supports:</p>
+<ul>
+<li>Windows, Linux and macOS (it runs on <a href="https://nodejs.org/en/">Node.js</a>)</li>
+<li>fast, automatic recompilation (save a file and c64jasm automatically recompiles your .prg)</li>
+<li>extensions: extend the assembler standard library in JavaScript. See <a href="https://nurpax.github.io/posts/2018-11-08-c64jasm.html">this blog post</a> for more details.</li>
+<li>integrates with VSCode for recompilation, error diagnostics and debugging on VICE directly from the VSCode editor.</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<p>In order to use the c64jasm assembler, you need to install the following:</p>
+<ul>
+<li><a href="https://nodejs.org/">Node.js</a></li>
+<li><a href="https://www.npmjs.com/package/c64jasm">c64jasm command line compiler</a></li>
+</ul>
+<p>Furthermore, if you wish to use c64jasm with VSCode, you should also install:</p>
+<ul>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=nurpax.c64jasm">c64jasm VSCode extension</a></li>
+<li><a href="http://vice-emu.sourceforge.net/">VICE emulator</a></li>
+</ul>
+<p><strong>Assembler installation</strong>: <code>npm install -g c64jasm</code></p>
+<p>Upon successful installation, running <code>c64jasm --help</code> in your shell should work.</p>
+<p><strong>VSCode extension</strong>: Search for <code>c64jasm</code> in the VSCode marketplace and install.</p>
+<p><strong>VICE</strong>: See the <a href="http://vice-emu.sourceforge.net/">VICE website</a> for download and installation instructions. Once you have it installed, make sure the VICE emulator binary <code>x64</code> is in your <code>PATH</code>.</p>
+<h2 id="getting-started">Getting started</h2>
+<p>Assuming you successfully installed the C64jasm command line compiler, you should be able to compile and run some code. Let's build an example project from the c64jasm project.</p>
+<pre><code>git clone https://github.com/nurpax/c64jasm
+cd c64jasm/examples
+c64jasm --out sprites.prg sprites.asm
+x64 sprites.prg</code></pre>
+<p>You should see something like this in your VICE window:</p>
+<p><img src="img/sprites.gif" title="sprites.prg" /></p>
+<p>If you installed the necessary VSCode parts of VSCode, you should be able to load this example project in VSCode and build it with <code>Ctrl+Shift+P</code> + <code>Tasks: Run Build Task</code>. Build errors will be reported under the Problems tab and you should be able to hit <code>F5</code> to start your program in VICE.</p>
+<h2 id="macro-assembler">Macro assembler</h2>
+<p>C64jasm has fairly extensive symbolic macro assembly support. This includes macros, compile-time variables, for-loops, if/else, and source and binary file inclusion.</p>
+<p>Assembler pseudo directives start with a bang <code>!</code>. Examples: <code>!let</code>, <code>!if</code>, <code>!include</code>.</p>
+<h4 id="labels-and-nested-label-scopes">Labels and nested label scopes</h4>
+<p><pre class='asm-block'>
+<span class='asm-comment'>; Clear the screen RAM (all 1024 bytes)</span>
+<span class='asm-label'>clear_screen:</span> <span class='asm-other'>{</span>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-num'>$20</span>
+    <span class='asm-mnemonic'>ldx</span> <span class='asm-other'>#</span><span class='asm-num'>0</span>
+<span class='asm-label'>loop:</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-num'>$0400</span><span class='asm-other'>,</span> <span class='asm-ident'>x</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-num'>$0400</span> <span class='asm-other'>+</span> <span class='asm-num'>$100</span><span class='asm-other'>,</span> <span class='asm-ident'>x</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-num'>$0400</span> <span class='asm-other'>+</span> <span class='asm-num'>$200</span><span class='asm-other'>,</span> <span class='asm-ident'>x</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-num'>$0400</span> <span class='asm-other'>+</span> <span class='asm-num'>$300</span><span class='asm-other'>,</span> <span class='asm-ident'>x</span>
+    <span class='asm-mnemonic'>inx</span>
+    <span class='asm-mnemonic'>bne</span> <span class='asm-ident'>loop</span>
+    <span class='asm-mnemonic'>rts</span>
+<span class='asm-other'>}</span>
+</pre>
+</p>
+<p>A label followed by braces <code>{}</code> starts a new scope. Labels declared inside the braces will be local to that scope. Labels declared within such a scope can still be referenced by using the namespacing operator <code>::</code>, e.g.,</p>
+<p><pre class='asm-block'>
+<span class='asm-label'>memset256:</span> <span class='asm-other'>{</span>
+    <span class='asm-mnemonic'>ldx</span> <span class='asm-other'>#</span><span class='asm-num'>0</span>
+<span class='asm-label'>loop:</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-num'>$1234</span><span class='asm-other'>,</span> <span class='asm-ident'>x</span>
+<span class='asm-label'>ptr:</span>
+    <span class='asm-mnemonic'>inx</span>
+    <span class='asm-mnemonic'>bne</span> <span class='asm-ident'>loop</span>
+    <span class='asm-mnemonic'>rts</span>
+<span class='asm-other'>}</span>
+
+<span class='asm-comment'>; Use self-modifying code to set target ptr</span>
+<span class='asm-comment'>; for a memset</span>
+
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-other'><</span><span class='asm-ident'>buf</span>           <span class='asm-comment'>; take lo byte of 'buf' address</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-ident'>memset256</span><span class='asm-other'>::</span><span class='asm-ident'>ptr</span><span class='asm-other'>-</span><span class='asm-num'>2</span>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-other'>></span><span class='asm-ident'>buf</span>           <span class='asm-comment'>; take hi byte of 'buf' address</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-ident'>memset256</span><span class='asm-other'>::</span><span class='asm-ident'>ptr</span><span class='asm-other'>-</span><span class='asm-num'>1</span>
+    <span class='asm-mnemonic'>jsr</span> <span class='asm-ident'>memset256</span>
+
+<span class='asm-label'>buf:</span> <span class='asm-pseudo'>!fill</span> <span class='asm-num'>256</span><span class='asm-other'>,</span> <span class='asm-num'>0</span>
+</pre>
+</p>
+<p>You can guard a whole file inside a scope if you start the source file with <code>!filescope</code>:</p>
+<p><pre class='asm-block'>
+<span class='asm-comment'>; Contents of util.asm</span>
+<span class='asm-pseudo'>!filescope</span> <span class='asm-ident'>util</span>
+
+<span class='asm-pseudo'>!macro</span> <span class='asm-ident'>inc_border</span><span class='asm-other'>(</span><span class='asm-other'>)</span> <span class='asm-other'>{</span>
+    <span class='asm-mnemonic'>inc</span> <span class='asm-num'>$d020</span>
+<span class='asm-other'>}</span>
+</pre>
+</p>
+<p>Using <code>util.asm</code> from another file:</p>
+<p><pre class='asm-block'>
+<span class='asm-comment'>; Contents of main.asm</span>
+<span class='asm-pseudo'>!include</span> <span class='asm-string'>"util.asm"</span>
+
+    <span class='asm-other'>+</span><span class='asm-ident'>util</span><span class='asm-other'>::</span><span class='asm-ident'>inc_border</span><span class='asm-other'>(</span><span class='asm-other'>)</span>
+</pre>
+</p>
+<h4 id="data-directives">Data directives</h4>
+<p>Emitting bytes/words:</p>
+<p><pre class='asm-block'>
+<span class='asm-label'>foo:</span>  <span class='asm-pseudo'>!byte</span> <span class='asm-num'>0</span>     <span class='asm-comment'>; declare 8-bit</span>
+<span class='asm-label'>bar:</span>  <span class='asm-pseudo'>!word</span> <span class='asm-num'>0</span>     <span class='asm-comment'>; declare 16-bit int (2 bytes)</span>
+<span class='asm-label'>baz:</span>  <span class='asm-pseudo'>!byte</span> <span class='asm-num'>0</span><span class='asm-other'>,</span><span class='asm-num'>1</span><span class='asm-other'>,</span><span class='asm-num'>2</span> <span class='asm-comment'>; declare bytes 0,1,2</span>
+
+<span class='asm-label'>baz_256:</span> <span class='asm-comment'>; 256 bytes of zero</span>
+    <span class='asm-pseudo'>!fill</span> <span class='asm-num'>256</span><span class='asm-other'>,</span> <span class='asm-num'>0</span>
+</pre>
+</p>
+<p>Including other source files:</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!include</span> <span class='asm-string'>"macros.asm"</span>
+</pre>
+</p>
+<p>Including binary data:</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!binary</span> <span class='asm-string'>"file1.bin"</span>       <span class='asm-comment'>; all of file1.bin</span>
+<span class='asm-pseudo'>!binary</span> <span class='asm-string'>"file2.bin"</span><span class='asm-other'>,</span><span class='asm-num'>256</span>   <span class='asm-comment'>; first 256 bytes of file</span>
+<span class='asm-pseudo'>!binary</span> <span class='asm-string'>"file2.bin"</span><span class='asm-other'>,</span><span class='asm-num'>256</span><span class='asm-other'>,</span><span class='asm-num'>8</span> <span class='asm-comment'>; 256 bytes from offset 8</span>
+</pre>
+</p>
+<h4 id="variables">Variables</h4>
+<p>You can declare a variable with <code>!let</code>. You can use standard C operators like <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>&lt;&lt;</code>, <code>&gt;&gt;</code> with them.</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>num_sprites</span> <span class='asm-other'>=</span> <span class='asm-num'>4</span>
+
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-other'>(</span><span class='asm-num'>1</span> <span class='asm-other'><</span><span class='asm-other'><</span> <span class='asm-ident'>num_sprites</span><span class='asm-other'>)</span><span class='asm-other'>-</span><span class='asm-num'>1</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-num'>$d015</span>
+</pre>
+</p>
+<p>Variables take on JavaScript values such as numbers, strings, arrays and objects. We will explore later in this document why array and object values are useful.</p>
+<h4 id="ifelse">If...else</h4>
+<p>Conditional assembly is supported by <code>!if/elif/else</code>.</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>debug</span> <span class='asm-other'>=</span> <span class='asm-num'>1</span>
+
+<span class='asm-pseudo'>!if</span> <span class='asm-other'>(</span><span class='asm-ident'>debug</span><span class='asm-other'>)</span> <span class='asm-other'>{</span> <span class='asm-comment'>; set border color to measure frame time</span>
+    <span class='asm-mnemonic'>inc</span> <span class='asm-num'>$d020</span>
+<span class='asm-other'>}</span>
+    <span class='asm-comment'>; Play music or do some other expensive thing</span>
+    <span class='asm-mnemonic'>jsr</span> <span class='asm-ident'>play_music</span>
+<span class='asm-pseudo'>!if</span> <span class='asm-other'>(</span><span class='asm-ident'>debug</span><span class='asm-other'>)</span> <span class='asm-other'>{</span>
+    <span class='asm-mnemonic'>dec</span> <span class='asm-num'>$d020</span>
+<span class='asm-other'>}</span>
+</pre>
+</p>
+<h4 id="for-loops">For-loops</h4>
+<p>To repeat a particular set of instructions or data statements, use <code>!for</code>.</p>
+<p>Repeating code generation. For-loops are typically written using the built-in <code>range()</code> function that returns an array of integers. This works similar to Python's <code>range</code> built-in.</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>xyptr</span> <span class='asm-other'>=</span> <span class='asm-num'>$40</span>   <span class='asm-comment'>; alias zero-page $40 to xyptr</span>
+
+<span class='asm-comment'>; shift left xyptr by 5 (e.g., xyptr<<5)</span>
+<span class='asm-pseudo'>!for</span> <span class='asm-ident'>i</span> <span class='asm-ident'>in</span> <span class='asm-ident'>range</span><span class='asm-other'>(</span><span class='asm-num'>5</span><span class='asm-other'>)</span> <span class='asm-other'>{</span>
+    <span class='asm-mnemonic'>asl</span> <span class='asm-ident'>xyptr</span>
+    <span class='asm-mnemonic'>rol</span> <span class='asm-ident'>xyptr</span><span class='asm-other'>+</span><span class='asm-num'>1</span>
+<span class='asm-other'>}</span>
+</pre>
+</p>
+<p>Lookup table generation:</p>
+<p><pre class='asm-block'>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-num'>3</span>            <span class='asm-comment'>; index == 3</span>
+    <span class='asm-mnemonic'>tax</span>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-ident'>shift_lut</span><span class='asm-other'>,</span> <span class='asm-ident'>x</span>  <span class='asm-comment'>; A = 1<<3</span>
+
+<span class='asm-comment'>; Create a left shift lookup table</span>
+<span class='asm-label'>shift_lut:</span>
+    <span class='asm-pseudo'>!for</span> <span class='asm-ident'>i</span> <span class='asm-ident'>in</span> <span class='asm-ident'>range</span><span class='asm-other'>(</span><span class='asm-num'>8</span><span class='asm-other'>)</span> <span class='asm-other'>{</span>
+        <span class='asm-pseudo'>!byte</span> <span class='asm-num'>1</span><span class='asm-other'><</span><span class='asm-other'><</span><span class='asm-ident'>i</span>
+    <span class='asm-other'>}</span>
+</pre>
+</p>
+<h4 id="macros">Macros</h4>
+<p>Macros are declared using the <code>!macro</code> keyword and expanded by <code>+macroname()</code>.</p>
+<p><pre class='asm-block'>
+<span class='asm-comment'>; move an immediate value to a memory location</span>
+<span class='asm-pseudo'>!macro</span> <span class='asm-ident'>mov8imm</span><span class='asm-other'>(</span><span class='asm-ident'>dst</span><span class='asm-other'>,</span> <span class='asm-ident'>imm</span><span class='asm-other'>)</span> <span class='asm-other'>{</span>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-ident'>imm</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-ident'>dst</span>
+<span class='asm-other'>}</span>
+
+<span class='asm-other'>+</span><span class='asm-ident'>mov8imm</span><span class='asm-other'>(</span><span class='asm-num'>$40</span><span class='asm-other'>,</span> <span class='asm-num'>13</span><span class='asm-other'>)</span>  <span class='asm-comment'>; writes 13 to zero page $40</span>
+</pre>
+</p>
+<h2 id="c64jasm--javascript">C64jasm <span style='color:red'>❤</span> JavaScript</h2>
+<p>Extending the assembler with JavaScript was the primary reason why C64jasm was built. This is a powerful mechanism for implementing lookup table generators, graphics format converters, etc.</p>
+<p>This section will be expanded to cover various uses such as computing sine tables, importing sprite graphics .SPD files, loading in SID music, etc.</p>
+<p>You can check out the <a href="https://github.com/nurpax/c64jasm/tree/master/examples">example project</a> for a simple example. You can also read <a href="https://nurpax.github.io/posts/2018-11-08-c64jasm.html">this blog post</a> that expands on my motivation for an extensible assembler.</p>
+<h2 id="release-history">Release history</h2>
+<p>c64jasm 0.3.0:</p>
+<ul>
+<li>Improved scoping support, relative name references. Various bug fixes.</li>
+</ul>
+<p>c64jasm 0.2.0:</p>
+<ul>
+<li>Support "server" mode for debug info. Required for VSCode+VICE source level debugging.</li>
+</ul>
+
+<footer class="spaced centered">
+  <p class="top-lined">
+    <small>
+      Like what you saw here?  You can reach me at <a href="https://twitter.com/nurpax">@nurpax</a>
+    </small>
+  </p>
+</footer>
+
+</body>
+</html>
