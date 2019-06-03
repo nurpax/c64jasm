@@ -54,6 +54,8 @@ export class C64jasmDebugSession extends LoggingDebugSession {
         stopwatch: 0
     };
 
+    private _vicePath: string;
+
     /**
      * Creates a new debug adapter that is used for one debug session.
      * We configure the default implementation of a debug adapter here.
@@ -93,6 +95,10 @@ export class C64jasmDebugSession extends LoggingDebugSession {
         this._runtime.on('end', () => {
             this.sendEvent(new TerminatedEvent());
         });
+    }
+
+    public setVicePath(vicePath: string) {
+        this._vicePath = vicePath;
     }
 
     /**
@@ -136,7 +142,7 @@ export class C64jasmDebugSession extends LoggingDebugSession {
         await this._configurationDone.wait(1000);
 
         // start the program in the runtime
-        this._runtime.start(args.program, !!args.stopOnEntry);
+        this._runtime.start(args.program, !!args.stopOnEntry, this._vicePath);
 
         this.sendResponse(response);
     }
