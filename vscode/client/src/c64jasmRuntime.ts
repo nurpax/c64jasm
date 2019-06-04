@@ -309,14 +309,14 @@ export class C64jasmRuntime extends EventEmitter {
     /**
      * Start executing the given program.
      */
-    public async start(program: string, stopOnEntry: boolean) {
+    public async start(program: string, stopOnEntry: boolean, vicePath?: string) {
         // Ask c64jasm compiler for debug information.  This is done
         // by connecting to a running c64jasm process that's watching
         // source files for changes.
         this._debugInfo = await queryC64jasmDebugInfo();
         const startAddress = parseBasicSysAddress(program);
          //# this doesn't work with vscode as it breaks into VICE monitor, not remote monitor
-        this._viceProcess = child_process.exec(`x64 -remotemonitor`);
+        this._viceProcess = child_process.exec(`${vicePath || "x64"} -remotemonitor`);
         await sleep(6000);
 
         const echoLog = (logMsg: string) => {

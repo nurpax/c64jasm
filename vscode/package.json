@@ -43,6 +43,11 @@
 					],
 					"default": "off",
 					"description": "Traces the communication between VS Code and the language server."
+				},
+				"languageServerC64jasm.vicePath": {
+					"scope": "machine",
+					"type": "string",
+					"description": "Where to find the VICE executable"
 				}
 			}
 		},
@@ -89,11 +94,11 @@
 				"path": "./syntaxes/c64jasm.tmLanguage.json"
 			}
 		],
-        "breakpoints": [
-            {
-                "language": "asm"
-            }
-        ],
+		"breakpoints": [
+			{
+				"language": "asm"
+			}
+		],
 		"debuggers": [
 			{
 				"type": "c64jasm",
