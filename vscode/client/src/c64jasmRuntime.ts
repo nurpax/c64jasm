@@ -6,7 +6,7 @@ import { ChildProcess } from 'child_process'
 import * as child_process from 'child_process'
 import * as net from 'net';
 import * as path from 'path';
-import { StackFrame, Source, Module } from 'vscode-debugadapter';
+import { StackFrame, Source } from 'vscode-debugadapter';
 
 export interface C64jasmBreakpoint {
     id: number;
@@ -103,7 +103,7 @@ class MonitorConnection extends EventEmitter {
                         }
                     }
                 }
-                
+
                 if (this.prevCommand == 'next' || this.prevCommand == 'step') {
                     const stepRe = /^\.C:([0-9a-f]+)\s+.*/;
                     match = line.match(stepRe);
@@ -269,7 +269,7 @@ function parseBasicSysAddress(progName: string): number {
     const buf = readFileSync(progName);
 //    00000000: 0108 0c08 0000 9e32 3036 3100 0000 a900  .......2061.....
 
-    if (buf[0] == 0x01 && buf[1] == 0x08 && buf[2] == 0x0c && buf[3] == 0x08 && 
+    if (buf[0] == 0x01 && buf[1] == 0x08 && buf[2] == 0x0c && buf[3] == 0x08 &&
         buf[4] == 0x00 && buf[5] == 0x00 && buf[6] == 0x9e) {
         let offs = 7;
         let addr = 0;

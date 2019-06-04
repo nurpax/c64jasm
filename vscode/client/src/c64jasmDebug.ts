@@ -218,8 +218,8 @@ export class C64jasmDebugSession extends LoggingDebugSession {
         const id = this.variableHandles.get(args.variablesReference);
         if (id !== null) {
             if (id.startsWith("registers_")) {
-                //Gets the frameId
-                let frameId = parseInt(id.substring(10));
+                // Gets the frameId
+                //let frameId = parseInt(id.substring(10));
                 // TODO query registers
                 const variables = new Array<DebugProtocol.Variable>();
                 const addReg = (n: string, v: number) => {

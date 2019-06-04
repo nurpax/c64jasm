@@ -27,13 +27,13 @@
 			"type": "object",
 			"title": "c64jasm configuration",
 			"properties": {
-				"languageServerC64jasm.maxNumberOfProblems": {
+				"c64jasm-client.maxNumberOfProblems": {
 					"scope": "resource",
 					"type": "number",
 					"default": 100,
 					"description": "Controls the maximum number of problems produced by the server."
 				},
-				"languageServerC64jasm.trace.server": {
+				"c64jasm-client.trace.server": {
 					"scope": "window",
 					"type": "string",
 					"enum": [
@@ -44,10 +44,11 @@
 					"default": "off",
 					"description": "Traces the communication between VS Code and the language server."
 				},
-				"languageServerC64jasm.vicePath": {
-					"scope": "machine",
+				"c64jasm-client.vicePath": {
+					"scope": "window",
 					"type": "string",
-					"description": "Where to find the VICE executable"
+					"default": "x64",
+					"description": "Where to find the VICE executable when starting a debug session"
 				}
 			}
 		},

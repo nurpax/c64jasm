@@ -79,7 +79,7 @@ class C64jasmConfigurationProvider implements vscode.DebugConfigurationProvider 
 				// start listening on a random port
 				this._server = Net.createServer(socket => {
 					const session = new C64jasmDebugSession();
-					const vicePath = vscode.workspace.getConfiguration("languageServerC64jasm")["vicePath"];
+					const vicePath = vscode.workspace.getConfiguration().get("c64jasm-client.vicePath", "x64");
 					session.setVicePath(vicePath);
 					session.setRunAsServer(true);
 					session.start(<NodeJS.ReadableStream>socket, socket);
@@ -136,8 +136,8 @@ export function activate(context: ExtensionContext) {
 
 	// Create the language client and start the client.
 	client = new LanguageClient(
-		'languageServerC64jasm',
-		'Language Server C64jasm',
+		'c64jasm-client',
+		'C64jasm language and debug support',
 		serverOptions,
 		clientOptions
 	);
