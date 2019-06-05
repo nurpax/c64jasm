@@ -38,7 +38,7 @@ Assuming you successfully installed the C64jasm command line compiler, you shoul
 
 ```
 git clone https://github.com/nurpax/c64jasm
-cd c64jasm/examples
+cd c64jasm/examples/sprites
 c64jasm --out sprites.prg sprites.asm
 x64 sprites.prg
 ```
@@ -226,7 +226,7 @@ Extending the assembler with JavaScript was the primary reason why C64jasm was b
 
 This section will be expanded to cover various uses such as computing sine tables, importing sprite graphics .SPD files, loading in SID music, etc.
 
-You can check out the [example project](https://github.com/nurpax/c64jasm/tree/master/examples) for a simple example.  You can also read [this blog post](https://nurpax.github.io/posts/2018-11-08-c64jasm.html) that expands on my motivation for an extensible assembler.
+You can check out the [example project](https://github.com/nurpax/c64jasm/tree/master/examples/sprites) for a simple example.  You can also read [this blog post](https://nurpax.github.io/posts/2018-11-08-c64jasm.html) that expands on my motivation for an extensible assembler.
 
 ## Release history
 
