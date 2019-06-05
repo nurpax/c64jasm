@@ -21,7 +21,7 @@ interface LabelAddr {
 }
 
 class NamedScope<T> {
-    syms: Map<string, {val: T, seen: number}> = new Map();
+    syms: Map<string, T & {seen: number}> = new Map();
     readonly parent: NamedScope<T> | null = null;
     readonly name: string;
     children: Map<string, NamedScope<T>> = new Map();
@@ -46,7 +46,7 @@ class NamedScope<T> {
     }
 
     // Find symbol from current and all parent scopes
-    findSymbol(name: string): {val: T, seen: number} | undefined {
+    findSymbol(name: string): T & {seen: number} | undefined {
         for (let cur: NamedScope<T>|null = this; cur !== null; cur = cur.parent) {
             const n = cur.syms.get(name);
             if (n !== undefined) {
@@ -57,7 +57,7 @@ class NamedScope<T> {
     }
 
     // Find relative label::path::sym style references from the symbol table
-    findSymbolPath(path: string[]): {val: T, seen: number} | undefined {
+    findSymbolPath(path: string[]): T & {seen: number} | undefined {
         if (path.length == 1) {
             return this.findSymbol(path[0]);
         }
@@ -83,14 +83,14 @@ class NamedScope<T> {
     }
 
     addSymbol(name: string, val: T, pass: number): void {
-        this.syms.set(name, { val, seen: pass });
+        this.syms.set(name, { ...val, seen: pass });
     }
 
     updateSymbol(name: string, val: T, pass: number) {
         for (let cur: NamedScope<T>|null = this; cur !== null; cur = cur.parent) {
             const v = cur.syms.get(name);
             if (v !== undefined) {
-                cur.syms.set(name, { val, seen: pass });
+                cur.syms.set(name, { ...val, seen: pass });
                 return;
             }
         }
@@ -143,39 +143,16 @@ class Scopes {
         this.curSymtab = this.curSymtab.leave();
     }
 
-    findPath(path: string[], absolute: boolean): { sym: SymEntry, seen: number } | undefined {
+    findPath(path: string[], absolute: boolean): SymEntry & {seen: number} | undefined {
         if (absolute) {
-            const n = this.root.findSymbolPath(path);
-            if (n !== undefined) {
-                return {
-                    sym: n.val,
-                    seen: n.seen
-                }
-            }
-            return undefined;
+            return this.root.findSymbolPath(path);
         }
-        const n = this.curSymtab.findSymbolPath(path);
-        if (n !== undefined) {
-            return {
-                sym: n.val,
-                seen: n.seen
-            }
-    }
-        return undefined;
+        return this.curSymtab.findSymbolPath(path);
     }
 
-    findQualifiedSym(path: string[], absolute: boolean): { sym: SymEntry, seen: number } | undefined {
+    findQualifiedSym(path: string[], absolute: boolean): SymEntry & {seen: number} | undefined {
         return this.findPath(path, absolute);
     }
-
-    findQualifiedVar(path: string[], absolute: boolean): any | undefined {
-        const se = this.findPath(path, absolute);
-        if (se !== undefined && se.sym.type == 'var') {
-            return se.sym.data;
-        }
-        return undefined;
-    }
-
 
     symbolSeen(name: string): boolean {
         const n = this.curSymtab.syms.get(name);
@@ -201,10 +178,10 @@ class Scopes {
             this.curSymtab.addSymbol(name, lblsym, this.passCount);
             return false;
         }
-        if (prevLabel.val.type !== 'label') {
+        if (prevLabel.type !== 'label') {
             throw new Error('ICE: declareLabelSymbol should be called only on labels');
         }
-        const lbl = prevLabel.val;
+        const lbl = prevLabel;
         // If label address has changed change, need one more pass
         if (lbl.data.addr !== codePC) {
             this.curSymtab.updateSymbol(name, lblsym, this.passCount);
@@ -225,7 +202,7 @@ class Scopes {
             throw new Error('should not happen TBD');
         }
         const prevVar = this.curSymtab.findSymbol(path[0]);
-        if (prevVar == undefined || prevVar.val.type !== 'var') {
+        if (prevVar == undefined || prevVar.type !== 'var') {
             throw new Error('should not happen');
         }
         const newVar: SymVar = {
@@ -237,8 +214,8 @@ class Scopes {
 
     findMacro(path: string[], absolute: boolean): ast.StmtMacro | undefined {
         const sym = this.findPath(path, absolute);
-        if (sym !== undefined && sym.sym.type == 'macro') {
-            return sym.sym.data;
+        if (sym !== undefined && sym.type == 'macro') {
+            return sym.data;
         }
         return undefined;
     }
@@ -262,8 +239,8 @@ class Scopes {
         while (stack.length > 0) {
             const s = stack.pop()!;
             for (let [k,lbl] of s.sym.syms) {
-                if (lbl.val.type == 'label') {
-                    labels.push({ name: `${s.prefix}/${k}`, addr: lbl.val.data.addr, size: 0 });
+                if (lbl.type == 'label') {
+                    labels.push({ name: `${s.prefix}/${k}`, addr: lbl.data.addr, size: 0 });
                 }
             }
             for (let [k, sym] of s.sym.children) {
@@ -513,14 +490,14 @@ class Assembler {
                     return 0;
                 }
 
-                switch (sym.sym.type) {
+                switch (sym.type) {
                     case 'label':
-                        return sym.sym.data.addr;
+                        return sym.data.addr;
                     case 'var':
                         if (sym.seen < this.pass) {
                             return this.error(`Undeclared variable '${formatSymbolPath(node)}`, node.loc);
                         }
-                        return sym.sym.data;
+                        return sym.data;
                     case 'macro':
                         return this.error(`Must have a label or a variable identifier here, got macro name`, node.loc);
                 }
@@ -915,9 +892,12 @@ class Assembler {
             }
             case 'assign': {
                 const name = node.name;
-                const prevValue = this.scopes.findQualifiedVar(node.name.path, node.name.absolute);
+                const prevValue = this.scopes.findQualifiedSym(node.name.path, node.name.absolute);
                 if (prevValue == undefined) {
                     return this.error(`Assignment to undeclared variable '${formatSymbolPath(name)}'`, node.loc);
+                }
+                if (prevValue.type !== 'var') {
+                    return this.error(`Assignment to symbol '${formatSymbolPath(name)}' that is not a variable.  Its type is '${prevValue.type}'`, node.loc);
                 }
                 const evalValue = this.evalExpr(node.value);
                 this.scopes.updateVar(name.path, name.absolute, evalValue);

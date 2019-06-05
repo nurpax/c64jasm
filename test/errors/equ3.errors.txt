@@ -1,0 +1,1 @@
+test/errors/equ3.input.asm:11:5: error: Assignment to symbol 'foo' that is not a variable.  Its type is 'macro'
