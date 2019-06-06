@@ -9,13 +9,14 @@
 !use "plugins/math" as math
 !use "plugins/petscii" as petscii
 !use "plugins/spd" as spd
-!use "plugins/spd" as sid
+!use "plugins/sid" as sid
 
 ; Load a PETSCII file exported into .json by Petmate.
 ; The petscii loader will RLE compress the screencodes
 ; and colors to save some RAM.
 !let petscii_background = petscii.rlePetsciiJson("assets/petscii.json")
 !let pacman_spd = spd("assets/pacman.spd")
+!let music = sid("assets/Load_Line.sid")
 
 
 !let irq_top_line = 30
@@ -31,8 +32,8 @@
 ;--------------------------------------------------------------
 entry:
 
-;    lda #0
-;    jsr music.init
+    lda #0
+    jsr music.init
 
     sei
     lda #$35        ; Bank out kernal and basic
@@ -143,7 +144,7 @@ irq_top: {
     +irq_start(end)
     inc framecount
 
-;    jsr music.play
+    jsr music.play
 
     +irq_end(irq_top, irq_top_line)
 end:
@@ -190,6 +191,9 @@ sprite_data:
 
 sprite_data2:
 !byte pacman_spd.data[0]  ; shape: data[num_sprites][64]
+
+* = music.startAddress
+sid_data: !byte music.data
 
 !include "pet_rle.asm"
 ; Expand the RLE compressed PETSCII bytes
