@@ -60,6 +60,7 @@ anim_sprites:
     adc #100
     sta sprite_ypos, y
     lda zptmp0
+    clc
     adc #5
     sta zptmp0
     iny
