@@ -18,7 +18,7 @@ C64jasm source code is available on [GitHub](https://github.com/nurpax/c64jasm).
 
 In order to use the c64jasm assembler, you need to install the following:
 
-- [Node.js](https://nodejs.org/)
+- [Node.js](https://nodejs.org/) (tested on node v11.12)
 - [c64jasm command line compiler](https://www.npmjs.com/package/c64jasm)
 
 Furthermore, if you wish to use c64jasm with VSCode, you should also install:
@@ -47,7 +47,9 @@ x64 sprites.prg
 
 You should see something like this in your VICE window:
 
-![](img/sprites.gif "sprites.prg")
+<div style="text-align: center">
+    <img src="img/sprites.gif" />
+</div>
 
 If you installed the necessary VSCode parts of VSCode, you should be able to load this example project in VSCode and build it with `Ctrl+Shift+P` + `Tasks: Run Build Task`.  Build errors will be reported under the Problems tab and you should be able to hit `F5` to start your program in VICE.
 
@@ -228,7 +230,128 @@ Extending the assembler with JavaScript was the primary reason why C64jasm was b
 
 This section will be expanded to cover various uses such as computing sine tables, importing sprite graphics .SPD files, loading in SID music, etc.
 
-You can check out the [example project](https://github.com/nurpax/c64jasm/tree/master/examples/sprites) for a simple example.  You can also read [this blog post](https://nurpax.github.io/posts/2018-11-08-c64jasm.html) that expands on my motivation for an extensible assembler.
+Learning resources on c64jasm extensions:
+
+- the [examples/](https://github.com/nurpax/c64jasm/tree/master/examples/) folder
+- [blog post on c64jasm design principles](https://nurpax.github.io/posts/2018-11-08-c64jasm.html)
+- [blog post on the 'content-pipe' example project](https://nurpax.github.io/posts/2019-06-06-c64jasm-content-example.html) -- how to import PETSCII, sprites and SID tunes
+
+### Making extensions
+
+A c64jasm extension is simply a JavaScript file that exports a function ("default" export) or a JavaScript object containing functions (named exports).  The functions can be called from assembly and their return values can be operated on using standard c64jasm pseudo ops.
+
+Minimal example:
+
+math.js:
+
+```
+module.exports = {
+    square: ({}, v) => {
+        return v*v;
+    }
+}
+```
+
+test.asm:
+
+```c64
+!use "math" as math
+!byte math.sqr(3)  ; produces 9
+```
+
+Here's another example.  Here we'll compute a sine table (see [examples/sprites](https://github.com/nurpax/c64jasm/tree/master/examples/sprites)).  This extension uses the JavaScript module "default export", ie. it exports just a single function, not an object of function properties.
+
+sintab.js:
+```
+module.exports = ({}, len, scale) => {
+    const res = Array(len).fill(0).map((v,i) => Math.sin(i/len * Math.PI * 2.0) * scale);
+    return res; // return an array of length `len`
+}
+```
+
+foo.asm:
+```c64
+!use "sintab" as sintab
+!let SIN_LEN = 128
+!let sinvals = sintab(SIN_LEN, 30)
+sintab:
+!for v in sinvals {
+    !byte v
+}
+```
+
+
+### JavaScript / assembly API
+
+An extension function is declared as follows:
+
+```
+(context, ...args) => { return ... };
+```
+
+For example, if you're defining an extension function that takes one input argument, it must be declared as:
+
+```
+(context, arg0) => { return ... };
+```
+
+C64jasm calls an extension function with a `context` value that contains some extra functions for the extension to use.  The rest of the arguments (`...args`) come from the assembly source invocation.  For example:
+
+```
+!let v = math.sqr(3)
+```
+
+will be called as:
+
+```
+// const sqr = (context, arg0) => return arg0*arg0;
+sqr(context, 3);
+```
+
+If you don't need anything from the `context` parameter in your extension, you can declare your extension function like so: `({}, arg0) => return arg0*arg0;`
+
+#### What is the context parameter?
+
+The `context` parameter contains functionality that an extension can use to load input files.  It may also be extended to contain functions for error reporting.
+
+Currently (c64jasm 0.3), the `context` object contains the following properties:
+
+- `readFileSync(filename)`: synchronously read a file and return it as a byte buffer
+- `resolveRelative(filename)`: resolve a relative filename to an absolute path
+
+A well-behaving extension would use these to load input files as follows:
+
+```
+const loadJson = ({readFileSync, resolveRelative}, fname) => {
+    const json = JSON.parse(readFileSync(resolveRelative(filename)));
+    return json;
+}
+module.exports = loadJson;
+```
+
+A relative filename is relative to the location of the assembly source file that called the extension.  E.g., assuming the following folder structure:
+
+```
+src/
+  main.asm
+  assets/
+    petscii.json
+```
+
+Consider calling an extension with a filename `assets/petscii.json` from `main.asm`:
+
+```c64
+!use "json" as json
+!let j = json("assets/petscii.json")
+```
+
+Suppose you invoke c64jasm outside of the `src` directory like: `c64jasm ./src/main.asm`.  As `main.asm` is being compiled, c64jasm knows it resides in `./src/main.asm` and with `resolveRelative`, an extension knows how to resolve `assets/petscii.json` to `./src/assets/petscii.json`.
+
+#### Why do I need context.readFileSync?
+
+You might be asking: why do I need `context.readFileSync` when I could just as well import Node's `readFileSync` and use that.
+
+Using the c64jasm provided I/O functions is necessary as it allows for c64jasm to know about your input files.  For example, if you're running c64jasm in watch mode, it can cache all your input files if they didn't change since the previous compile.
 
 ## Release history
 

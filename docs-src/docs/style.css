@@ -12,7 +12,10 @@ h1 {
     font-size: 3em;
 }
 p {
-    margin: 0 0 1em 0;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
 }
 .max-width {
     margin: 1em;
