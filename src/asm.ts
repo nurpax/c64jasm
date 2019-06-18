@@ -510,9 +510,24 @@ class Assembler {
                     return this.error(`Cannot access properties of an unresolved symbol'`, node.loc);
                 }
 
+                const checkProp = (prop: string|number, loc: SourceLoc) => {
+                    if (!(prop in object)) {
+                        this.error(`Property '${prop}' does not exist in object`, loc);
+                    }
+                }
+
+                // Eval non-computed access (array, object)
+                const evalProperty = (node: ast.Member, typeName: string) => {
+                    if (node.property.type !== 'ident') {
+                        return this.error(`${typeName} property must be a string, got ${typeof node.property.type}`, node.loc);
+                    }
+                    checkProp(node.property.name, node.property.loc);
+                    return (object as any)[node.property.name]
+                }
+
                 if (object instanceof Array) {
                     if (!node.computed) {
-                        return this.error(`Cannot use the dot-operator on array values`, node.loc)
+                        return evalProperty(node, 'Array');
                     }
                     const idx = this.evalExpr(node.property);
                     if (typeof idx !== 'number') {
@@ -523,23 +538,14 @@ class Assembler {
                     }
                     return object[idx];
                 }  else if (typeof object == 'object') {
-                    const checkProp = (obj: any, prop: string|number, loc: SourceLoc) => {
-                        if (!(prop in object)) {
-                            this.error(`Property '${prop}' does not exist in object`, loc);
-                        }
-                    }
                     if (!node.computed) {
-                        if (node.property.type !== 'ident') {
-                            return this.error(`Object property must be a string, got ${typeof node.property.type}`, node.loc);
-                        }
-                        checkProp(object, node.property.name, node.property.loc);
-                        return object[node.property.name];
+                        return evalProperty(node, 'Object');
                     } else {
                         let prop = this.evalExpr(node.property);
                         if (typeof prop !== 'string' && typeof prop !== 'number') {
                             return this.error(`Object property must be a string or an integer, got ${typeof prop}`, node.loc);
                         }
-                        checkProp(object, prop, node.property.loc);
+                        checkProp(prop, node.property.loc);
                         return object[prop];
                     }
                 }

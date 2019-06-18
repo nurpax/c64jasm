@@ -359,12 +359,18 @@ primary
   = num:num                        { return ast.mkLiteral(num, loc()); }
   / ident:scopeQualifiedIdentifier { return ident; }
   / string:string                  { return string; }
+  / arrayLiteral
   / LPAR e:lastExpr RPAR           { return e; }
 
 num =
    "$"i hex:$hexdig+ __     { return parseInt(hex, 16); }
  / "%" binary:$zeroone+ __  { return parseInt(binary, 2); }
  / digs:$digit+      __     { return parseInt(digs, 10); }
+
+arrayLiteral =
+  LBRK elts:exprList? RBRK {
+    return ast.mkExprArray(elts === null ? [] : elts, loc());
+  }
 
 alpha = [a-zA-Z_]
 alphanum = [a-zA-Z_0-9]
