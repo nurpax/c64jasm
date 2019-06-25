@@ -156,12 +156,12 @@ export interface StmtAlign extends Node {
 
 export interface StmtInclude extends Node {
   type: 'include';
-  filename: Literal;
+  filename: Expr;
 }
 
 export interface StmtBinary extends Node {
   type: 'binary';
-  filename: Literal;
+  filename: Expr;
   size: Expr;
   offset: Expr;
 }
@@ -267,7 +267,7 @@ export function mkAlign(alignBytes: Expr, loc: SourceLoc): StmtAlign {
   return { type: 'align', alignBytes, loc }
 }
 
-export function mkInclude(filename: Literal, loc: SourceLoc): StmtInclude {
+export function mkInclude(filename: Expr, loc: SourceLoc): StmtInclude {
   return {
     type: 'include',
     filename,
@@ -283,7 +283,7 @@ export function mkError(error: Literal, loc: SourceLoc): StmtError {
   }
 }
 
-export function mkBinary(filename: Literal, size: Expr, offset: Expr, loc: SourceLoc): StmtBinary {
+export function mkBinary(filename: Expr, size: Expr, offset: Expr, loc: SourceLoc): StmtBinary {
   return {
     type: 'binary',
     filename,

@@ -1,1 +1,2 @@
 test/errors/local_scopes3.input.asm:9:5: error: Assignment to undeclared variable 'x'
+test/errors/local_scopes3.input.asm:10:14: error: Undefined symbol 'x'

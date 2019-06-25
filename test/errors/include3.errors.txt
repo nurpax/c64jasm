@@ -1,0 +1,1 @@
+test/errors/include3.input.asm:4:10: error: Undefined symbol 'x'

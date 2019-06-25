@@ -1,0 +1,1 @@
+test/errors/include2.input.asm:3:10: error: Expecting !include filename to be 'string' type, got 'number'

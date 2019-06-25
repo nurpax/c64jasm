@@ -1,0 +1,3 @@
+test/errors/binary1.input.asm:3:9: error: Expecting !binary filename to be 'string' type, got 'number'
+test/errors/binary1.input.asm:4:20: error: Expecting !binary size to be 'number' type, got 'string'
+test/errors/binary1.input.asm:5:23: error: Expecting !binary offset to be 'number' type, got 'string'

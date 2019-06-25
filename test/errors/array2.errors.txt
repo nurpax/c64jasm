@@ -1,0 +1,4 @@
+test/errors/array2.input.asm:6:14: error: Expecting array index to be 'number' type, got 'string'
+test/errors/array2.input.asm:7:14: error: Expecting array index to be 'number' type, got 'string'
+test/errors/array2.input.asm:8:10: error: Undefined symbol 'arrx'
+test/errors/array2.input.asm:10:10: error: Undefined symbol 'xx'

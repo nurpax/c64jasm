@@ -1,0 +1,1 @@
+test/errors/types1.input.asm:3:10: error: Expecting immediate to be 'number' type, got 'string'

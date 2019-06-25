@@ -1,0 +1,2 @@
+test/errors/multi_errors1.input.asm:6:10: error: Undefined symbol 'xx'
+test/errors/multi_errors1.input.asm:7:10: error: Undefined symbol 'yy'

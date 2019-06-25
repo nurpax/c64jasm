@@ -1,0 +1,2 @@
+test/errors/align2.input.asm:5:8: error: Expecting alignment to be 'number' type, got 'string'
+test/errors/align2.input.asm:6:8: error: Alignment must be a positive integer, -1 given

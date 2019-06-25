@@ -1,0 +1,1 @@
+test/errors/fill1.input.asm:5:7: error: Expecting !fill num_bytes to be 'number' type, got 'string'

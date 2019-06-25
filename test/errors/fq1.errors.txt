@@ -1,1 +1,2 @@
 test/errors/fq1.input.asm:9:11: error: Undefined symbol 'bar'
+test/errors/fq1.input.asm:10:11: error: Undefined symbol 'baz'
