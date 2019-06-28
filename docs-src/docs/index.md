@@ -417,7 +417,7 @@ Breaking the above rules may lead to inconsistent results.  This is because c64j
 
 ## Release history
 
-c64jasm 0.4.0 (unreleased):
+c64jasm 0.4.0 (released on 2019-06-29):
 - Improved error reporting.  C64jasm will not stop at first reported error but try to report as many relevant semantic errors as possible.  This can be useful when refactoring code.
 
 c64jasm 0.3.0:
