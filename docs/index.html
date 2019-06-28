@@ -241,6 +241,9 @@ Table of contents:
 <li><a href="#overview">Overview</a></li>
 <li><a href="#installation">Installation</a></li>
 <li><a href="#getting-started">Getting started</a></li>
+<li><a href="#command-line-usage">Command line usage</a><ul>
+<li><a href="#automatic-recompilation-watch-mode">Automatic recompilation (watch mode)</a></li>
+</ul></li>
 <li><a href="#macro-assembler">Macro assembler</a><ul>
 <li><a href="#labels-and-nested-label-scopes">Labels and nested label scopes</a></li>
 <li><a href="#data-directives">Data directives</a></li>
@@ -252,6 +255,7 @@ Table of contents:
 <li><a href="#c64jasm--javascript">C64jasm <span style='color:red'>❤</span> JavaScript</a><ul>
 <li><a href="#making-extensions">Making extensions</a></li>
 <li><a href="#javascript--assembly-api">JavaScript / assembly API</a></li>
+<li><a href="#rules-of-authoring-extensions">Rules of authoring extensions</a></li>
 </ul></li>
 <li><a href="#release-history">Release history</a></li>
 </ul>
@@ -264,7 +268,7 @@ Table of contents:
 <li>extensions: extend the assembler standard library in JavaScript. See <a href="https://nurpax.github.io/posts/2018-11-08-c64jasm.html">this blog post</a> for more details.</li>
 <li>integrates with VSCode for recompilation, error diagnostics and debugging on VICE directly from the VSCode editor.</li>
 </ul>
-<p>C64jasm source code is available on <a href="https://github.com/nurpax/c64jasm">GitHub</a>.</p>
+<p>C64jasm is free and open source -- its source code can be found here: <a href="https://github.com/nurpax/c64jasm">c64jasm on GitHub</a>.</p>
 <h2 id="installation">Installation</h2>
 <p>In order to use the c64jasm assembler, you need to install the following:</p>
 <ul>
@@ -281,7 +285,7 @@ Table of contents:
 <p><strong>VSCode extension</strong>: Search for <code>c64jasm</code> in the VSCode marketplace and install.</p>
 <p><strong>VICE</strong>: See the <a href="http://vice-emu.sourceforge.net/">VICE website</a> for download and installation instructions. Once you have it installed, make sure the VICE emulator binary <code>x64</code> is in your <code>PATH</code>.</p>
 <h2 id="getting-started">Getting started</h2>
-<p>Assuming you successfully installed the C64jasm command line compiler, you should be able to compile and run some code. Let's build an example project from the c64jasm project.</p>
+<p>Assuming you successfully installed the C64jasm command line compiler, you should be able to compile and run some code. Let's build the <code>sprites</code> sample from under <a href="https://github.com/nurpax/c64jasm/tree/master/examples/sprites/">examples/sprites/</a>:</p>
 <pre><code>git clone https://github.com/nurpax/c64jasm
 cd c64jasm/examples/sprites
 c64jasm --out sprites.prg sprites.asm
@@ -291,6 +295,17 @@ x64 sprites.prg</code></pre>
     <img src="img/sprites.gif" />
 </div>
 <p>If you installed the necessary VSCode parts of VSCode, you should be able to load this example project in VSCode and build it with <code>Ctrl+Shift+P</code> + <code>Tasks: Run Build Task</code>. Build errors will be reported under the Problems tab and you should be able to hit <code>F5</code> to start your program in VICE.</p>
+<h2 id="command-line-usage">Command line usage</h2>
+<p>Run <code>c64jasm --help</code> for all c64jasm command line options.</p>
+<p>Basic usage:</p>
+<pre><code>c64jasm --out output.prg source.asm</code></pre>
+<p>where <code>output.prg</code> is the desired output <code>.prg</code> filename and <code>source.asm</code> is the assembly source you want to compile.</p>
+<h3 id="automatic-recompilation-watch-mode">Automatic recompilation (watch mode)</h3>
+<p>Like many modern compiler tools, c64jasm supports "watch mode". Watch mode automatically recompiles your source code when any of the input source files change. To use watch mode, invoke c64jasm with the <code>--watch &lt;DIR&gt;</code> argument as follows:</p>
+<pre><code>c64jasm --out output.prg --watch src src/source.asm</code></pre>
+<p>C64jasm will watch the directory specified with <code>--watch &lt;DIR&gt;</code> (and its subdirectories) for any changes and recompile when anything changed. Changes to all types of input files (.asm files, plugin .js files, files loaded by .js extensions, <code>!include/binary</code>'d files, etc.) are considered as rebuild triggers.</p>
+<p>A good project structure that makes it easy to work with watch mode is to place all your source files and assets under a single root directory, say <code>src</code>. This makes it easy to specify the watched directory with a single <code>--watch src</code> argument.</p>
+<p>Watch mode works well with VSCode. The <code>.vscode</code> configs for <a href="https://github.com/nurpax/c64jasm/tree/master/examples/">examples/</a> are setup to use watched compiles.</p>
 <h2 id="macro-assembler">Macro assembler</h2>
 <p>C64jasm has fairly extensive symbolic macro assembly support. This includes macros, compile-time variables, for-loops, if/else, and source and binary file inclusion.</p>
 <p>Assembler pseudo directives start with a bang <code>!</code>. Examples: <code>!let</code>, <code>!if</code>, <code>!include</code>.</p>
@@ -377,7 +392,7 @@ x64 sprites.prg</code></pre>
 </pre>
 </p>
 <h3 id="variables">Variables</h3>
-<p>You can declare a variable with <code>!let</code>. You can use standard C operators like <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>&lt;&lt;</code>, <code>&gt;&gt;</code> with them.</p>
+<p>You can declare a variable with <code>!let</code>. You can use standard C operators like <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>&lt;&lt;</code>, <code>&gt;&gt;</code>, <code>&amp;</code>, <code>|</code>, <code>~</code> with them.</p>
 <p><pre class='asm-block'>
 <span class='asm-pseudo'>!let</span> <span class='asm-ident'>num_sprites</span> <span class='asm-other'>=</span> <span class='asm-num'>4</span>
 
@@ -402,7 +417,7 @@ x64 sprites.prg</code></pre>
 </pre>
 </p>
 <h3 id="for-loops">For-loops</h3>
-<p>To repeat a particular set of instructions or data statements, use <code>!for</code>.</p>
+<p>Use <code>!for</code> to repeat a particular set of instructions or data statements.</p>
 <p>Repeating code generation. For-loops are typically written using the built-in <code>range()</code> function that returns an array of integers. This works similar to Python's <code>range</code> built-in.</p>
 <p><pre class='asm-block'>
 <span class='asm-pseudo'>!let</span> <span class='asm-ident'>xyptr</span> <span class='asm-other'>=</span> <span class='asm-num'>$40</span>   <span class='asm-comment'>; alias zero-page $40 to xyptr</span>
@@ -437,6 +452,33 @@ x64 sprites.prg</code></pre>
 <span class='asm-other'>}</span>
 
 <span class='asm-other'>+</span><span class='asm-ident'>mov8imm</span><span class='asm-other'>(</span><span class='asm-num'>$40</span><span class='asm-other'>,</span> <span class='asm-num'>13</span><span class='asm-other'>)</span>  <span class='asm-comment'>; writes 13 to zero page $40</span>
+</pre>
+</p>
+<p>Any labels or variables defined inside a macro definition will be local to that macro. For example, the below code is fine -- the <code>loop</code> label will not conflict:</p>
+<p><pre class='asm-block'>
+<span class='asm-comment'>; clear 16 bytes starting at 'addr'</span>
+<span class='asm-pseudo'>!macro</span> <span class='asm-ident'>memset16</span><span class='asm-other'>(</span><span class='asm-ident'>addr</span><span class='asm-other'>)</span> <span class='asm-other'>{</span>
+    <span class='asm-mnemonic'>ldx</span> <span class='asm-other'>#</span><span class='asm-num'>15</span>
+<span class='asm-label'>loop:</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-ident'>addr</span><span class='asm-other'>,</span> <span class='asm-ident'>x</span>
+    <span class='asm-mnemonic'>dex</span>
+    <span class='asm-mnemonic'>bpl</span> <span class='asm-ident'>loop</span>
+<span class='asm-other'>}</span>
+
+<span class='asm-other'>+</span><span class='asm-ident'>memset16</span><span class='asm-other'>(</span><span class='asm-ident'>buffer0</span><span class='asm-other'>)</span>
+<span class='asm-other'>+</span><span class='asm-ident'>memset16</span><span class='asm-other'>(</span><span class='asm-ident'>buffer0</span><span class='asm-other'>)</span> <span class='asm-comment'>; this is ok, loop will not conflict</span>
+</pre>
+</p>
+<p>However, sometimes you <em>do</em> want the macro expanded labels to be visible to the outside scope. You can make them visible by giving the (normally anonymous) macro expansion scope a name by declaring a label on the same line as your macro expand:</p>
+<p><pre class='asm-block'>
+<span class='asm-comment'>; A = lo byte of memory address</span>
+<span class='asm-comment'>; B = hi byte of memory address</span>
+<span class='asm-label'>clear_memory:</span> <span class='asm-other'>{</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-ident'>memset</span><span class='asm-other'>::</span><span class='asm-ident'>loop</span><span class='asm-other'>+</span><span class='asm-num'>1</span>
+    <span class='asm-mnemonic'>stx</span> <span class='asm-ident'>memset</span><span class='asm-other'>::</span><span class='asm-ident'>loop</span><span class='asm-other'>+</span><span class='asm-num'>2</span>
+<span class='asm-label'>memset:</span> <span class='asm-other'>+</span><span class='asm-ident'>memset16</span><span class='asm-other'>(</span><span class='asm-num'>$1234</span><span class='asm-other'>)</span>  <span class='asm-comment'>; macro labels are under memset</span>
+    <span class='asm-mnemonic'>rts</span>
+<span class='asm-other'>}</span>
 </pre>
 </p>
 <h2 id="c64jasm--javascript">C64jasm <span style='color:red'>❤</span> JavaScript</h2>
@@ -519,7 +561,17 @@ module.exports = loadJson;</code></pre>
 <h4 id="why-do-i-need-contextreadfilesync">Why do I need context.readFileSync?</h4>
 <p>You might be asking: why do I need <code>context.readFileSync</code> when I could just as well import Node's <code>readFileSync</code> and use that.</p>
 <p>Using the c64jasm provided I/O functions is necessary as it allows for c64jasm to know about your input files. For example, if you're running c64jasm in watch mode, it can cache all your input files if they didn't change since the previous compile.</p>
+<h3 id="rules-of-authoring-extensions">Rules of authoring extensions</h3>
+<ul>
+<li>Use <code>context.readFileSync</code> for loading files.</li>
+<li>An extension must always return the same value when called with the same input arguments. This is also called <em>idempotence</em> or <em>referential transparency</em>. So basically, extensions shouldn't have side-effects. They shouldn't use internal global state or use JavaScript functions that hold state, such as <code>Math.random</code>.</li>
+</ul>
+<p>Breaking the above rules may lead to inconsistent results. This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode.</p>
 <h2 id="release-history">Release history</h2>
+<p>c64jasm 0.4.0 (unreleased):</p>
+<ul>
+<li>Improved error reporting. C64jasm will not stop at first reported error but try to report as many relevant semantic errors as possible. This can be useful when refactoring code.</li>
+</ul>
 <p>c64jasm 0.3.0:</p>
 <ul>
 <li>Improved scoping support, relative name references. Various bug fixes.</li>

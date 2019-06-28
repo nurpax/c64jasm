@@ -12,7 +12,7 @@ C64jasm is a symbolic assembler for the Commodore 64 that supports:
 - extensions: extend the assembler standard library in JavaScript.  See [this blog post](https://nurpax.github.io/posts/2018-11-08-c64jasm.html) for more details.
 - integrates with VSCode for recompilation, error diagnostics and debugging on VICE directly from the VSCode editor.
 
-C64jasm source code is available on [GitHub](https://github.com/nurpax/c64jasm).
+C64jasm is free and open source -- its source code can be found here: [c64jasm on GitHub](https://github.com/nurpax/c64jasm).
 
 ## Installation
 
@@ -36,7 +36,7 @@ Upon successful installation, running `c64jasm --help` in your shell should work
 
 ## Getting started
 
-Assuming you successfully installed the C64jasm command line compiler, you should be able to compile and run some code.  Let's build an example project from the c64jasm project.
+Assuming you successfully installed the C64jasm command line compiler, you should be able to compile and run some code.  Let's build the `sprites` sample from under [examples/sprites/](https://github.com/nurpax/c64jasm/tree/master/examples/sprites/):
 
 ```
 git clone https://github.com/nurpax/c64jasm
@@ -52,6 +52,32 @@ You should see something like this in your VICE window:
 </div>
 
 If you installed the necessary VSCode parts of VSCode, you should be able to load this example project in VSCode and build it with `Ctrl+Shift+P` + `Tasks: Run Build Task`.  Build errors will be reported under the Problems tab and you should be able to hit `F5` to start your program in VICE.
+
+## Command line usage
+
+Run `c64jasm --help` for all c64jasm command line options.
+
+Basic usage:
+
+```
+c64jasm --out output.prg source.asm
+```
+
+where `output.prg` is the desired output `.prg` filename and `source.asm` is the assembly source you want to compile.
+
+### Automatic recompilation (watch mode)
+
+Like many modern compiler tools, c64jasm supports "watch mode".  Watch mode automatically recompiles your source code when any of the input source files change.  To use watch mode, invoke c64jasm with the `--watch <DIR>` argument as follows:
+
+```
+c64jasm --out output.prg --watch src src/source.asm
+```
+
+C64jasm will watch the directory specified with `--watch <DIR>` (and its subdirectories) for any changes and recompile when anything changed.  Changes to all types of input files (.asm files, plugin .js files, files loaded by .js extensions, `!include/binary`'d files, etc.) are considered as rebuild triggers.
+
+A good project structure that makes it easy to work with watch mode is to place all your source files and assets under a single root directory, say `src`.  This makes it easy to specify the watched directory with a single `--watch src` argument.
+
+Watch mode works well with VSCode.  The `.vscode` configs for [examples/](https://github.com/nurpax/c64jasm/tree/master/examples/) are setup to use watched compiles.
 
 ## Macro assembler
 
@@ -151,7 +177,7 @@ Including binary data:
 
 ### Variables
 
-You can declare a variable with `!let`.  You can use standard C operators like `+`, `-`, `*`, `/`, `<<`, `>>` with them.
+You can declare a variable with `!let`.  You can use standard C operators like `+`, `-`, `*`, `/`, `<<`, `>>`, `&`, `|`, `~` with them.
 
 ```c64
 !let num_sprites = 4
@@ -181,7 +207,7 @@ Conditional assembly is supported by `!if/elif/else`.
 
 ### For-loops
 
-To repeat a particular set of instructions or data statements, use `!for`.
+Use `!for` to repeat a particular set of instructions or data statements.
 
 Repeating code generation.  For-loops are typically written using the built-in `range()` function that returns an array of integers.  This works similar to Python's `range` built-in.
 
@@ -222,6 +248,35 @@ Macros are declared using the `!macro` keyword and expanded by `+macroname()`.
 }
 
 +mov8imm($40, 13)  ; writes 13 to zero page $40
+```
+
+Any labels or variables defined inside a macro definition will be local to that macro.  For example, the below code is fine -- the `loop` label will not conflict:
+
+```c64
+; clear 16 bytes starting at 'addr'
+!macro memset16(addr) {
+    ldx #15
+loop:
+    sta addr, x
+    dex
+    bpl loop
+}
+
++memset16(buffer0)
++memset16(buffer0) ; this is ok, loop will not conflict
+```
+
+However, sometimes you _do_ want the macro expanded labels to be visible to the outside scope.  You can make them visible by giving the (normally anonymous) macro expansion scope a name by declaring a label on the same line as your macro expand:
+
+```c64
+; A = lo byte of memory address
+; B = hi byte of memory address
+clear_memory: {
+    sta memset::loop+1
+    stx memset::loop+2
+memset: +memset16($1234)  ; macro labels are under memset
+    rts
+}
 ```
 
 ## C64jasm <span style='color:red'>❤</span> JavaScript
@@ -353,7 +408,17 @@ You might be asking: why do I need `context.readFileSync` when I could just as w
 
 Using the c64jasm provided I/O functions is necessary as it allows for c64jasm to know about your input files.  For example, if you're running c64jasm in watch mode, it can cache all your input files if they didn't change since the previous compile.
 
+### Rules of authoring extensions
+
+- Use `context.readFileSync` for loading files.
+- An extension must always return the same value when called with the same input arguments.  This is also called _idempotence_ or _referential transparency_.  So basically, extensions shouldn't have side-effects. They shouldn't use internal global state or use JavaScript functions that hold state, such as `Math.random`.
+
+Breaking the above rules may lead to inconsistent results.  This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode.
+
 ## Release history
+
+c64jasm 0.4.0 (unreleased):
+- Improved error reporting.  C64jasm will not stop at first reported error but try to report as many relevant semantic errors as possible.  This can be useful when refactoring code.
 
 c64jasm 0.3.0:
 - Improved scoping support, relative name references.  Various bug fixes.

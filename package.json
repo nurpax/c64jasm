@@ -13,7 +13,7 @@
     "src/**/*",
     "test/**/*"
   ],
-  "homepage": "https://github.com/nurpax/c64jasm#README.md",
+  "homepage": "https://nurpax.github.io/c64jasm/",
   "author": {
     "email": "jjhellst@gmail.com",
     "name": "Janne Hellsten"
