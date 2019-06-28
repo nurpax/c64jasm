@@ -1,0 +1,3 @@
+test/errors/types_expr_types1.input.asm:3:10: error: Binary expression operands are expected to be of the same type.  Got: 'string' (left), 'number' (right)
+test/errors/types_expr_types1.input.asm:4:10: error: Binary expression operands are expected to be of the same type.  Got: 'number' (left), 'string' (right)
+test/errors/types_expr_types1.input.asm:6:10: error: '/' operator is not supported for strings.  Valid operators for strings are: +, ==, <, <=, >, >=

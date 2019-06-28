@@ -508,6 +508,21 @@ class Assembler {
             case 'binary': {
                 const left = this.evalExpr(node.left);
                 const right = this.evalExpr(node.right);
+                if (anyErrors(left, right)) {
+                    return mkErrorValue(0);
+                }
+                if (typeof left.value !== typeof right.value) {
+                    this.addError(`Binary expression operands are expected to be of the same type.  Got: '${typeof left.value}' (left), '${typeof right.value}' (right)`, node.loc);
+                    return mkErrorValue(0);
+                }
+                // Allow only a subset of operators for strings
+                if (typeof left.value == 'string') {
+                    const okOps = ['+', '==', '<', '<=', '>', '>='];
+                    if (okOps.indexOf(node.op) < 0) {
+                        this.addError(`'${node.op}' operator is not supported for strings.  Valid operators for strings are: ${okOps.join(', ')}`, node.loc);
+                        return mkErrorValue(0);
+                    }
+                }
                 switch (node.op) {
                     case '+': return  runBinopNum(left, right, (a,b) => a + b)
                     case '-': return  runBinopNum(left, right, (a,b) => a - b)
