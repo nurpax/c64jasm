@@ -144,19 +144,15 @@ class Scopes {
         this.passCount = pass;
     }
 
-    pushAnonScope(): void {
-        this.pushLabelScope(`__anon_scope_${this.anonScopeCount}`);
+    withAnonScope(body: () => void) {
+        const anonLabel = `__anon_scope_${this.anonScopeCount}`;
         this.anonScopeCount++;
-    }
-    popAnonScope(): void {
-        this.popLabelScope();
+        this.withLabelScope(anonLabel, body);
     }
 
-    pushLabelScope(name: string): void {
+    withLabelScope(name: string, body: () => void) {
         this.curSymtab = this.curSymtab.enter(name);
-    }
-
-    popLabelScope(): void {
+        body();
         this.curSymtab = this.curSymtab.leave();
     }
 
@@ -226,19 +222,12 @@ class Scopes {
         }, this.passCount)
     }
 
-    updateVar(path: string[], absolute: boolean, val:any) {
-        if (path.length !== 1 || absolute) {
-            throw new Error('should not happen TBD');
-        }
-        const prevVar = this.curSymtab.findSymbol(path[0]);
-        if (prevVar == undefined || prevVar.type !== 'var') {
-            throw new Error('should not happen');
-        }
+    updateVar(symbolName: string, val: EvalValue<any>) {
         const newVar: SymVar = {
             type: 'var',
             data: val
         };
-        this.curSymtab.updateSymbol(path[0], newVar, this.passCount);
+        this.curSymtab.updateSymbol(symbolName, newVar, this.passCount);
     }
 
     findMacro(path: string[], absolute: boolean): ast.StmtMacro | undefined {
@@ -307,6 +296,18 @@ function makeCompileLoc(filename: string) {
     };
 }
 
+// Format "typeof foo" for error messages.  Want 'object' type
+// to return 'array' if it's an Array instance.
+function formatTypename(v: any): string {
+    const typeName = typeof v;
+    if (typeName === 'object') {
+        if (v instanceof Array) {
+            return 'array';
+        }
+    }
+    return typeName;
+}
+
 function formatSymbolPath(p: ast.ScopeQualifiedIdent): string {
     return `${p.absolute ? '::' : ''}${p.path.join('::')}`;
 }
@@ -316,10 +317,7 @@ interface BranchOffset {
     loc: SourceLoc;
 }
 
-const runBinopNum = (a: EvalValue<number>, b: EvalValue<number>, f: (a: number, b: number) => number | boolean): EvalValue<number> => {
-    if (anyErrors(a, b)) {
-        return mkErrorValue(0);
-    }
+const runBinop = (a: EvalValue<number>, b: EvalValue<number>, f: (a: number, b: number) => number | boolean): EvalValue<number> => {
     const res = f(a.value as number, b.value as number);
     if (typeof res == 'boolean') {
         return mkEvalValue(res ? 1 : 0);
@@ -486,7 +484,7 @@ class Assembler {
         const res = this.evalExpr(node);
         const { errors, value } = res;
         if (!errors && typeof value !== ty) {
-            this.addError(`Expecting ${msg} to be '${ty}' type, got '${typeof value}'`, node.loc);
+            this.addError(`Expecting ${msg} to be '${ty}' type, got '${formatTypename(value)}'`, node.loc);
             return {
                 errors: true, value
             }
@@ -512,7 +510,11 @@ class Assembler {
                     return mkErrorValue(0);
                 }
                 if (typeof left.value !== typeof right.value) {
-                    this.addError(`Binary expression operands are expected to be of the same type.  Got: '${typeof left.value}' (left), '${typeof right.value}' (right)`, node.loc);
+                    this.addError(`Binary expression operands are expected to be of the same type.  Got: '${formatTypename(left.value)}' (left), '${formatTypename(right.value)}' (right)`, node.loc);
+                    return mkErrorValue(0);
+                }
+                if (typeof left.value !== 'string' && typeof left.value !== 'number') {
+                    this.addError(`Binary expression operands can only operator on numbers or strings.  Got: '${formatTypename(left.value)}'`, node.loc);
                     return mkErrorValue(0);
                 }
                 // Allow only a subset of operators for strings
@@ -524,24 +526,24 @@ class Assembler {
                     }
                 }
                 switch (node.op) {
-                    case '+': return  runBinopNum(left, right, (a,b) => a + b)
-                    case '-': return  runBinopNum(left, right, (a,b) => a - b)
-                    case '*': return  runBinopNum(left, right, (a,b) => a * b)
-                    case '/': return  runBinopNum(left, right, (a,b) => a / b)
-                    case '%': return  runBinopNum(left, right, (a,b) => a % b)
-                    case '&': return  runBinopNum(left, right, (a,b) => a & b)
-                    case '|': return  runBinopNum(left, right, (a,b) => a | b)
-                    case '^': return  runBinopNum(left, right, (a,b) => a ^ b)
-                    case '<<': return runBinopNum(left, right, (a,b) => a << b)
-                    case '>>': return runBinopNum(left, right, (a,b) => a >> b)
-                    case '==': return runBinopNum(left, right, (a,b) => a == b)
-                    case '!=': return runBinopNum(left, right, (a,b) => a != b)
-                    case '<':  return runBinopNum(left, right, (a,b) => a <  b)
-                    case '<=': return runBinopNum(left, right, (a,b) => a <= b)
-                    case '>':  return runBinopNum(left, right, (a,b) => a >  b)
-                    case '>=': return runBinopNum(left, right, (a,b) => a >= b)
-                    case '&&': return runBinopNum(left, right, (a,b) => a && b)
-                    case '||': return runBinopNum(left, right, (a,b) => a || b)
+                    case '+': return  runBinop(left, right, (a,b) => a + b)
+                    case '-': return  runBinop(left, right, (a,b) => a - b)
+                    case '*': return  runBinop(left, right, (a,b) => a * b)
+                    case '/': return  runBinop(left, right, (a,b) => a / b)
+                    case '%': return  runBinop(left, right, (a,b) => a % b)
+                    case '&': return  runBinop(left, right, (a,b) => a & b)
+                    case '|': return  runBinop(left, right, (a,b) => a | b)
+                    case '^': return  runBinop(left, right, (a,b) => a ^ b)
+                    case '<<': return runBinop(left, right, (a,b) => a << b)
+                    case '>>': return runBinop(left, right, (a,b) => a >> b)
+                    case '==': return runBinop(left, right, (a,b) => a == b)
+                    case '!=': return runBinop(left, right, (a,b) => a != b)
+                    case '<':  return runBinop(left, right, (a,b) => a <  b)
+                    case '<=': return runBinop(left, right, (a,b) => a <= b)
+                    case '>':  return runBinop(left, right, (a,b) => a >  b)
+                    case '>=': return runBinop(left, right, (a,b) => a >= b)
+                    case '&&': return runBinop(left, right, (a,b) => a && b)
+                    case '||': return runBinop(left, right, (a,b) => a || b)
                     default:
                         throw new Error(`Unhandled binary operator ${node.op}`);
                 }
@@ -624,7 +626,7 @@ class Assembler {
                 // Eval non-computed access (array, object)
                 const evalProperty = (node: ast.Member, typeName: string) => {
                     if (node.property.type !== 'ident') {
-                        this.addError(`${typeName} property must be a string, got ${typeof node.property.type}`, node.loc);
+                        this.addError(`${typeName} property must be a string, got ${formatTypename(node.property.type)}`, node.loc);
                     } else {
                         if (checkProp(node.property.name, node.property.loc)) {
                             return mkEvalValue((object as any)[node.property.name])
@@ -655,7 +657,7 @@ class Assembler {
                             return mkErrorValue(0);
                         }
                         if (typeof prop !== 'string' && typeof prop !== 'number') {
-                            this.addError(`Object property must be a string or an integer, got ${typeof prop}`, node.loc);
+                            this.addError(`Object property must be a string or an integer, got ${formatTypename(prop)}`, node.loc);
                             return mkErrorValue(0);
                         }
                         if (checkProp(prop, node.property.loc)) {
@@ -687,7 +689,7 @@ class Assembler {
                     return mkErrorValue(0); // suppress further errors if the callee is bonkers
                 }
                 if (typeof callee.value !== 'function') {
-                    this.addError(`Callee must be a function type.  Got '${typeof callee}'`, node.loc);
+                    this.addError(`Callee must be a function type.  Got '${formatTypename(callee)}'`, node.loc);
                     return mkErrorValue(0);
                 }
                 if (anyErrors(...argValues)) {
@@ -775,7 +777,7 @@ class Assembler {
             return true;
         }
         if (typeof ev.value !== 'number') {
-            this.addError(`Expecting branch label to evaluate to integer, got ${typeof ev.value}`, param.loc)
+            this.addError(`Expecting branch label to evaluate to integer, got ${formatTypename(ev.value)}`, param.loc)
             return true;
         }
         const { value: addr } = ev;
@@ -871,16 +873,12 @@ class Assembler {
         if (name !== null) {
             return this.withLabelScope(name, compileScope);
         }
-        this.scopes.pushAnonScope();
-        compileScope();
-        this.scopes.popAnonScope();
+        this.scopes.withAnonScope(compileScope);
     }
 
     // Enter named scope
     withLabelScope (name: string, compileScope: () => void): void {
-        this.scopes.pushLabelScope(name);
-        compileScope();
-        this.scopes.popLabelScope();
+        this.scopes.withLabelScope(name, compileScope);
     }
 
     emit8or16(v: number, bits: number) {
@@ -906,7 +904,7 @@ class Assembler {
                     this.emit8or16(e[bi], bits);
                 }
             } else {
-                this.addError(`Only literal (int constants) or array types can be emitted.  Got ${typeof e}`, exprList[i].loc);
+                this.addError(`Only literal (int constants) or array types can be emitted.  Got ${formatTypename(e)}`, exprList[i].loc);
             }
         }
     }
@@ -1069,6 +1067,10 @@ class Assembler {
             }
             case 'assign': {
                 const name = node.name;
+                if (node.name.path.length !== 1 || node.name.absolute) {
+                    this.addError(`Only symbol names in the current (or owning) scopes are allowed for assignment`, node.loc);
+                    return;
+                }
                 const prevValue = this.scopes.findQualifiedSym(node.name.path, node.name.absolute);
                 if (prevValue == undefined) {
                     this.addError(`Assignment to undeclared variable '${formatSymbolPath(name)}'`, node.loc);
@@ -1079,7 +1081,7 @@ class Assembler {
                     return;
                 }
                 const evalValue = this.evalExpr(node.value);
-                this.scopes.updateVar(name.path, name.absolute, evalValue);
+                this.scopes.updateVar(name.path[0], evalValue);
                 break;
             }
             case 'load-plugin': {
@@ -1148,7 +1150,7 @@ class Assembler {
 
     checkAndDeclareLabel(label: ast.Label) {
         if (this.scopes.symbolSeen(label.name)) {
-            this.addError(`Label '${label.name}' already defined`, label.loc);
+            this.addError(`Symbol '${label.name}' already defined`, label.loc);
         } else {
             const labelChanged = this.scopes.declareLabelSymbol(label, this.codePC);
             if (labelChanged) {
@@ -1271,7 +1273,7 @@ class Assembler {
         if (typeof e == type) {
             return e;
         }
-        this.addError(`Expecting a ${type} value, got ${typeof e}`, e.loc);
+        this.addError(`Expecting a ${type} value, got ${formatTypename(e)}`, e.loc);
     }
 
     requireString(e: any): (string | never) { return this._requireType(e, 'string') as string; }

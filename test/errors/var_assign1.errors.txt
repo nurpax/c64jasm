@@ -1,0 +1,2 @@
+test/errors/var_assign1.input.asm:8:1: error: Only symbol names in the current (or owning) scopes are allowed for assignment
+test/errors/var_assign1.input.asm:9:1: error: Only symbol names in the current (or owning) scopes are allowed for assignment

@@ -1,0 +1,1 @@
+test/errors/types3.input.asm:5:10: error: Binary expression operands can only operator on numbers or strings.  Got: 'array'

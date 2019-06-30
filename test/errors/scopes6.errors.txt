@@ -1,0 +1,1 @@
+test/errors/scopes6.input.asm:4:1: error: Symbol 'foo' already defined
