@@ -1,4 +1,3 @@
 
-import { assemble } from './asm';
-
-export { assemble };
+export { assemble, assembleWithOptions } from './asm'
+export { disassemble } from './disasm'

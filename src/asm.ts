@@ -3,12 +3,18 @@ import opcodes from './opcodes'
 import * as path from 'path'
 const importFresh = require('import-fresh');
 
-import { readFileSync } from 'fs'
+import * as fs from 'fs'
 import { toHex16 } from './util'
 import * as ast from './ast'
 import { SourceLoc } from './ast'
 import ParseCache from './parseCache'
 import { DebugInfoTracker } from './debugInfo';
+
+type ReadFileFunc = ((filename: string, encoding: string) => string) | ((filename: string, options?: null) => Buffer);
+
+interface AssemblerOptions {
+    readFileSync: ReadFileFunc;
+}
 
 interface Error {
     loc: SourceLoc,
@@ -353,6 +359,18 @@ class Assembler {
 
     // PC<->source location tracking for debugging support.  Reset on each pass
     debugInfo = new DebugInfoTracker();
+
+    readFileSyncFunc: any;
+
+    constructor (options: AssemblerOptions) {
+        this.readFileSyncFunc = options.readFileSync;
+    }
+
+    private readFileSync(filename: string, options: string): string;
+    private readFileSync(filename: string, options?: {} | null): Buffer;
+    private readFileSync(filename: string, options?: string | null): string | Buffer {
+        return this.readFileSyncFunc(filename, options);
+    }
 
     prg (): Buffer {
       // 1,8 is for encoding the $0801 starting address in the .prg file
@@ -808,7 +826,7 @@ class Assembler {
 
     guardedReadFileSync(fname: string, loc: SourceLoc): Buffer {
         try {
-            return readFileSync(fname);
+            return this.readFileSync(fname);
         } catch (err) {
             this.addError(`Couldn't open file '${fname}'`, loc);
             return Buffer.from([]);
@@ -912,7 +930,7 @@ class Assembler {
     makeFunction (pluginFunc: Function, loc: SourceLoc) {
         return (args: any[]) => {
             const res = pluginFunc({
-                readFileSync,
+                readFileSync: (fname: string) => this.readFileSync(fname),
                 resolveRelative: (fn: string) => this.makeSourceRelativePath(fn)
             }, ...args);
             return res;
@@ -1283,7 +1301,7 @@ class Assembler {
         const json = (args: any[]) => {
             const name = this.requireString(args[0]);
             const fname = this.makeSourceRelativePath(name);
-            return JSON.parse(readFileSync(fname, 'utf-8'));
+            return JSON.parse(this.readFileSync(fname, 'utf-8'));
         }
         const range = (args: any[]) => {
             let start = 0;
@@ -1316,8 +1334,8 @@ class Assembler {
     }
 }
 
-export function assemble(filename: string) {
-    const asm = new Assembler();
+export function assembleWithOptions(filename: string, options: AssemblerOptions) {
+    const asm = new Assembler(options);
     asm.pushSource(filename);
 
     let pass = 0;
@@ -1359,4 +1377,11 @@ export function assemble(filename: string) {
         labels: asm.dumpLabels(),
         debugInfo: asm.debugInfo
     }
+}
+
+export function assemble(filename: string) {
+    const defaultOptions: AssemblerOptions = {
+        readFileSync: fs.readFileSync as any
+    }
+    return assembleWithOptions(filename, defaultOptions);
 }
