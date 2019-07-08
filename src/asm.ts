@@ -418,7 +418,7 @@ class Assembler {
         // Remove duplicate errors
         const set = new Set(this.errorList.map(v => JSON.stringify(v)));
         return [...set].map((errJson) => {
-            const { loc, msg } = JSON.parse(errJson);
+            const { loc, msg } = JSON.parse(errJson) as Error;
             let formatted = `<unknown>:1:1: error: ${msg}`
             if (loc) {
                 formatted = `${loc.source}:${loc.start.line}:${loc.start.column}: error: ${msg}`
@@ -1334,7 +1334,11 @@ class Assembler {
     }
 }
 
-export function assembleWithOptions(filename: string, options: AssemblerOptions) {
+const defaultOptions: AssemblerOptions = {
+    readFileSync: fs.readFileSync as any
+};
+
+export function assemble(filename: string, options: AssemblerOptions = defaultOptions) {
     const asm = new Assembler(options);
     asm.pushSource(filename);
 
@@ -1377,11 +1381,4 @@ export function assembleWithOptions(filename: string, options: AssemblerOptions)
         labels: asm.dumpLabels(),
         debugInfo: asm.debugInfo
     }
-}
-
-export function assemble(filename: string) {
-    const defaultOptions: AssemblerOptions = {
-        readFileSync: fs.readFileSync as any
-    }
-    return assembleWithOptions(filename, defaultOptions);
 }
