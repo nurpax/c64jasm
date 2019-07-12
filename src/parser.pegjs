@@ -79,12 +79,12 @@
 }
 
 statements =
-    head:insnLineWithComment tail:("\n" __ insnLineWithComment)* {
-      return buildList(head, tail, 2);
+    head:insnLineWithComment tail:("\n" insnLineWithComment)* {
+      return buildList(head, tail, 1);
     }
 
 insnLineWithComment =
-  insn:insnLine (';' (!'\n' .)*)? {
+  __ insn:insnLine (';' (!'\n' .)*)? {
     return insn
   }
 
