@@ -363,7 +363,7 @@ primary
   / LPAR e:lastExpr RPAR           { return e; }
 
 num =
-   "$"i hex:$hexdig+ __     { return parseInt(hex, 16); }
+   "$" hex:$hexdig+ __      { return parseInt(hex, 16); }
  / "%" binary:$zeroone+ __  { return parseInt(binary, 2); }
  / digs:$digit+      __     { return parseInt(digs, 10); }
 
@@ -377,7 +377,7 @@ alphanum = [a-zA-Z_0-9]
 
 digit   = [0-9]
 zeroone = [0-1]
-hexdig  = [0-9a-f]
+hexdig  = [0-9a-f]i
 
 ws "whitespace" = [ \t\r]*
 __ = ws
