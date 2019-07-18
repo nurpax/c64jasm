@@ -12,6 +12,8 @@ C64jasm is a symbolic assembler for the Commodore 64 that supports:
 - extensions: extend the assembler standard library in JavaScript.  See [this blog post](https://nurpax.github.io/posts/2018-11-08-c64jasm.html) for more details.
 - integrates with VSCode for recompilation, error diagnostics and debugging on VICE directly from the VSCode editor.
 
+C64jasm also runs in the browser, you can try this [interactive assembler demo](https://nurpax.github.io/c64jasm-browser/) to play with it.
+
 C64jasm is free and open source -- its source code can be found here: [c64jasm on GitHub](https://github.com/nurpax/c64jasm).
 
 ## Installation
