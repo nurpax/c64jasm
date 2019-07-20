@@ -12,14 +12,29 @@ import { DebugInfoTracker } from './debugInfo';
 
 type ReadFileFunc = ((filename: string, encoding: string) => string) | ((filename: string, options?: null) => Buffer);
 
-interface AssemblerOptions {
+export interface PlatformOptions {
+  name: string;
+  defaultStartPC: number;
+};
+
+export const platformC64 = {
+  name: 'c64',
+  defaultStartPC: 0x801
+};
+
+export interface AssemblerOptions {
     readFileSync: ReadFileFunc;
+    platformOptions?: PlatformOptions;
 }
 
 interface Error {
     loc: SourceLoc,
     msg: string
 }
+
+export interface Diagnostic extends Error {
+    formatted: string;
+};
 
 interface LabelAddr {
     addr: number,
@@ -344,26 +359,32 @@ const runUnaryOp = (a: EvalValue<number>, f: (a: number) => number | boolean): E
 
 class Assembler {
     // TODO this should be a resizable array instead
-    binary: number[] = [];
+    private binary: number[] = [];
 
-    parseCache = new ParseCache();
-    pluginCache = new Map();
+    private parseCache = new ParseCache();
+    private pluginCache = new Map();
 
-    includeStack: string[] = [];
-    codePC = 0;
-    pass = 0;
+    private includeStack: string[] = [];
+
+    private initialPC = 0;
+    private codePC = 0;
+    private codePCSet = false;
+    private pass = 0;
     needPass = false;
-    scopes = new Scopes();
-    errorList: Error[] = [];
+    private scopes = new Scopes();
+    private errorList: Error[] = [];
+    private warningList: Error[] = [];
     outOfRangeBranches: BranchOffset[] = [];
 
     // PC<->source location tracking for debugging support.  Reset on each pass
     debugInfo = new DebugInfoTracker();
 
-    readFileSyncFunc: any;
+    private platform: PlatformOptions;
+    private readFileSyncFunc: any;
 
     constructor (options: AssemblerOptions) {
         this.readFileSyncFunc = options.readFileSync;
+        this.platform = options.platformOptions || platformC64;
     }
 
     private readFileSync(filename: string, options: string): string;
@@ -374,7 +395,9 @@ class Assembler {
 
     prg (): Buffer {
       // 1,8 is for encoding the $0801 starting address in the .prg file
-      return Buffer.from([1, 8].concat(this.binary))
+      const startLo = this.initialPC & 255;
+      const startHi = (this.initialPC >> 8) & 255;
+      return Buffer.from([startLo, startHi].concat(this.binary))
     }
 
     parse (filename: string, loc: SourceLoc | undefined) {
@@ -414,14 +437,14 @@ class Assembler {
         return this.errorList.length !== 0;
     }
 
-    errors = () => {
+    private formatErrors (diags: Error[], errType: 'error' | 'warning'): Diagnostic[] {
         // Remove duplicate errors
-        const set = new Set(this.errorList.map(v => JSON.stringify(v)));
+        const set = new Set(diags.map(v => JSON.stringify(v)));
         return [...set].map((errJson) => {
             const { loc, msg } = JSON.parse(errJson) as Error;
-            let formatted = `<unknown>:1:1: error: ${msg}`
+            let formatted = `<unknown>:1:1: ${errType}: ${msg}`
             if (loc) {
-                formatted = `${loc.source}:${loc.start.line}:${loc.start.column}: error: ${msg}`
+                formatted = `${loc.source}:${loc.start.line}:${loc.start.column}: ${errType}: ${msg}`
             }
             return {
                 loc,
@@ -431,12 +454,25 @@ class Assembler {
         })
     }
 
+    errors = () => {
+        return this.formatErrors(this.errorList, 'error');
+    }
+
+    warnings = () => {
+        return this.formatErrors(this.warningList, 'warning');
+    }
+
     addError (msg: string, loc: SourceLoc): void {
         this.errorList.push({ msg, loc });
     }
 
+    addWarning (msg: string, loc: SourceLoc): void {
+        this.warningList.push({ msg, loc });
+    }
+
     startPass (pass: number): void {
-      this.codePC = 0x801;
+      this.codePC = this.platform.defaultStartPC;
+      this.codePCSet = false;
       this.pass = pass;
       this.needPass = false;
       this.binary = [];
@@ -733,7 +769,25 @@ class Assembler {
         return mkErrorValue(0); // TODO is this even reachable?
     }
 
+    setInitialPC (initPC: number) {
+        if (this.codePCSet) {
+            throw new Error('PC already set -- shouldn\'t happen');
+        }
+        this.codePC = initPC;
+        this.codePCSet = true;
+        this.initialPC = initPC;
+    }
+
+    topLevelSourceLoc (): SourceLoc {
+        const topFilename = this.includeStack[0];
+        return makeCompileLoc(topFilename);
+    }
+
     emit (byte: number): void {
+        if (!this.codePCSet) {
+            this.setInitialPC(this.platform.defaultStartPC);
+            this.addWarning(`Starting program counter not set with '* = addr'.  Defaulting to platform default $${toHex16(this.codePC)}`, this.topLevelSourceLoc());
+        }
         this.binary.push(byte);
         this.codePC += 1
     }
@@ -814,12 +868,24 @@ class Assembler {
         const ev  = this.evalExprToInt(valueExpr, 'pc');
         if (!anyErrors(ev)) {
             const { value: v } = ev;
-            if (this.codePC > v) {
-                // TODO this is not great.  Actually need to track which ranges of memory have something in them.
-                this.addError(`Cannot set program counter to a smaller value than current (current: $${toHex16(this.codePC)}, trying to set $${toHex16(v)})`, valueExpr.loc)
-            }
-            while (this.codePC < v) {
-                this.emit(0);
+
+            // If codePC has been set in this pass: emit zeros
+            // to close the gap between the current PC and the desired
+            // new PC.
+            //
+            // If it's not been set yet in this pass, set it to the
+            // desired value directly.  This is the case when the source
+            // file starts with something like "* = $801"
+            if (this.codePCSet) {
+                if (this.codePC > v) {
+                    // TODO this is not great.  Actually need to track which ranges of memory have something in them.
+                    this.addError(`Cannot set program counter to a smaller value than current (current: $${toHex16(this.codePC)}, trying to set $${toHex16(v)})`, valueExpr.loc)
+                }
+                while (this.codePC < v) {
+                  this.emit(0);
+                }
+            } else {
+                this.setInitialPC(v);
             }
         }
     }
@@ -1353,7 +1419,8 @@ export function assemble(filename: string, options: AssemblerOptions = defaultOp
                 prg: Buffer.from([]),
                 labels: [],
                 debugInfo: undefined,
-                errors: asm.errors()
+                errors: asm.errors(),
+                warnings: asm.warnings()
             }
         }
 
@@ -1378,6 +1445,7 @@ export function assemble(filename: string, options: AssemblerOptions = defaultOp
     return {
         prg: asm.prg(),
         errors: asm.errors(),
+        warnings: asm.warnings(),
         labels: asm.dumpLabels(),
         debugInfo: asm.debugInfo
     }

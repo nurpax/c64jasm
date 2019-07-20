@@ -1,4 +1,4 @@
 
 export { Loc, SourceLoc } from './ast'
-export { assemble } from './asm'
+export { assemble, AssemblerOptions, PlatformOptions, platformC64 } from './asm'
 export { disassemble } from './disasm'

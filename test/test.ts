@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as colors from 'colors'
 import { ArgumentParser } from 'argparse'
 
-import { assemble } from '../src/asm'
+import { assemble, Diagnostic } from '../src/asm'
 import * as ast  from '../src/ast'
 import { disassemble } from '../src/disasm'
 import { fail } from 'assert';
@@ -18,11 +18,6 @@ type Test = string;
 
 const blacklist: Test[] = [
 ];
-
-interface Diagnostic {
-    loc: ast.SourceLoc,
-    msg: string
-}
 
 class TestReporter {
     tests: string[];
@@ -149,37 +144,32 @@ function cleanSyntaxError(msg: string) {
     return msg;
 }
 
-function testErrors(testcase: string) {
-    const g = glob();
-    let inputs = g.readdirSync('test/errors/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
+function validateErrors(errors: Diagnostic[], fname: string, errType: 'error' | 'warning') {
+    const errorMessages = errors.map(e => cleanSyntaxError(e.formatted));
+    const errorsFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + `${errType}s.txt`);
 
-    const runTest = (fname: string) => {
-        const { errors } = assemble(fname)!;
-        const errorMessages = errors.map(e => cleanSyntaxError(e.formatted));
-        const errorsFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'errors.txt');
+    // If the expected file doesn't exist, create it.  This is for new test authoring.
+    if (!fs.existsSync(errorsFname)) {
+        const errLines = errorMessages.join('\n')
+        fs.writeFileSync(errorsFname, errLines)
+        console.log(`  DEBUG: wrote ${errorsFname}`);
+        console.log(errLines + '\n')
+        return 'pass';
+    } else {
+        const expectedErrors = readLines(errorsFname);
+        for (let ei in expectedErrors) {
+            const cleanedExpected = cleanSyntaxError(expectedErrors[ei])
+            const emsg = /^(.*:.* - |.*: (?:error|warning): )(.*)$/.exec(cleanedExpected);
+            const msgOnly = emsg![2];
 
-        // If the expected file doesn't exist, create it.  This is for new test authoring.
-        if (!fs.existsSync(errorsFname)) {
-            const errLines = errorMessages.join('\n')
-            fs.writeFileSync(errorsFname, errLines)
-            console.log(`  DEBUG: wrote ${errorsFname}`);
-            console.log(errLines + '\n')
-            return 'pass';
-        } else {
-            const expectedErrors = readLines(errorsFname);
-            for (let ei in expectedErrors) {
-                const cleanedExpected = cleanSyntaxError(expectedErrors[ei])
-                const emsg = /^(.*:.* - |.*: error: )(.*)$/.exec(cleanedExpected);
-                const msgOnly = emsg![2];
-
-                const found = errorMessages.some((msg) => {
-                    const m = /^(.*:.* - |.*: error: )(.*)$/.exec(msg);
-                    return m ? m[2] == msgOnly : false;
-                });
-                if (!found) {
-                    const actualFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'actual_errors.txt');
-                    fs.writeFileSync(actualFname, errorMessages.join('\n'))
-                    console.error(`Assembler output does not contain errors listed in
+            const found = errorMessages.some((msg) => {
+                const m = /^(.*:.* - |.*: (?:error|warning): )(.*)$/.exec(msg);
+                return m ? m[2] == msgOnly : false;
+            });
+            if (!found) {
+                const actualFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + `actual_${errType}s.txt`);
+                fs.writeFileSync(actualFname, errorMessages.join('\n'))
+                console.error(`Assembler output does not contain errors listed in
 
 ${errorsFname}
 
@@ -191,13 +181,13 @@ To gild actual:
 
 cp ${actualFname} ${errorsFname}
 `);
-                    return 'fail';
-                }
+                return 'fail';
             }
-            if (expectedErrors.length !== errors.length) {
-                const actualFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'actual_errors.txt');
-                fs.writeFileSync(actualFname, errorMessages.join('\n'))
-                console.log(`Expected to see ${expectedErrors.length}, but compiler produced ${errors.length} errors.
+        }
+        if (expectedErrors.length !== errors.length) {
+            const actualFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + `actual_${errType}s.txt`);
+            fs.writeFileSync(actualFname, errorMessages.join('\n'))
+            console.log(`Expected to see ${expectedErrors.length}, but compiler produced ${errors.length} errors.
 
 Actual errors written to ${actualFname}
 
@@ -205,13 +195,35 @@ To gild actual:
 
 cp ${actualFname} ${errorsFname}
 `);
-                return 'fail';
-            }
-            return 'pass';
+            return 'fail';
         }
+        return 'pass';
+    }
+}
+
+function testErrors(testcase: string) {
+    const g = glob();
+    let inputs = g.readdirSync('test/errors/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
+
+    const runTest = (fname: string) => {
+        const { errors } = assemble(fname)!;
+        return validateErrors(errors, fname, 'error');
     }
 
     const reporter = new TestReporter(inputs, 'error');
+    reporter.runTests(runTest);
+}
+
+function testWarnings(testcase: string) {
+    const g = glob();
+    let inputs = g.readdirSync('test/warnings/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
+
+    const runTest = (fname: string) => {
+        const { warnings } = assemble(fname)!;
+        return validateErrors(warnings, fname, 'warning');
+    }
+
+    const reporter = new TestReporter(inputs, 'warning');
     reporter.runTests(runTest);
 }
 
@@ -239,6 +251,7 @@ const hrstart = process.hrtime();
 
 outputTest(args.test);
 testErrors(args.test);
+testWarnings(args.test);
 
 if (verbose) {
     const NS_PER_SEC = 1e9;
