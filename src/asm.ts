@@ -1392,6 +1392,21 @@ class Assembler {
         }
         addPlugin('loadJson', json);
         addPlugin('range', range);
+
+        // Register all JavaScript Math object properties
+        // into a built-in Math object.
+        const math: any = {};
+        for (let k of Object.getOwnPropertyNames(Math)) {
+            const props: any = Math;
+            if (k === 'random') {
+                math[k] = () => {
+                    throw new Error('Math.random() not allowed as it will lead to non-reproducible builds');
+                }
+            } else {
+                math[k] = props[k];
+            }
+        }
+        addPlugin('Math', math);
     }
 
     dumpLabels () {

@@ -1,0 +1,1 @@
+test/errors/math_builtins1.input.asm:3:10: error: Plugin call failed with an error: Math.random() not allowed as it will lead to non-reproducible builds
