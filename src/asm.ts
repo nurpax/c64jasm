@@ -394,7 +394,6 @@ class Assembler {
     }
 
     prg (): Buffer {
-      // 1,8 is for encoding the $0801 starting address in the .prg file
       const startLo = this.initialPC & 255;
       const startHi = (this.initialPC >> 8) & 255;
       return Buffer.from([startLo, startHi].concat(this.binary))
