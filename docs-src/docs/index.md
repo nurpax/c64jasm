@@ -295,11 +295,25 @@ memset: +memset16($1234)  ; macro labels are under memset
 }
 ```
 
+### Built-in functions
+
+C64jasm injects some commonly used functionality into the global scope.
+
+* `range(len)`: Return an array of `len` elements `[0, 1, .., len-1]`
+* `range(start, end)` : Return an array of elements `[start, start+1, .., end-1]`
+* `loadJson(filename)`: Load a JSON file `filename`
+
+All JavaScript `Math` constants and functions (except `Math.random`) are available in the `Math` object:
+
+Constants: `Math.E`, `Math.PI`, `Math.SQRT2`, `Math.SQRT1_2`, `Math.LN2`, `Math.LN10`, `Math.LOG2E`, `Math.LOG10E`.
+
+Functions: `Math.abs(x)`, `Math.acos(x)`, `Math.asin(x)`, `Math.atan(x)`, `Math.atan2(y, x)`, `Math.ceil(x)`, `Math.cos(x)`, `Math.exp(x)`, `Math.floor(x)`, `Math.log(x)`, `Math.max(x, y, z, ..., n)`, `Math.min(x, y, z, ..., n)`, `Math.pow(x, y)`, `Math.round(x)`, `Math.sin(x)`, `Math.sqrt(x)`, `Math.tan(x)`.
+
+`Math.random()` is not allowed as using a non-deterministic random would lead to non-reproducible builds.  If you need a pseudo random number generator (PRNG), write a deterministic PRNG in JavaScript and use that instead.
+
 ## C64jasm <span style='color:red'>❤</span> JavaScript
 
 Extending the assembler with JavaScript was the primary reason why C64jasm was built.  This is a powerful mechanism for implementing lookup table generators, graphics format converters, etc.
-
-This section will be expanded to cover various uses such as computing sine tables, importing sprite graphics .SPD files, loading in SID music, etc.
 
 Learning resources on c64jasm extensions:
 
@@ -379,7 +393,8 @@ will be called as:
 sqr(context, 3);
 ```
 
-If you don't need anything from the `context` parameter in your extension, you can declare your extension function like so: `({}, arg0) => return arg0*arg0;`
+If your extensions doesn't need anything from the `context` parameter,
+you can declare your extension function like so: `({}, arg0) => return arg0*arg0;`
 
 #### What is the context parameter?
 
@@ -431,7 +446,17 @@ Using the c64jasm provided I/O functions is necessary as it allows for c64jasm t
 
 Breaking the above rules may lead to inconsistent results.  This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode.
 
-## Release history
+## Release notes
+
+c64jasm 0.5.1 (released on 2019-07-18):
+- Allow uppercase hex in numeric literals.
+
+c64jasm 0.5.0 (released on 2019-07-14):
+- Add browser support.  Previous versions worked only on Node.js.
+- Fix a parser bug that caused a syntax error for a valid input file.
+- Improved error handling and code clean up.  Display typenames
+more accurately in error messages.
+- Include TypeScript d.ts files in the NPM package.  This enables using the c64jasm API in TypeScript with correct types.
 
 c64jasm 0.4.0 (released on 2019-06-29):
 - Improved error reporting.  C64jasm will not stop at first reported error but try to report as many relevant semantic errors as possible.  This can be useful when refactoring code.
