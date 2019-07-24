@@ -7,6 +7,7 @@ import Text.Pandoc
 import Text.Pandoc.Walk (walk)
 import System.Directory (createDirectoryIfMissing, copyFile)
 import System.FSNotify (withManager, watchTree)
+import System.Environment (getArgs)
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -72,5 +73,8 @@ watchAndRebuild dir = do
         forever $ threadDelay 1000000
 
 main :: IO ()
-main =
-    watchAndRebuild "docs"
+main = do
+    args <- getArgs
+    case args of
+      ["watch"] -> watchAndRebuild "docs"
+      ["build"] -> pandocBuild

@@ -28,6 +28,7 @@
     "t": "node build/asm.js test/petscii1.asm",
     "test": "node build/test/test.js",
     "asm": "node build/src/cli.js",
+    "docs": "cd docs-src && stack exec docs build && cp -R build/* ../docs/",
     "dist": "rm -rf dist && mkdir -p build/src dist/src && npm run gen && cp build/src/g_parser.js dist/src && tsc -p tsconfig.dist.json"
   },
   "dependencies": {

@@ -190,6 +190,13 @@ You can declare a variable with `!let`.  You can use standard C operators like `
 
 Variables take on JavaScript values such as numbers, strings, arrays and objects.  We will explore later in this document why array and object values are useful.
 
+Array literals:
+
+```c64
+!let foo = [0,2,4]
+    lda #foo[1]      ; emits LDA #02
+```
+
 ### If...else
 
 Conditional assembly is supported by `!if/elif/else`.
@@ -237,6 +244,13 @@ shift_lut:
     }
 ```
 
+If you want to loop over some small set of fixed values (say `1`, `10`, `100`), you can use array literals with `!for`:
+
+```c64
+!for i in [1, 10, 100] {
+    ...
+}
+```
 
 ### Macros
 

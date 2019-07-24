@@ -402,6 +402,12 @@ x64 sprites.prg</code></pre>
 </pre>
 </p>
 <p>Variables take on JavaScript values such as numbers, strings, arrays and objects. We will explore later in this document why array and object values are useful.</p>
+<p>Array literals:</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>foo</span> <span class='asm-other'>=</span> 
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-ident'>foo</span>
+</pre>
+</p>
 <h3 id="ifelse">If...else</h3>
 <p>Conditional assembly is supported by <code>!if/elif/else</code>.</p>
 <p><pre class='asm-block'>
@@ -441,6 +447,13 @@ x64 sprites.prg</code></pre>
     <span class='asm-pseudo'>!for</span> <span class='asm-ident'>i</span> <span class='asm-ident'>in</span> <span class='asm-ident'>range</span><span class='asm-other'>(</span><span class='asm-num'>8</span><span class='asm-other'>)</span> <span class='asm-other'>{</span>
         <span class='asm-pseudo'>!byte</span> <span class='asm-num'>1</span><span class='asm-other'><</span><span class='asm-other'><</span><span class='asm-ident'>i</span>
     <span class='asm-other'>}</span>
+</pre>
+</p>
+<p>If you want to loop over some small set of fixed values (say <code>1</code>, <code>10</code>, <code>100</code>), you can use array literals with <code>!for</code>:</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!for</span> <span class='asm-ident'>i</span> <span class='asm-ident'>in</span> 
+    <span class='asm-other'>.</span><span class='asm-other'>.</span><span class='asm-other'>.</span>
+<span class='asm-other'>}</span>
 </pre>
 </p>
 <h3 id="macros">Macros</h3>
