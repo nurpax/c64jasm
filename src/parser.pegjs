@@ -365,7 +365,35 @@ primary
 num =
    "$" hex:$hexdig+ __      { return parseInt(hex, 16); }
  / "%" binary:$zeroone+ __  { return parseInt(binary, 2); }
- / digs:$digit+      __     { return parseInt(digs, 10); }
+ / float:DecimalLiteral __  { return float; }
+
+DecimalLiteral
+  = DecimalIntegerLiteral "." digit* ExponentPart? {
+      return parseFloat(text());
+    }
+  / "." digit+ ExponentPart? {
+      return parseFloat(text());
+    }
+  / DecimalIntegerLiteral ExponentPart? {
+      return parseFloat(text());
+    }
+
+DecimalIntegerLiteral
+  = "0"
+  / NonZeroDigit digit*
+
+NonZeroDigit
+  = [1-9]
+
+ExponentPart
+  = ExponentIndicator SignedInteger
+
+ExponentIndicator
+  = "e"i
+
+SignedInteger
+  = [+-]? digit+
+
 
 arrayLiteral =
   LBRK elts:exprList? RBRK {
