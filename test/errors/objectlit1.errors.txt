@@ -1,0 +1,1 @@
+test/errors/objectlit1.input.asm:4:21: error: Undefined symbol 'b'

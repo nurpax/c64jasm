@@ -624,6 +624,16 @@ class Assembler {
                     errors: anyErrors(...evals)
                 }
             }
+            case 'object': {
+                const kvs: [string|number, EvalValue<any>][] = node.props.map(p => {
+                    const v = this.evalExpr(p.val);
+                    return [p.key.type === 'literal' ? p.key.lit : p.key.name, v];
+                });
+                return {
+                    value: kvs.reduce((o, [key, value]) => ({...o, [key]: value.value}), {}),
+                    errors: anyErrors(...kvs.map(([_, e]) => e))
+                }
+            }
             case 'ident': {
                 throw new Error('should not see an ident here -- if you do, it is probably a wrong type node in parser')
             }

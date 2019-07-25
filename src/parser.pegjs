@@ -360,6 +360,7 @@ primary
   / ident:scopeQualifiedIdentifier { return ident; }
   / string:string                  { return string; }
   / arrayLiteral
+  / objectLiteral
   / LPAR e:lastExpr RPAR           { return e; }
 
 num =
@@ -400,6 +401,31 @@ arrayLiteral =
     return ast.mkExprArray(elts === null ? [] : elts, loc());
   }
 
+objectLiteral
+  = LWING _n_ RWING {
+      return ast.mkExprObject([], loc());
+    }
+  / LWING _n_ properties:PropertyNameAndValueList _n_ RWING {
+       return ast.mkExprObject(properties, loc());
+     }
+  / LWING _n_ properties:PropertyNameAndValueList _n_ COMMA _n_ RWING {
+       return ast.mkExprObject(properties, loc());
+     }
+PropertyNameAndValueList
+  = head:PropertyAssignment tail:(COMMA _n_ PropertyAssignment)* {
+      return buildList(head, tail, 2);
+    }
+
+PropertyAssignment
+  = key:PropertyName COLON val:expr  {
+      return { key, val };
+    }
+
+PropertyName =
+    identifier
+  / string
+  / num:num { return ast.mkLiteral(num, loc()); }
+
 alpha = [a-zA-Z_]
 alphanum = [a-zA-Z_0-9]
 
@@ -407,8 +433,32 @@ digit   = [0-9]
 zeroone = [0-1]
 hexdig  = [0-9a-f]i
 
-ws "whitespace" = [ \t\r]*
+ws "whitespace" = WhiteSpace*
 __ = ws
+
+WhiteSpace "whitespace"
+  = "\t"
+  / "\v"
+  / "\f"
+  / " "
+  / "\u00A0"
+  / "\uFEFF"
+  / Zs
+
+// Separator, Space
+Zs = [\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]
+
+// Same as __/ws but consumes lineends to
+_n_ = (WhiteSpace / LineTerminatorSequence)*
+
+//  = (ws / LineTerminatorSequence / Comment)*    TODO TODO USE THIS
+
+LineTerminatorSequence "end of line"
+  = "\n"
+  / "\r\n"
+  / "\r"
+  / "\u2028"
+  / "\u2029"
 
 PSEUDO_ALIGN     = "!align" ws
 PSEUDO_BYTE      = "!byte" ws { return 'byte'; }
