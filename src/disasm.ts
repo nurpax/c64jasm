@@ -2,6 +2,10 @@
 import * as process from 'process'
 import { readFileSync, writeFileSync } from 'fs'
 
+export interface DisasmOptions {
+    isInstruction: (addr: number) => boolean
+};
+
 import opcodes from './opcodes'
 
 function toHex8(v: number): string {
@@ -17,10 +21,13 @@ class Disassembler {
     private curOffs: number;
     private opToDecl: {[index: number]: { mnemonic: string, decode: (number|null)[] }};
     private output: string[];
-    constructor (private buf: Buffer) {
+    private disasmOptions?: DisasmOptions;
+
+    constructor (private buf: Buffer, disasmOptions?: DisasmOptions) {
         this.output = [];
         this.curAddr = buf.readUInt8(0) + (buf.readUInt8(1)<<8);
         this.curOffs = 2;
+        this.disasmOptions = disasmOptions;
 
         this.opToDecl = {}
         Object.keys(opcodes).forEach(key => {
@@ -130,6 +137,10 @@ class Disassembler {
 
     disassemble() {
         const len = this.buf.byteLength;
+        let isInsn = (addr: number) => true;
+        if (this.disasmOptions && this.disasmOptions.isInstruction) {
+            isInsn = this.disasmOptions.isInstruction;
+        }
 
         let oldOffs = this.curOffs
         while (this.curOffs < len) {
@@ -139,7 +150,7 @@ class Disassembler {
             const op = this.byte()
             const decl = this.opToDecl[op];
 
-            if (decl !== undefined) {
+            if (isInsn(this.curAddr) && decl !== undefined) {
                 const decoderIdx = decl.decode.indexOf(op);
                 if (decoderIdx === 0) {
                     this.disImm(decl.mnemonic, op);
@@ -197,7 +208,7 @@ class Disassembler {
     }
 }
 
-export function disassemble(prg: Buffer) {
-    let disasm = new Disassembler(prg);
+export function disassemble(prg: Buffer, options?: DisasmOptions) {
+    let disasm = new Disassembler(prg, options);
     return disasm.disassemble();
 }

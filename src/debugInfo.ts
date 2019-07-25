@@ -1,6 +1,8 @@
 
 import * as path from 'path';
 
+const FastBitSet = require('fastbitset');
+
 import { SourceLoc } from './ast';
 
 type LineLoc = {
@@ -13,8 +15,8 @@ type LocPCEntry = { loc: LineLoc, pc: number };
 // Track source locations and code memory placement
 export class DebugInfoTracker {
     lineStack: LocPCEntry[] = [];
-
     pcToLocs: { [pc: number]: LineLoc[] } = {};
+    insnBitset = new FastBitSet();
 
     startLine(loc: SourceLoc, codePC: number) {
         const l = {
@@ -37,9 +39,21 @@ export class DebugInfoTracker {
         }
     }
 
+    markAsInstruction(start: number, end: number) {
+        for (let i = start; i < end; i++) {
+            this.insnBitset.add(i);
+        }
+    }
+
     info() {
+        const insnBitset = this.insnBitset.clone();
+        const isInstruction = (addr: number) => {
+            return insnBitset.has(addr);
+        };
+
         return {
-            pcToLocs: this.pcToLocs
+            pcToLocs: this.pcToLocs,
+            isInstruction
         };
     }
 }

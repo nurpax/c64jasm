@@ -1282,58 +1282,67 @@ class Assembler {
             return;
         }
 
-        const stmt = line.stmt
-        const insn = stmt.insn
-        const op = opcodes[insn.mnemonic.toUpperCase()]
+        const stmt = line.stmt;
+        const insn = stmt.insn;
+        const op = opcodes[insn.mnemonic.toUpperCase()];
+
+        // Mark the emitted output address range as
+        // containing machine code instructions.  This
+        // is used for smarter disassembly.
+        const withMarkAsInsn = (f: () => void) => {
+            const startPC = this.codePC;
+            f();
+            const endPC = this.codePC;
+            this.debugInfo.markAsInstruction(startPC, endPC);
+        }
+
         if (op !== undefined) {
-            let noArgs =
-                insn.imm === null
-                && insn.abs === null
-                && insn.absx === null
-                && insn.absy === null
-                && insn.absind === null
-            if (noArgs && this.checkSingle(op[10])) {
-                return;
-            }
-            if (this.checkImm(insn.imm, op[0])) {
-                return;
-            }
-            if (this.checkAbs(insn.abs, op[1], 8)) {
-                return;
-            }
-
-            if (this.checkAbs(insn.absx, op[2], 8)) {
-                return;
-            }
-            if (this.checkAbs(insn.absy, op[3], 8)) {
-                return;
-            }
-
-            if (this.checkAbs(insn.absx, op[5], 16)) {
-                return;
-            }
-            if (this.checkAbs(insn.absy, op[6], 16)) {
-                return;
-            }
-            // Absolute indirect
-            if (this.checkAbs(insn.absind, op[7], 16)) {
-                return;
-            }
-
-            if (this.checkAbs(insn.indx, op[8], 8)) {
-                return;
-            }
-            if (this.checkAbs(insn.indy, op[9], 8)) {
-                return;
-            }
-
-            if (this.checkAbs(insn.abs, op[4], 16)) {
-                return;
-            }
-            if (this.checkBranch(insn.abs, op[11])) {
-                return;
-            }
-            this.addError(`Couldn't encode instruction '${insn.mnemonic}'`, line.loc);
+            withMarkAsInsn(() => {
+                let noArgs =
+                    insn.imm === null
+                    && insn.abs === null
+                    && insn.absx === null
+                    && insn.absy === null
+                    && insn.absind === null
+                if (noArgs && this.checkSingle(op[10])) {
+                    return;
+                }
+                if (this.checkImm(insn.imm, op[0])) {
+                    return;
+                }
+                if (this.checkAbs(insn.abs, op[1], 8)) {
+                    return;
+                }
+                if (this.checkAbs(insn.absx, op[2], 8)) {
+                    return;
+                }
+                if (this.checkAbs(insn.absy, op[3], 8)) {
+                    return;
+                }
+                if (this.checkAbs(insn.absx, op[5], 16)) {
+                    return;
+                }
+                if (this.checkAbs(insn.absy, op[6], 16)) {
+                    return;
+                }
+                // Absolute indirect
+                if (this.checkAbs(insn.absind, op[7], 16)) {
+                    return;
+                }
+                if (this.checkAbs(insn.indx, op[8], 8)) {
+                    return;
+                }
+                if (this.checkAbs(insn.indy, op[9], 8)) {
+                    return;
+                }
+                if (this.checkAbs(insn.abs, op[4], 16)) {
+                    return;
+                }
+                if (this.checkBranch(insn.abs, op[11])) {
+                    return;
+                }
+                this.addError(`Couldn't encode instruction '${insn.mnemonic}'`, line.loc);
+            });
         } else {
             this.addError(`Unknown mnemonic '${insn.mnemonic}'`, line.loc);
         }

@@ -36,6 +36,7 @@
     "argparse": "^1.0.10",
     "chokidar": "^2.0.4",
     "colors": "^1.3.2",
+    "fastbitset": "^0.2.8",
     "glob-fs": "^0.1.7",
     "import-fresh": "^2.0.0",
     "sprintf-js": "^1.1.1"

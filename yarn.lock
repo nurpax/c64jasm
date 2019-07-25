@@ -399,6 +399,11 @@ extglob@^2.0.4:
     snapdragon "^0.8.1"
     to-regex "^3.0.1"
 
+fastbitset@^0.2.8:
+  version "0.2.8"
+  resolved "https://registry.yarnpkg.com/fastbitset/-/fastbitset-0.2.8.tgz#4c131f3c71e9f327404aa45ae1c1a2fa1ae14204"
+  integrity sha512-OT0+4y2vxtkmvbxwfM3jbsylIQmB9xtgzraAiBcAz3xDLUG5Y1DwZrQNeKWt7myPsB5rHwdzenFXQq7YR+jMTQ==
+
 filename-regex@^2.0.0:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/filename-regex/-/filename-regex-2.0.1.tgz#c1c4b9bee3e09725ddb106b75c1e301fe2f18b26"

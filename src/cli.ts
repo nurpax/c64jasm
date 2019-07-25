@@ -4,10 +4,11 @@ import * as process from 'process'
 import { sprintf } from 'sprintf-js'
 
 import * as net from 'net';
-import { writeFileSync } from 'fs'
-import { assemble } from './asm'
-import { ArgumentParser } from 'argparse'
-import { toHex16 } from './util'
+import { writeFileSync } from 'fs';
+import { assemble } from './asm';
+import { disassemble } from './disasm';
+import { ArgumentParser } from 'argparse';
+import { toHex16 } from './util';
 
 const chokidar = require('chokidar');
 
@@ -53,7 +54,7 @@ function compile(args: any) {
     if (!result) {
         return;
     }
-    const { errors, prg, labels } = result;
+    const { errors, prg, labels, debugInfo } = result;
 
     if (errors.length !== 0) {
         errors.forEach(err => {
@@ -78,6 +79,12 @@ function compile(args: any) {
             const msg = sprintf("%s %4d %s", toHex16(addr), size, name);
             console.log(msg);
         })
+    }
+
+    if (args.disasm) {
+        const { isInstruction } = debugInfo!.info();
+        const disasm = disassemble(prg, { isInstruction });
+        console.log(disasm);
     }
     return true;
 }
@@ -113,6 +120,12 @@ parser.addArgument('--dump-labels', {
     constant: true,
     dest: 'dumpLabels',
     help: 'Dump program address and size for all labels declared in the source files.'
+});
+parser.addArgument('--disasm', {
+    action:'storeConst',
+    constant: true,
+    dest: 'disasm',
+    help: 'Disassemble the resulting binary on stdout.'
 });
 parser.addArgument('source', {help: 'Input .asm file'})
 
