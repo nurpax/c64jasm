@@ -197,6 +197,20 @@ Array literals:
     lda #foo[1]      ; emits LDA #02
 ```
 
+Object literals:
+
+```c64
+; Declare zero-page offset helper
+
+!let zp = {
+    tmp0: $20,
+    sprite_idx: $22
+}
+
+    lda #3
+    sta zp.sprite_idx
+```
+
 ### If...else
 
 Conditional assembly is supported by `!if/elif/else`.
@@ -447,6 +461,10 @@ Using the c64jasm provided I/O functions is necessary as it allows for c64jasm t
 Breaking the above rules may lead to inconsistent results.  This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode.
 
 ## Release notes
+
+c64jasm 0.6.0 (released on 2019-07-26):
+- Add object literals
+- Add "smart disassembly": support disassembling only addresses that are known to contain machine code instructions.  Available in the CLI tool with --disasm.
 
 c64jasm 0.5.1 (released on 2019-07-18):
 - Allow uppercase hex in numeric literals.
