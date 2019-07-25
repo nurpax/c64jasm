@@ -251,13 +251,14 @@ Table of contents:
 <li><a href="#ifelse">If...else</a></li>
 <li><a href="#for-loops">For-loops</a></li>
 <li><a href="#macros">Macros</a></li>
+<li><a href="#built-in-functions">Built-in functions</a></li>
 </ul></li>
 <li><a href="#c64jasm--javascript">C64jasm <span style='color:red'>❤</span> JavaScript</a><ul>
 <li><a href="#making-extensions">Making extensions</a></li>
 <li><a href="#javascript--assembly-api">JavaScript / assembly API</a></li>
 <li><a href="#rules-of-authoring-extensions">Rules of authoring extensions</a></li>
 </ul></li>
-<li><a href="#release-history">Release history</a></li>
+<li><a href="#release-notes">Release notes</a></li>
 </ul>
 </nav>
 <h2 id="overview">Overview</h2>
@@ -408,6 +409,19 @@ x64 sprites.prg</code></pre>
     <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-ident'>foo</span><span class='asm-other'>[</span><span class='asm-num'>1</span><span class='asm-other'>]</span>      <span class='asm-comment'>; emits LDA #02</span>
 </pre>
 </p>
+<p>Object literals:</p>
+<p><pre class='asm-block'>
+<span class='asm-comment'>; Declare zero-page offset helper</span>
+
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>zp</span> <span class='asm-other'>=</span> <span class='asm-other'>{</span>
+    <span class='asm-ident'>tmp0</span>
+    <span class='asm-ident'>sprite_idx</span>
+<span class='asm-other'>}</span>
+
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-num'>3</span>
+    <span class='asm-mnemonic'>sta</span> <span class='asm-ident'>zp</span><span class='asm-other'>.</span><span class='asm-ident'>sprite_idx</span>
+</pre>
+</p>
 <h3 id="ifelse">If...else</h3>
 <p>Conditional assembly is supported by <code>!if/elif/else</code>.</p>
 <p><pre class='asm-block'>
@@ -495,9 +509,19 @@ x64 sprites.prg</code></pre>
 <span class='asm-other'>}</span>
 </pre>
 </p>
+<h3 id="built-in-functions">Built-in functions</h3>
+<p>C64jasm injects some commonly used functionality into the global scope.</p>
+<ul>
+<li><code>range(len)</code>: Return an array of <code>len</code> elements <code>[0, 1, .., len-1]</code></li>
+<li><code>range(start, end)</code> : Return an array of elements <code>[start, start+1, .., end-1]</code></li>
+<li><code>loadJson(filename)</code>: Load a JSON file <code>filename</code></li>
+</ul>
+<p>All JavaScript <code>Math</code> constants and functions (except <code>Math.random</code>) are available in the <code>Math</code> object:</p>
+<p>Constants: <code>Math.E</code>, <code>Math.PI</code>, <code>Math.SQRT2</code>, <code>Math.SQRT1_2</code>, <code>Math.LN2</code>, <code>Math.LN10</code>, <code>Math.LOG2E</code>, <code>Math.LOG10E</code>.</p>
+<p>Functions: <code>Math.abs(x)</code>, <code>Math.acos(x)</code>, <code>Math.asin(x)</code>, <code>Math.atan(x)</code>, <code>Math.atan2(y, x)</code>, <code>Math.ceil(x)</code>, <code>Math.cos(x)</code>, <code>Math.exp(x)</code>, <code>Math.floor(x)</code>, <code>Math.log(x)</code>, <code>Math.max(x, y, z, ..., n)</code>, <code>Math.min(x, y, z, ..., n)</code>, <code>Math.pow(x, y)</code>, <code>Math.round(x)</code>, <code>Math.sin(x)</code>, <code>Math.sqrt(x)</code>, <code>Math.tan(x)</code>.</p>
+<p><code>Math.random()</code> is not allowed as using a non-deterministic random would lead to non-reproducible builds. If you need a pseudo random number generator (PRNG), write a deterministic PRNG in JavaScript and use that instead.</p>
 <h2 id="c64jasm--javascript">C64jasm <span style='color:red'>❤</span> JavaScript</h2>
 <p>Extending the assembler with JavaScript was the primary reason why C64jasm was built. This is a powerful mechanism for implementing lookup table generators, graphics format converters, etc.</p>
-<p>This section will be expanded to cover various uses such as computing sine tables, importing sprite graphics .SPD files, loading in SID music, etc.</p>
 <p>Learning resources on c64jasm extensions:</p>
 <ul>
 <li>the <a href="https://github.com/nurpax/c64jasm/tree/master/examples/">examples/</a> folder</li>
@@ -546,7 +570,7 @@ x64 sprites.prg</code></pre>
 <p>will be called as:</p>
 <pre><code>// const sqr = (context, arg0) =&gt; return arg0*arg0;
 sqr(context, 3);</code></pre>
-<p>If you don't need anything from the <code>context</code> parameter in your extension, you can declare your extension function like so: <code>({}, arg0) =&gt; return arg0*arg0;</code></p>
+<p>If your extensions doesn't need anything from the <code>context</code> parameter, you can declare your extension function like so: <code>({}, arg0) =&gt; return arg0*arg0;</code></p>
 <h4 id="what-is-the-context-parameter">What is the context parameter?</h4>
 <p>The <code>context</code> parameter contains functionality that an extension can use to load input files. It may also be extended to contain functions for error reporting.</p>
 <p>Currently (c64jasm 0.3), the <code>context</code> object contains the following properties:</p>
@@ -581,7 +605,23 @@ module.exports = loadJson;</code></pre>
 <li>An extension must always return the same value when called with the same input arguments. This is also called <em>idempotence</em> or <em>referential transparency</em>. So basically, extensions shouldn't have side-effects. They shouldn't use internal global state or use JavaScript functions that hold state, such as <code>Math.random</code>.</li>
 </ul>
 <p>Breaking the above rules may lead to inconsistent results. This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode.</p>
-<h2 id="release-history">Release history</h2>
+<h2 id="release-notes">Release notes</h2>
+<p>c64jasm 0.6.0 (released on 2019-07-26):</p>
+<ul>
+<li>Add object literals</li>
+<li>Add "smart disassembly": support disassembling only addresses that are known to contain machine code instructions. Available in the CLI tool with --disasm.</li>
+</ul>
+<p>c64jasm 0.5.1 (released on 2019-07-18):</p>
+<ul>
+<li>Allow uppercase hex in numeric literals.</li>
+</ul>
+<p>c64jasm 0.5.0 (released on 2019-07-14):</p>
+<ul>
+<li>Add browser support. Previous versions worked only on Node.js.</li>
+<li>Fix a parser bug that caused a syntax error for a valid input file.</li>
+<li>Improved error handling and code clean up. Display typenames more accurately in error messages.</li>
+<li>Include TypeScript d.ts files in the NPM package. This enables using the c64jasm API in TypeScript with correct types.</li>
+</ul>
 <p>c64jasm 0.4.0 (released on 2019-06-29):</p>
 <ul>
 <li>Improved error reporting. C64jasm will not stop at first reported error but try to report as many relevant semantic errors as possible. This can be useful when refactoring code.</li>
