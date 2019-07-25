@@ -67,7 +67,7 @@ ws = do
   return . Ws . T.length $ c
 
 otherChar = do
-  c <- T.singleton <$> satisfy (\c -> inClass "+,#<>{}()=.[]-" c) <|> (string "::")
+  c <- string "::" <|> T.singleton <$> satisfy (\c -> inClass "+,#:<>{}()=.[]-" c)
   return . OtherChar $ c
 
 num = num2 <|> num16 <|> num10

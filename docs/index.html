@@ -414,8 +414,8 @@ x64 sprites.prg</code></pre>
 <span class='asm-comment'>; Declare zero-page offset helper</span>
 
 <span class='asm-pseudo'>!let</span> <span class='asm-ident'>zp</span> <span class='asm-other'>=</span> <span class='asm-other'>{</span>
-    <span class='asm-ident'>tmp0</span>
-    <span class='asm-ident'>sprite_idx</span>
+    <span class='asm-ident'>tmp0</span><span class='asm-other'>:</span> <span class='asm-num'>$20</span><span class='asm-other'>,</span>
+    <span class='asm-ident'>sprite_idx</span><span class='asm-other'>:</span> <span class='asm-num'>$22</span>
 <span class='asm-other'>}</span>
 
     <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-num'>3</span>
