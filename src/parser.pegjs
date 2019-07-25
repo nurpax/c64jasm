@@ -84,7 +84,7 @@ statements =
     }
 
 insnLineWithComment =
-  __ insn:insnLine (';' (!'\n' .)*)? {
+  __ insn:insnLine lineComment? {
     return insn
   }
 
@@ -449,9 +449,9 @@ WhiteSpace "whitespace"
 Zs = [\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]
 
 // Same as __/ws but consumes lineends to
-_n_ = (WhiteSpace / LineTerminatorSequence)*
+_n_ = (WhiteSpace / LineTerminatorSequence / lineComment)*
 
-//  = (ws / LineTerminatorSequence / Comment)*    TODO TODO USE THIS
+lineComment = (';' (!'\n' .)*)
 
 LineTerminatorSequence "end of line"
   = "\n"

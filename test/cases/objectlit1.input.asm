@@ -8,11 +8,12 @@
 
 !let obj = { foo: 1 }
 !let obj2 = {
-    bar: 1+1
+    bar: 1+1 ; this should work too no?
+    ; this too?
 }
 !let obj3 = {
-    o: { a: 3 },
-    y: {
+    o: { a: 3 },   ; o
+    y: {           ; y
         a: 4
     }
 }
