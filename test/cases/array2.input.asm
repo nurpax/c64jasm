@@ -1,7 +1,7 @@
 
 * = $801
 
-!use "plugin-multiple-exports" as m
+!use "./plugin-multiple-exports" as m
 
 !for s in m.nestedArray() {
     ; Iterate list elems directly

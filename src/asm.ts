@@ -414,7 +414,11 @@ class Assembler {
         if (p !== undefined) {
             return p;
         }
-        const newPlugin = importFresh(path.resolve(this.makeSourceRelativePath(fname)));
+
+        const pluginName = './'.indexOf(fname[0]) < 0
+          ? fname
+          : path.resolve(this.makeSourceRelativePath(fname));
+        const newPlugin = importFresh(pluginName);
         this.pluginCache.set(fname, newPlugin);
         return newPlugin;
     }
