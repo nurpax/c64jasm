@@ -431,8 +431,9 @@ class Assembler {
             const newPlugin = isRunningNodeJS
               ? importFresh(path.resolve(sourceRelativePath))
               : browserRequire(this.guardedReadFileSync(`${sourceRelativePath}.js`, loc));
-            this.pluginCache.set(fname, newPlugin);
-            return mkEvalValue(newPlugin);
+            const m = mkEvalValue(newPlugin);
+            this.pluginCache.set(fname, m);
+            return m;
         } catch(err) {
             this.addError(`Plugin load failed: ${sourceRelativePath}.js: ${err.message}`, loc);
             return mkErrorValue(0);
