@@ -357,6 +357,18 @@ const runUnaryOp = (a: EvalValue<number>, f: (a: number) => number | boolean): E
     return mkEvalValue(res);
 }
 
+// true if running in Node.js
+const isRunningNodeJS = typeof process !== 'undefined' &&
+    process.versions != null &&
+    process.versions.node != null;
+
+function browserRequire(code: Buffer) {
+    let module = { exports: {} };
+    let wrapper = Function("module", code.toString());
+    wrapper(module);
+    return module.exports;
+}
+
 class Assembler {
     // TODO this should be a resizable array instead
     private binary: number[] = [];
@@ -409,14 +421,22 @@ class Assembler {
     // intentionally.  We don't want it completely cached because changes to plugin
     // code must trigger a recompile and in that case we want the plugins really
     // reloaded too.
-    requirePlugin(fname: string): any {
+    requirePlugin(fname: string, loc: SourceLoc): any {
         const p = this.pluginCache.get(fname);
         if (p !== undefined) {
             return p;
         }
-        const newPlugin = importFresh(path.resolve(this.makeSourceRelativePath(fname)));
-        this.pluginCache.set(fname, newPlugin);
-        return newPlugin;
+        const sourceRelativePath = this.makeSourceRelativePath(fname);
+        try {
+            const newPlugin = isRunningNodeJS
+            ? importFresh(path.resolve(sourceRelativePath))
+            : browserRequire(this.guardedReadFileSync(`${sourceRelativePath}.js`, loc));
+            this.pluginCache.set(fname, newPlugin);
+            return newPlugin;
+        } catch(err) {
+            this.addError(`Plugin load failed: ${sourceRelativePath}.js: ${err.message}`, loc);
+            return {};
+        }
     }
 
     peekSourceStack (): string {
@@ -1182,7 +1202,7 @@ class Assembler {
                 if (anyErrors(fname)) {
                     return;
                 }
-                const pluginModule = this.requirePlugin(fname.value);
+                const pluginModule = this.requirePlugin(fname.value, node.loc);
                 this.bindPlugin(node, pluginModule);
                 break;
             }
