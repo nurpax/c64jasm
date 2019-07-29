@@ -421,7 +421,7 @@ class Assembler {
     // intentionally.  We don't want it completely cached because changes to plugin
     // code must trigger a recompile and in that case we want the plugins really
     // reloaded too.
-    requirePlugin(fname: string, loc: SourceLoc): any {
+    requirePlugin(fname: string, loc: SourceLoc): EvalValue<any> {
         const p = this.pluginCache.get(fname);
         if (p !== undefined) {
             return p;
@@ -429,13 +429,13 @@ class Assembler {
         const sourceRelativePath = this.makeSourceRelativePath(fname);
         try {
             const newPlugin = isRunningNodeJS
-            ? importFresh(path.resolve(sourceRelativePath))
-            : browserRequire(this.guardedReadFileSync(`${sourceRelativePath}.js`, loc));
+              ? importFresh(path.resolve(sourceRelativePath))
+              : browserRequire(this.guardedReadFileSync(`${sourceRelativePath}.js`, loc));
             this.pluginCache.set(fname, newPlugin);
-            return newPlugin;
+            return mkEvalValue(newPlugin);
         } catch(err) {
             this.addError(`Plugin load failed: ${sourceRelativePath}.js: ${err.message}`, loc);
-            return {};
+            return mkErrorValue(0);
         }
     }
 
@@ -688,13 +688,15 @@ class Assembler {
                 break;
             }
             case 'member': {
-                // TODO if there are errors, should just return or how to continue??
                 const evaledObject = this.evalExpr(node.object);
+                if (anyErrors(evaledObject)) {
+                    return mkErrorValue(0);
+                }
 
                 const { value: object } = evaledObject;
 
                 if (object == undefined) {
-                    this.addError(`Cannot access properties of an unresolved symbol'`, node.loc);
+                    this.addError(`Cannot access properties of an undefined object`, node.loc);
                     return mkErrorValue(0);
                 }
 
@@ -1036,18 +1038,23 @@ class Assembler {
         this.scopes.declareVar(name.name, mkEvalValue(this.makeFunction(pluginModule, loc)));
     }
 
-    bindPlugin (node: ast.StmtLoadPlugin, pluginModule: any) {
+    bindPlugin (node: ast.StmtLoadPlugin, plugin: EvalValue<any>) {
         const moduleName = node.moduleName;
-        // Bind default export as function
-        if (typeof pluginModule == 'function') {
-            this.bindFunction(moduleName, pluginModule, node.loc);
+        if (anyErrors(plugin)) {
+            this.scopes.declareVar(moduleName.name, mkErrorValue(0));
+            return;
         }
-        if (typeof pluginModule == 'object') {
+        const module = plugin.value;
+        // Bind default export as function
+        if (typeof module == 'function') {
+            this.bindFunction(moduleName, module, node.loc);
+        }
+        if (typeof module == 'object') {
             const moduleObj: any = {};
-            const keys = Object.keys(pluginModule);
+            const keys = Object.keys(module);
             for (let ki in keys) {
                 const key = keys[ki];
-                const func = pluginModule[key];
+                const func = module[key];
                 moduleObj[key] = this.makeFunction(func, node.loc);
             }
             this.scopes.declareVar(moduleName.name, mkEvalValue(moduleObj));
@@ -1202,8 +1209,8 @@ class Assembler {
                 if (anyErrors(fname)) {
                     return;
                 }
-                const pluginModule = this.requirePlugin(fname.value, node.loc);
-                this.bindPlugin(node, pluginModule);
+                const module = this.requirePlugin(fname.value, node.loc);
+                this.bindPlugin(node, module);
                 break;
             }
             case 'filescope': {
