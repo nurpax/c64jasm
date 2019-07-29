@@ -678,7 +678,7 @@ class Assembler {
                         }
                     case 'var':
                         if (sym.seen < this.pass) {
-                            this.addError(`Undeclared variable '${formatSymbolPath(node)}`, node.loc);
+                            this.addError(`Undeclared variable '${formatSymbolPath(node)}'`, node.loc);
                         }
                         return sym.data;
                     case 'macro':
