@@ -16,11 +16,39 @@ function toHex16(v: number): string {
     return `${v.toString(16).toUpperCase().padStart(4, '0')}`
 }
 
+/**
+ * Returns an array with arrays of the given size.
+ *
+ * @param myArray {Array} array to split
+ * @param chunk_size {Integer} Size of every group
+ */
+export function chunkArray<T>(myArray: T[], chunk_size: number){
+    var index = 0;
+    var arrayLength = myArray.length;
+    var tempArray = [];
+
+    for (index = 0; index < arrayLength; index += chunk_size) {
+        const myChunk = myArray.slice(index, index+chunk_size);
+        // Do something if you want with the group
+        tempArray.push(myChunk);
+    }
+
+    return tempArray;
+}
+
 class Disassembler {
     private curAddr: number;
     private curOffs: number;
     private opToDecl: {[index: number]: { mnemonic: string, decode: (number|null)[] }};
     private output: string[];
+    private outputPadChars = '     ';
+    private outputBytesPerLine = 1;
+
+    private bytes: {
+        startPC: number,
+        bytes: number[]
+    } = { startPC: 0, bytes: [] };
+
     private disasmOptions?: DisasmOptions;
 
     constructor (private buf: Buffer, disasmOptions?: DisasmOptions) {
@@ -28,6 +56,11 @@ class Disassembler {
         this.curAddr = buf.readUInt8(0) + (buf.readUInt8(1)<<8);
         this.curOffs = 2;
         this.disasmOptions = disasmOptions;
+
+        if (this.disasmOptions && this.disasmOptions.isInstruction) {
+            this.outputPadChars = '                    ';
+            this.outputBytesPerLine = 8;
+        }
 
         this.opToDecl = {}
         Object.keys(opcodes).forEach(key => {
@@ -47,11 +80,24 @@ class Disassembler {
         return b
     }
 
+    flushBytes () {
+        const chunks = chunkArray(this.bytes.bytes, this.outputBytesPerLine);
+
+        let pc = this.bytes.startPC;
+        for (let i = 0; i < chunks.length; i++, pc += this.outputBytesPerLine) {
+            const bytes = chunks[i];
+            const bstr = bytes.map(b => toHex8(b)).join(' ');
+            this.output.push(`${toHex16(pc)}: ${bstr}`);
+        }
+        this.bytes.bytes = [];
+    }
+
     print = (addr: number, bytes: number[], decoded: string) => {
+        this.flushBytes();
         const b0 = toHex8(bytes[0]);
         const b1 = bytes.length >= 2 ? toHex8(bytes[1]) : '  ';
         const b2 = bytes.length >= 3 ? toHex8(bytes[2]) : '  ';
-        this.output.push(`${toHex16(addr)}: ${b0} ${b1} ${b2}     ${decoded}`)
+        this.output.push(`${toHex16(addr)}: ${b0} ${b1} ${b2}${this.outputPadChars}${decoded}`)
     }
 
     disImm(mnemonic: string, op: number) {
@@ -132,7 +178,14 @@ class Disassembler {
     }
 
     disUnknown(op: number) {
-        this.print(this.curAddr, [op], '');
+        // Delay the string output of raw bytes so
+        // that we can output multiple bytes per line
+        if (this.bytes.bytes.length !== 0) {
+            this.bytes.bytes.push(op);
+        } else {
+            this.bytes.bytes = [op];
+            this.bytes.startPC = this.curAddr;
+        }
     }
 
     disassemble() {
@@ -204,6 +257,7 @@ class Disassembler {
                 this.disUnknown(op);
             }
         }
+        this.flushBytes();
         return this.output;
     }
 }

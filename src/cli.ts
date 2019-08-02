@@ -84,7 +84,9 @@ function compile(args: any) {
     if (args.disasm) {
         const { isInstruction } = debugInfo!.info();
         const disasm = disassemble(prg, { isInstruction });
-        console.log(disasm);
+        for (const disasmLine of disasm) {
+            console.log(disasmLine);
+        }
     }
     return true;
 }
