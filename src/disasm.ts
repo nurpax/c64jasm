@@ -103,7 +103,7 @@ class Disassembler {
     disImm(mnemonic: string, op: number) {
         const addr = this.curAddr;
         const imm = this.byte();
-        this.print(addr, [op, imm], `${mnemonic} #${toHex8(imm)}`)
+        this.print(addr, [op, imm], `${mnemonic} #$${toHex8(imm)}`)
     }
 
     disZp(mnemonic: string, op: number) {

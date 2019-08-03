@@ -1,4 +1,4 @@
-0801: A9 00        LDA #00
+0801: A9 00        LDA #$00
 0803: EA           NOP
 0804: EA           NOP
 0805: EA           NOP
