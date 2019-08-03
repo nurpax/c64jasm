@@ -69,18 +69,14 @@ class NamedScope<T> {
         this.name = name;
     }
 
-    enter(name: string): NamedScope<T> {
+    newScope(name: string, parent: NamedScope<T>): NamedScope<T> {
         const s = this.children.get(name);
         if (s !== undefined) {
             return s;
         }
-        const newScope = new NamedScope<T>(this, name);
+        const newScope = new NamedScope<T>(parent, name);
         this.children.set(name, newScope);
         return newScope;
-    }
-
-    leave(): NamedScope<T> {
-        return this.parent!;
     }
 
     // Find symbol from current and all parent scopes
@@ -150,7 +146,8 @@ interface SymVar {
 
 interface SymMacro {
     type: 'macro';
-    data: ast.StmtMacro;
+    macro: ast.StmtMacro;
+    declaredIn: NamedScope<SymEntry>;
 }
 
 class Scopes {
@@ -165,16 +162,17 @@ class Scopes {
         this.passCount = pass;
     }
 
-    withAnonScope(body: () => void) {
+    withAnonScope(body: () => void, parent?: NamedScope<SymEntry>) {
         const anonLabel = `__anon_scope_${this.anonScopeCount}`;
         this.anonScopeCount++;
-        this.withLabelScope(anonLabel, body);
+        this.withLabelScope(anonLabel, body, parent);
     }
 
-    withLabelScope(name: string, body: () => void) {
-        this.curSymtab = this.curSymtab.enter(name);
+    withLabelScope(name: string, body: () => void, parent?: NamedScope<SymEntry>) {
+        const curSym = this.curSymtab;
+        this.curSymtab = this.curSymtab.newScope(name, parent || curSym);
         body();
-        this.curSymtab = this.curSymtab.leave();
+        this.curSymtab = curSym;
     }
 
     findPath(path: string[], absolute: boolean): SymEntry & {seen: number} | undefined {
@@ -251,10 +249,10 @@ class Scopes {
         this.curSymtab.updateSymbol(symbolName, newVar, this.passCount);
     }
 
-    findMacro(path: string[], absolute: boolean): ast.StmtMacro | undefined {
+    findMacro(path: string[], absolute: boolean): SymMacro | undefined {
         const sym = this.findPath(path, absolute);
         if (sym !== undefined && sym.type == 'macro') {
-            return sym.data;
+            return sym;
         }
         return undefined;
     }
@@ -262,7 +260,8 @@ class Scopes {
     declareMacro(name: string, value: ast.StmtMacro): void {
         this.curSymtab.addSymbol(name, {
             type: 'macro',
-            data: value
+            macro: value,
+            declaredIn: this.curSymtab
         }, this.passCount)
     }
 
@@ -985,15 +984,15 @@ class Assembler {
     }
 
     // Enter anonymous block scope
-    withAnonScope(name: string | null, compileScope: () => void): void {
+    withAnonScope(name: string | null, compileScope: () => void, parent?: NamedScope<SymEntry>): void {
         if (name !== null) {
-            return this.withLabelScope(name, compileScope);
+            return this.withLabelScope(name, compileScope, parent);
         }
-        this.scopes.withAnonScope(compileScope);
+        this.scopes.withAnonScope(compileScope, parent);
     }
 
     // Enter named scope
-    withLabelScope (name: string, compileScope: () => void): void {
+    withLabelScope (name: string, compileScope: () => void, parent?: NamedScope<SymEntry>): void {
         this.scopes.withLabelScope(name, compileScope);
     }
 
@@ -1150,14 +1149,16 @@ class Assembler {
             }
             case 'callmacro': {
                 const { name, args } = node;
-                const macro = this.scopes.findMacro(name.path, name.absolute);
+                const macroSym = this.scopes.findMacro(name.path, name.absolute);
 
                 const argValues = args.map(e => this.evalExpr(e));
 
-                if (macro == undefined) {
+                if (macroSym == undefined) {
                     this.addError(`Undefined macro '${formatSymbolPath(name)}'`, name.loc);
                     return;
                 }
+
+                const { macro, declaredIn } = macroSym;
 
                 if (macro.args.length !== args.length) {
                     this.addError(`Macro '${formatSymbolPath(name)}' declared with ${macro.args.length} args but called here with ${args.length}`,
@@ -1171,7 +1172,7 @@ class Assembler {
                         this.scopes.declareVar(argName, argValues[i]);
                     }
                     this.assembleLines(macro.body);
-                });
+                }, declaredIn);
                 break;
             }
             case 'let': {
