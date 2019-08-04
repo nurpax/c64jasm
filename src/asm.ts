@@ -1206,6 +1206,11 @@ class Assembler {
                 this.scopes.updateVar(name.path[0], evalValue);
                 break;
             }
+            case 'statement-expr': {
+                // Eval expression only for its side-effects
+                this.evalExpr(node.expr);
+                break;
+            }
             case 'load-plugin': {
                 const fname = this.evalExprToString(node.filename, 'plugin filename');
                 if (anyErrors(fname)) {

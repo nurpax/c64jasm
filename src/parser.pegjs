@@ -170,6 +170,9 @@ directive =
   / PSEUDO_FILESCOPE name:identifier {
       return ast.mkFilescope(name, loc());
     }
+  / PSEUDO_STATEMENT s:execStatement {
+      return s;
+    }
 
 elif = PSEUDO_ELIF LPAR condition:expr RPAR LWING trueBranch:statements RWING {
   return { condition, trueBranch };
@@ -426,6 +429,11 @@ PropertyName =
   / string
   / num:num { return ast.mkLiteral(num, loc()); }
 
+
+execStatement =
+  expr:expr { return ast.mkStmtExpr(expr, loc()); }
+
+
 alpha = [a-zA-Z_]
 alphanum = [a-zA-Z_0-9]
 
@@ -475,6 +483,7 @@ PSEUDO_INCLUDE   = "!include" ws
 PSEUDO_FILL      = "!fill" ws
 PSEUDO_USE       = "!use" ws
 PSEUDO_FILESCOPE = "!filescope" ws
+PSEUDO_STATEMENT = "!!" ws
 
 LBRK      =  s:'['         ws { return s; }
 RBRK      =  s:']'         ws { return s; }

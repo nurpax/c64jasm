@@ -140,6 +140,7 @@ export type Stmt =
   | StmtCallMacro
   | StmtLet
   | StmtAssign
+  | StmtExpr
   | StmtLoadPlugin
   | StmtFilescope
 
@@ -229,6 +230,12 @@ export interface StmtAssign extends Node {
   type: 'assign',
   name: ScopeQualifiedIdent;
   value: Expr;
+}
+
+// Run an expression for its side-effects, discard value
+export interface StmtExpr extends Node {
+  type: 'statement-expr',
+  expr: Expr;
 }
 
 export interface StmtLoadPlugin extends Node {
@@ -367,6 +374,14 @@ export function mkAssign(name: ScopeQualifiedIdent, value: Expr, loc: SourceLoc)
     type: 'assign',
     name,
     value,
+    loc
+  }
+}
+
+export function mkStmtExpr(expr: Expr, loc: SourceLoc): StmtExpr {
+  return {
+    type: 'statement-expr',
+    expr,
     loc
   }
 }
