@@ -150,6 +150,22 @@ Using `util.asm` from another file:
     +util::inc_border()
 ```
 
+Symbol references are relative to the current scope.  If you need to reference a symbol in the root scope, use `::foo::bar`:
+
+```c64
+bar: {
+    !let foo = 20
+}
+
+foo: {
+    bar: {
+        !let foo = 0
+    }
+    lda #bar::foo    ; evaluates to 0
+    lda #::bar::foo  ; evaluates to 20
+}
+```
+
 ### Data directives
 
 Emitting bytes/words:
@@ -456,11 +472,45 @@ Using the c64jasm provided I/O functions is necessary as it allows for c64jasm t
 ### Rules of authoring extensions
 
 - Use `context.readFileSync` for loading files.
-- An extension must always return the same value when called with the same input arguments.  This is also called _idempotence_ or _referential transparency_.  So basically, extensions shouldn't have side-effects. They shouldn't use internal global state or use JavaScript functions that hold state, such as `Math.random`.
+- An extension must always return the same value when called with the same input arguments.  Global state in the plugin or calling non-deterministic functions such as `Math.random` will lead to inconsistent/broken build results.  This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode.  Also plugin functions can be called multiple times during compilation (at minimum once per compilation pass).
 
-Breaking the above rules may lead to inconsistent results.  This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode.
+A limited form of side-effects is permitted though.  It is OK for an extension function to return a closure that holds its internal state.  For example this code is fine:
+
+```
+module.exports = {
+  create: ({}, initial) => {
+    const stack = [initial];
+    return {
+      push: (elt) => {
+        stack.push(elt)
+      },
+      pop: () => stack.pop(),
+      top: () => {
+        return stack[stack.length-1];
+      }
+    }
+  }
+}
+```
+
+Usage in assembler:
+
+```c64
+!use "stack" as stack
+!let s = stack.create({ tmp0: $20 })
+!let zp = s.top()
+    lda #zp.tmp0
+```
+
+In this example, the `stack` array holds the state which can be manipulated by calls to `push(elt)`, `pop()`.
 
 ## Release notes
+
+c64jasm 0.7.0 (released on TBD):
+- Support for running c64jasm in the browser.  Try it out: https://nurpax.github.io/c64jasm-browser/
+- Macros now bind their scope to the point of declaration, not point of expansion.  So they work a lot like normal functions now.  See [issue #56](https://github.com/nurpax/c64jasm/issues/56) for details.
+- The disassembler was missing a $ sign in immediate fields.  So `LDA #FF` changed to `LDA #$FF`.
+- Fix plugin function argument passing bug.  If a plugin function returned a function value, those returned functions were incorrectly called.  They'd receive their args as an array when they were supposed to get their args  destructured into positional parameters.
 
 c64jasm 0.6.0 (released on 2019-07-26):
 - Add object literals

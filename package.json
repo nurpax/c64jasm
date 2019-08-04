@@ -29,7 +29,7 @@
     "test": "node build/test/test.js",
     "asm": "node build/src/cli.js",
     "docs": "cd docs-src && stack exec docs build && cp -R build/* ../docs/",
-    "watch-docs": "cd docs-src && open build/index.html && stack exec docs watch",
+    "watch-docs": "cd docs-src && open-cli build/index.html && stack exec docs watch",
     "dist": "rm -rf dist && mkdir -p build/src dist/src && npm run gen && cp build/src/g_parser.js dist/src && tsc -p tsconfig.dist.json"
   },
   "dependencies": {
@@ -45,6 +45,7 @@
     "@types/argparse": "^1.0.34",
     "@types/node": "^10.9.4",
     "@types/sprintf-js": "^1.1.1",
+    "open-cli": "^5.0.0",
     "pegjs": "^0.10.0",
     "ts-node": "^7.0.1",
     "typescript": "^3.4.5"
