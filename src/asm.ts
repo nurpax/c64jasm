@@ -781,7 +781,7 @@ class Assembler {
                     return mkErrorValue(0);
                 }
                 try {
-                    return mkEvalValue(callee.value(argValues.map(v => v.value)));
+                    return mkEvalValue(callee.value(...argValues.map(v => v.value)));
                 } catch(err) {
                     if (node.callee.type == 'qualified-ident') {
                         this.addError(`Call to '${formatSymbolPath(node.callee)}' failed with an error: ${err.message}`, node.loc);
@@ -1025,11 +1025,11 @@ class Assembler {
     }
 
     makeFunction (pluginFunc: Function, loc: SourceLoc) {
-        return (args: any[]) => {
-            const res = pluginFunc({
+        return (...args: any[]) => {
+            const res = pluginFunc.apply(null, [{
                 readFileSync: (fname: string) => this.readFileSync(fname),
                 resolveRelative: (fn: string) => this.makeSourceRelativePath(fn)
-            }, ...args);
+            }, ...args]);
             return res;
         }
     }
@@ -1411,12 +1411,12 @@ class Assembler {
     requireNumber(e: ast.Literal): (number | never) { return this._requireType(e, 'number') as number; }
 
     registerPlugins () {
-        const json = (args: any[]) => {
+        const json = (...args: any[]) => {
             const name = this.requireString(args[0]);
             const fname = this.makeSourceRelativePath(name);
             return JSON.parse(this.readFileSync(fname, 'utf-8'));
         }
-        const range = (args: any[]) => {
+        const range = (...args: any[]) => {
             let start = 0;
             let end = undefined;
             if (args.length == 1) {
