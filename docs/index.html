@@ -446,7 +446,7 @@ x64 sprites.prg</code></pre>
 </pre>
 </p>
 <h3 id="ifelse">If...else</h3>
-<p>Conditional assembly is supported by <code>!if/elif/else</code>.</p>
+<p>Conditional assembly is supported by <code>!if</code>/<code>elif</code>/<code>else</code>.</p>
 <p><pre class='asm-block'>
 <span class='asm-pseudo'>!let</span> <span class='asm-ident'>debug</span> <span class='asm-other'>=</span> <span class='asm-num'>1</span>
 
@@ -462,7 +462,7 @@ x64 sprites.prg</code></pre>
 </p>
 <h3 id="for-loops">For-loops</h3>
 <p>Use <code>!for</code> to repeat a particular set of instructions or data statements.</p>
-<p>Repeating code generation. For-loops are typically written using the built-in <code>range()</code> function that returns an array of integers. This works similar to Python's <code>range</code> built-in.</p>
+<p>For-loops are typically written using the built-in <code>range()</code> function that returns an array of integers. This works similar to Python's <code>range</code> built-in.</p>
 <p><pre class='asm-block'>
 <span class='asm-pseudo'>!let</span> <span class='asm-ident'>xyptr</span> <span class='asm-other'>=</span> <span class='asm-num'>$40</span>   <span class='asm-comment'>; alias zero-page $40 to xyptr</span>
 

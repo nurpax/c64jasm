@@ -237,7 +237,7 @@ Object literals:
 
 ### If...else
 
-Conditional assembly is supported by `!if/elif/else`.
+Conditional assembly is supported by `!if`/`elif`/`else`.
 
 ```c64
 !let debug = 1
@@ -256,7 +256,7 @@ Conditional assembly is supported by `!if/elif/else`.
 
 Use `!for` to repeat a particular set of instructions or data statements.
 
-Repeating code generation.  For-loops are typically written using the built-in `range()` function that returns an array of integers.  This works similar to Python's `range` built-in.
+For-loops are typically written using the built-in `range()` function that returns an array of integers.  This works similar to Python's `range` built-in.
 
 ```c64
 !let xyptr = $40   ; alias zero-page $40 to xyptr
