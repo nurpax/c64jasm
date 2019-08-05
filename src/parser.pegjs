@@ -155,9 +155,7 @@ directive =
       return ast.mkCallMacro(name, args, loc());
     }
   / PSEUDO_LET name:identifier EQU value:expr { return ast.mkLet(name, value, loc()); }
-  / name:scopeQualifiedIdentifier EQU value:expr {
-      return ast.mkAssign(name, value, loc());
-    }
+  / statementAssign
   / PSEUDO_USE filename:string "as" __ plugin:identifier {
       return ast.mkLoadPlugin(filename, plugin, loc());
     }
@@ -431,7 +429,13 @@ PropertyName =
 
 
 execStatement =
-  expr:expr { return ast.mkStmtExpr(expr, loc()); }
+    statementAssign
+  / expr:expr { return ast.mkStmtExpr(expr, loc()); }
+
+statementAssign =
+  name:scopeQualifiedIdentifier EQU value:expr {
+    return ast.mkAssign(name, value, loc());
+  }
 
 
 alpha = [a-zA-Z_]
