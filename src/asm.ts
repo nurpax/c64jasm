@@ -1054,8 +1054,12 @@ class Assembler {
             const keys = Object.keys(module);
             for (let ki in keys) {
                 const key = keys[ki];
-                const func = module[key];
-                moduleObj[key] = this.makeFunction(func, node.loc);
+                const val = module[key];
+                if (typeof val === 'function') {
+                    moduleObj[key] = this.makeFunction(val, node.loc);
+                } else {
+                    moduleObj[key] = val;
+                }
             }
             this.scopes.declareVar(moduleName.name, mkEvalValue(moduleObj));
         }
