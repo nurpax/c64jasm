@@ -204,6 +204,14 @@ You can declare a variable with `!let`.  You can use standard C operators like `
     sta $d015
 ```
 
+Variable assignment:
+
+```c64
+!let a = 0   ; declare 'a'
+a = 1        ; assign 1 to 'a'
+!! a = 1     ; assign 1 to 'a' (same as above, see Statements)
+```
+
 Variables take on JavaScript values such as numbers, strings, arrays and objects.  We will explore later in this document why array and object values are useful.
 
 Array literals:
@@ -280,6 +288,20 @@ If you want to loop over some small set of fixed values (say `1`, `10`, `100`), 
 !for i in [1, 10, 100] {
     ...
 }
+```
+
+### Statements
+
+Statements such as variable assignment or calling a plugin function for just its side-effect is expressed by starting the line with `!!`:
+
+```c64
+; 'my_log' would be a JavaScript extension in your project
+!use "my_log_plugin" as log
+
+!let a = 0
+!! a = 1   ; assign 1 to 'a'
+
+!! log.print("hello")   ; console.log()
 ```
 
 ### Macros

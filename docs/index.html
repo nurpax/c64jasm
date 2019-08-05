@@ -250,6 +250,7 @@ Table of contents:
 <li><a href="#variables">Variables</a></li>
 <li><a href="#ifelse">If...else</a></li>
 <li><a href="#for-loops">For-loops</a></li>
+<li><a href="#statements">Statements</a></li>
 <li><a href="#macros">Macros</a></li>
 <li><a href="#built-in-functions">Built-in functions</a></li>
 </ul></li>
@@ -370,6 +371,21 @@ x64 sprites.prg</code></pre>
     <span class='asm-other'>+</span><span class='asm-ident'>util</span><span class='asm-other'>::</span><span class='asm-ident'>inc_border</span><span class='asm-other'>(</span><span class='asm-other'>)</span>
 </pre>
 </p>
+<p>Symbol references are relative to the current scope. If you need to reference a symbol in the root scope, use <code>::foo::bar</code>:</p>
+<p><pre class='asm-block'>
+<span class='asm-label'>bar:</span> <span class='asm-other'>{</span>
+    <span class='asm-pseudo'>!let</span> <span class='asm-ident'>foo</span> <span class='asm-other'>=</span> <span class='asm-num'>20</span>
+<span class='asm-other'>}</span>
+
+<span class='asm-label'>foo:</span> <span class='asm-other'>{</span>
+    <span class='asm-ident'>bar</span><span class='asm-other'>:</span> <span class='asm-other'>{</span>
+        <span class='asm-pseudo'>!let</span> <span class='asm-ident'>foo</span> <span class='asm-other'>=</span> <span class='asm-num'>0</span>
+    <span class='asm-other'>}</span>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-ident'>bar</span><span class='asm-other'>::</span><span class='asm-ident'>foo</span>    <span class='asm-comment'>; evaluates to 0</span>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-other'>::</span><span class='asm-ident'>bar</span><span class='asm-other'>::</span><span class='asm-ident'>foo</span>  <span class='asm-comment'>; evaluates to 20</span>
+<span class='asm-other'>}</span>
+</pre>
+</p>
 <h3 id="data-directives">Data directives</h3>
 <p>Emitting bytes/words:</p>
 <p><pre class='asm-block'>
@@ -400,6 +416,13 @@ x64 sprites.prg</code></pre>
 
     <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-other'>(</span><span class='asm-num'>1</span> <span class='asm-other'><</span><span class='asm-other'><</span> <span class='asm-ident'>num_sprites</span><span class='asm-other'>)</span><span class='asm-other'>-</span><span class='asm-num'>1</span>
     <span class='asm-mnemonic'>sta</span> <span class='asm-num'>$d015</span>
+</pre>
+</p>
+<p>Variable assignment:</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>a</span> <span class='asm-other'>=</span> <span class='asm-num'>0</span>   <span class='asm-comment'>; declare 'a'</span>
+<span class='asm-ident'>a</span> <span class='asm-other'>=</span> <span class='asm-num'>1</span>        <span class='asm-comment'>; assign 1 to 'a'</span>
+<span class='asm-pseudo'>!!</span> <span class='asm-ident'>a</span> <span class='asm-other'>=</span> <span class='asm-num'>1</span>     <span class='asm-comment'>; assign 1 to 'a' (same as above, see Statements)</span>
 </pre>
 </p>
 <p>Variables take on JavaScript values such as numbers, strings, arrays and objects. We will explore later in this document why array and object values are useful.</p>
@@ -468,6 +491,18 @@ x64 sprites.prg</code></pre>
 <span class='asm-pseudo'>!for</span> <span class='asm-ident'>i</span> <span class='asm-ident'>in</span> <span class='asm-other'>[</span><span class='asm-num'>1</span><span class='asm-other'>,</span> <span class='asm-num'>10</span><span class='asm-other'>,</span> <span class='asm-num'>100</span><span class='asm-other'>]</span> <span class='asm-other'>{</span>
     <span class='asm-other'>.</span><span class='asm-other'>.</span><span class='asm-other'>.</span>
 <span class='asm-other'>}</span>
+</pre>
+</p>
+<h3 id="statements">Statements</h3>
+<p>Statements such as variable assignment or calling a plugin function for just its side-effect is expressed by starting the line with <code>!!</code>:</p>
+<p><pre class='asm-block'>
+<span class='asm-comment'>; 'my_log' would be a JavaScript extension in your project</span>
+<span class='asm-pseudo'>!use</span> <span class='asm-string'>"my_log_plugin"</span> <span class='asm-ident'>as</span> <span class='asm-ident'>log</span>
+
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>a</span> <span class='asm-other'>=</span> <span class='asm-num'>0</span>
+<span class='asm-pseudo'>!!</span> <span class='asm-ident'>a</span> <span class='asm-other'>=</span> <span class='asm-num'>1</span>   <span class='asm-comment'>; assign 1 to 'a'</span>
+
+<span class='asm-pseudo'>!!</span> <span class='asm-ident'>log</span><span class='asm-other'>.</span><span class='asm-ident'>print</span><span class='asm-other'>(</span><span class='asm-string'>"hello"</span><span class='asm-other'>)</span>   <span class='asm-comment'>; console.log()</span>
 </pre>
 </p>
 <h3 id="macros">Macros</h3>
@@ -602,10 +637,40 @@ module.exports = loadJson;</code></pre>
 <h3 id="rules-of-authoring-extensions">Rules of authoring extensions</h3>
 <ul>
 <li>Use <code>context.readFileSync</code> for loading files.</li>
-<li>An extension must always return the same value when called with the same input arguments. This is also called <em>idempotence</em> or <em>referential transparency</em>. So basically, extensions shouldn't have side-effects. They shouldn't use internal global state or use JavaScript functions that hold state, such as <code>Math.random</code>.</li>
+<li>An extension must always return the same value when called with the same input arguments. Global state in the plugin or calling non-deterministic functions such as <code>Math.random</code> will lead to inconsistent/broken build results. This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode. Also plugin functions can be called multiple times during compilation (at minimum once per compilation pass).</li>
 </ul>
-<p>Breaking the above rules may lead to inconsistent results. This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode.</p>
+<p>A limited form of side-effects is permitted though. It is OK for an extension function to return a closure that holds its internal state. For example this code is fine:</p>
+<pre><code>module.exports = {
+  create: ({}, initial) =&gt; {
+    const stack = [initial];
+    return {
+      push: (elt) =&gt; {
+        stack.push(elt)
+      },
+      pop: () =&gt; stack.pop(),
+      top: () =&gt; {
+        return stack[stack.length-1];
+      }
+    }
+  }
+}</code></pre>
+<p>Usage in assembler:</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!use</span> <span class='asm-string'>"stack"</span> <span class='asm-ident'>as</span> <span class='asm-ident'>stack</span>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>s</span> <span class='asm-other'>=</span> <span class='asm-ident'>stack</span><span class='asm-other'>.</span><span class='asm-ident'>create</span><span class='asm-other'>(</span><span class='asm-other'>{</span> <span class='asm-ident'>tmp0</span><span class='asm-other'>:</span> <span class='asm-num'>$20</span> <span class='asm-other'>}</span><span class='asm-other'>)</span>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>zp</span> <span class='asm-other'>=</span> <span class='asm-ident'>s</span><span class='asm-other'>.</span><span class='asm-ident'>top</span><span class='asm-other'>(</span><span class='asm-other'>)</span>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-ident'>zp</span><span class='asm-other'>.</span><span class='asm-ident'>tmp0</span>
+</pre>
+</p>
+<p>In this example, the <code>stack</code> array holds the state which can be manipulated by calls to <code>push(elt)</code>, <code>pop()</code>.</p>
 <h2 id="release-notes">Release notes</h2>
+<p>c64jasm 0.7.0 (released on TBD):</p>
+<ul>
+<li>Support for running c64jasm in the browser. Try it out: <a href="https://nurpax.github.io/c64jasm-browser/" class="uri">https://nurpax.github.io/c64jasm-browser/</a></li>
+<li>Macros now bind their scope to the point of declaration, not point of expansion. So they work a lot like normal functions now. See <a href="https://github.com/nurpax/c64jasm/issues/56">issue #56</a> for details.</li>
+<li>The disassembler was missing a $ sign in immediate fields. So <code>LDA #FF</code> changed to <code>LDA #$FF</code>.</li>
+<li>Fix plugin function argument passing bug. If a plugin function returned a function value, those returned functions were incorrectly called. They'd receive their args as an array when they were supposed to get their args destructured into positional parameters.</li>
+</ul>
 <p>c64jasm 0.6.0 (released on 2019-07-26):</p>
 <ul>
 <li>Add object literals</li>

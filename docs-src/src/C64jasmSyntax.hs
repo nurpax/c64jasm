@@ -47,7 +47,7 @@ label = do
 
 pseudo = do
   char '!'
-  s <- ident
+  s <- ident <|> (T.singleton <$> char '!')
   return (Pseudo s)
 
 ident = do
