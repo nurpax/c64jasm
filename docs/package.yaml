@@ -1,10 +1,9 @@
-name:                docs
+name:                docbuild
 version:             0.1.0.0
-github:              "githubuser/docs"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2019 Author name here"
+author:              "Janne Hellsten"
+maintainer:          "jjhellst@gmail.com"
+copyright:           "2019 Janne Hellsten"
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -25,7 +24,7 @@ dependencies:
 - attoparsec
 
 executables:
-  docs:
+  docbuild:
     main:                Main.hs
     source-dirs:         src
     ghc-options:
