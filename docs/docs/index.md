@@ -36,7 +36,7 @@ Upon successful installation, running `c64jasm --help` in your shell should work
 
 **VICE**: See the [VICE website](http://vice-emu.sourceforge.net/) for download and installation instructions.  Once you have it installed, make sure the VICE emulator binary `x64` is in your `PATH`.
 
-For vim users: C64jasm vim plugin for syntax highlighting and better editing support: [c64jasm plugin for vim](https://github.com/neochrome/vim-c64jasm)
+**Extras**: Vim users: C64jasm vim plugin for syntax highlighting and better editing support: [c64jasm plugin for vim](https://github.com/neochrome/vim-c64jasm)
 
 ## Getting started
 
