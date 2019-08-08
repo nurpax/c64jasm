@@ -528,7 +528,7 @@ In this example, the `stack` array holds the state which can be manipulated by c
 
 ## Release notes
 
-c64jasm 0.7.0 (released on TBD):
+c64jasm 0.7.0 (released on 2019-07-05):
 - Support for running c64jasm in the browser.  Try it out: https://nurpax.github.io/c64jasm-browser/
 - Macros now bind their scope to the point of declaration, not point of expansion.  So they work a lot like normal functions now.  See [issue #56](https://github.com/nurpax/c64jasm/issues/56) for details.
 - The disassembler was missing a $ sign in immediate fields.  So `LDA #FF` changed to `LDA #$FF`.
