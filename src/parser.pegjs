@@ -362,12 +362,15 @@ primary
   / string:string                  { return string; }
   / arrayLiteral
   / objectLiteral
+  / curPC
   / LPAR e:lastExpr RPAR           { return e; }
 
 num =
    "$" hex:$hexdig+ __      { return parseInt(hex, 16); }
  / "%" binary:$zeroone+ __  { return parseInt(binary, 2); }
  / float:DecimalLiteral __  { return float; }
+
+curPC = STAR                { return ast.mkGetCurPC(loc()); }
 
 DecimalLiteral
   = DecimalIntegerLiteral "." digit* ExponentPart? {

@@ -71,6 +71,10 @@ export interface Member extends Node {
   computed: boolean;
 }
 
+export interface GetCurPC extends Node {
+  type: 'getcurpc';
+}
+
 export function mkLiteral(lit: number | string, loc: SourceLoc): Literal {
   return { type: 'literal', lit, loc };
 }
@@ -108,6 +112,13 @@ export function mkCallFunc(callee: Expr, args: Expr[], loc: SourceLoc): CallFunc
   }
 }
 
+export function mkGetCurPC(loc: SourceLoc): GetCurPC {
+  return {
+    type: 'getcurpc',
+    loc
+  }
+}
+
 export function mkMember(object: Expr, property: Ident, computed: boolean, loc: SourceLoc): Member {
   return { type: 'member', object, property, computed, loc };
 }
@@ -124,6 +135,7 @@ export type Expr =
   | ExprObject
   | CallFunc
   | Member
+  | GetCurPC
 
 export type Stmt =
     StmtInsn

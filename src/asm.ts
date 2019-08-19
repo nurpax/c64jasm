@@ -793,6 +793,9 @@ class Assembler {
                     return mkErrorValue(0);
                 }
             }
+            case 'getcurpc': {
+                return mkEvalValue(this.codePC);
+            }
             default:
                 break;
         }
