@@ -168,6 +168,14 @@ foo: {
 }
 ```
 
+The implicit `*` label always points to the current line's address.  You can use it to for example jump over the next instruction:
+
+```c64
+    bcc *+3
+    nop
+    ; bcc jumps here if carry clear
+```
+
 ### Data directives
 
 Emitting bytes/words:
@@ -529,6 +537,9 @@ Usage in assembler:
 In this example, the `stack` array holds the state which can be manipulated by calls to `push(elt)`, `pop()`.
 
 ## Release notes
+
+c64jasm 0.8.0 (released on TBD):
+- Add support for the star-operand (e.g., `jmp *`, `inc *-3`, etc.) that returns the current program position.
 
 c64jasm 0.7.0 (released on 2019-07-05):
 - Support for running c64jasm in the browser.  Try it out: https://nurpax.github.io/c64jasm-browser/

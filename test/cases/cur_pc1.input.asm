@@ -12,3 +12,7 @@ foo:nop
     jmp lbl ; should jmp to nop
 baz:
     nop
+
+    bcc *+3 ; jump over first nop
+    nop
+    nop
