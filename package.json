@@ -44,7 +44,7 @@
   },
   "devDependencies": {
     "@types/argparse": "^1.0.34",
-    "@types/node": "^10.9.4",
+    "@types/node": "^9.6.7",
     "@types/sprintf-js": "^1.1.1",
     "gh-pages": "^2.1.1",
     "open-cli": "^5.0.0",
