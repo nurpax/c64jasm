@@ -538,8 +538,9 @@ In this example, the `stack` array holds the state which can be manipulated by c
 
 ## Release notes
 
-c64jasm 0.8.0 (released on TBD):
+c64jasm 0.8.0 (released on 2019-11-11):
 - Add support for the star-operand (e.g., `jmp *`, `inc *-3`, etc.) that returns the current program position.
+- Support CRLF (\r\n) style line-ends.  Fixes [issue #61](https://github.com/nurpax/c64jasm/issues/61).
 
 c64jasm 0.7.0 (released on 2019-07-05):
 - Support for running c64jasm in the browser.  Try it out: https://nurpax.github.io/c64jasm-browser/
