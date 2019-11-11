@@ -503,7 +503,7 @@ Using the c64jasm provided I/O functions is necessary as it allows for c64jasm t
 
 ### Rules of authoring extensions
 
-- Use `context.readFileSync` for loading files.
+- Use `context.readFileSync` to load files.
 - An extension must always return the same value when called with the same input arguments.  Global state in the plugin or calling non-deterministic functions such as `Math.random` will lead to inconsistent/broken build results.  This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode.  Also plugin functions can be called multiple times during compilation (at minimum once per compilation pass).
 
 A limited form of side-effects is permitted though.  It is OK for an extension function to return a closure that holds its internal state.  For example this code is fine:
