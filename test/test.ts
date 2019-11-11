@@ -137,11 +137,12 @@ cp ${actualFname} ${expectedFname}
 }
 
 function cleanSyntaxError(msg: string) {
-    const m = /(((.*): error:) (Syntax error: )).*$/.exec(msg);
+    const fwdSlashesMsg = msg.replace(/\\/g, '/');
+    const m = /(((.*): error:) (Syntax error: )).*$/.exec(fwdSlashesMsg);
     if (m) {
         return m[1];
     }
-    return msg;
+    return fwdSlashesMsg;
 }
 
 function validateErrors(errors: Diagnostic[], fname: string, errType: 'error' | 'warning') {
