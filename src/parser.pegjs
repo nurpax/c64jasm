@@ -79,7 +79,7 @@
 }
 
 statements =
-    head:insnLineWithComment tail:("\n" insnLineWithComment)* {
+    head:insnLineWithComment tail:(LineTerminator insnLineWithComment)* {
       return buildList(head, tail, 1);
     }
 
@@ -466,14 +466,14 @@ Zs = [\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]
 // Same as __/ws but consumes lineends to
 _n_ = (WhiteSpace / LineTerminatorSequence / lineComment)*
 
-lineComment = (';' (!'\n' .)*)
+lineComment = (';' (!LineTerminator .)*)
+
+LineTerminator = [\n\r]
 
 LineTerminatorSequence "end of line"
   = "\n"
   / "\r\n"
   / "\r"
-  / "\u2028"
-  / "\u2029"
 
 PSEUDO_ALIGN     = "!align" ws
 PSEUDO_BYTE      = "!byte" ws { return 'byte'; }
