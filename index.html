@@ -644,7 +644,7 @@ module.exports = loadJson;</code></pre>
 <p>Using the c64jasm provided I/O functions is necessary as it allows for c64jasm to know about your input files. For example, if you're running c64jasm in watch mode, it can cache all your input files if they didn't change since the previous compile.</p>
 <h3 id="rules-of-authoring-extensions">Rules of authoring extensions</h3>
 <ul>
-<li>Use <code>context.readFileSync</code> for loading files.</li>
+<li>Use <code>context.readFileSync</code> to load files.</li>
 <li>An extension must always return the same value when called with the same input arguments. Global state in the plugin or calling non-deterministic functions such as <code>Math.random</code> will lead to inconsistent/broken build results. This is because c64jasm aggressively caches the results of plugin invocations in watched compile mode. Also plugin functions can be called multiple times during compilation (at minimum once per compilation pass).</li>
 </ul>
 <p>A limited form of side-effects is permitted though. It is OK for an extension function to return a closure that holds its internal state. For example this code is fine:</p>
