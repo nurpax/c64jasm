@@ -387,6 +387,13 @@ x64 sprites.prg</code></pre>
 <span class='asm-other'>}</span>
 </pre>
 </p>
+<p>The implicit <code>*</code> label always points to the current line's address. You can use it to for example jump over the next instruction:</p>
+<p><pre class='asm-block'>
+    <span class='asm-mnemonic'>bcc</span> <span class='asm-other'>*</span><span class='asm-other'>+</span><span class='asm-num'>3</span>
+    <span class='asm-mnemonic'>nop</span>
+    <span class='asm-comment'>; bcc jumps here if carry clear</span>
+</pre>
+</p>
 <h3 id="data-directives">Data directives</h3>
 <p>Emitting bytes/words:</p>
 <p><pre class='asm-block'>
@@ -665,6 +672,11 @@ module.exports = loadJson;</code></pre>
 </p>
 <p>In this example, the <code>stack</code> array holds the state which can be manipulated by calls to <code>push(elt)</code>, <code>pop()</code>.</p>
 <h2 id="release-notes">Release notes</h2>
+<p>c64jasm 0.8.0 (released on 2019-11-11):</p>
+<ul>
+<li>Add support for the star-operand (e.g., <code>jmp *</code>, <code>inc *-3</code>, etc.) that returns the current program position.</li>
+<li>Support CRLF (\r\n) style line-ends. Fixes <a href="https://github.com/nurpax/c64jasm/issues/61">issue #61</a>.</li>
+</ul>
 <p>c64jasm 0.7.0 (released on 2019-07-05):</p>
 <ul>
 <li>Support for running c64jasm in the browser. Try it out: <a href="https://nurpax.github.io/c64jasm-browser/" class="uri">https://nurpax.github.io/c64jasm-browser/</a></li>
