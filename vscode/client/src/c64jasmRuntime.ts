@@ -267,10 +267,9 @@ function sleep(ms: number) {
 // for the program entry point.
 function parseBasicSysAddress(progName: string): number {
     const buf = readFileSync(progName);
-//    00000000: 0108 0c08 0000 9e32 3036 3100 0000 a900  .......2061.....
+//    00000000: 0108 xxxx yyyy 9e32 3036 3100 0000 a900  .......2061.....
 
-    if (buf[0] == 0x01 && buf[1] == 0x08 && buf[2] == 0x0c && buf[3] == 0x08 &&
-        buf[4] == 0x00 && buf[5] == 0x00 && buf[6] == 0x9e) {
+    if (buf[0] == 0x01 && buf[1] == 0x08 && buf[6] == 0x9e) {
         let offs = 7;
         let addr = 0;
         while(buf[offs] != 0) {
