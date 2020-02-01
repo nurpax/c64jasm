@@ -1,0 +1,1 @@
+test/errors/macro3.input.asm:3:6: error: Undefined macro 'foo'

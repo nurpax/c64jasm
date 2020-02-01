@@ -249,7 +249,7 @@ class Scopes {
         this.curSymtab.updateSymbol(symbolName, newVar, this.passCount);
     }
 
-    findMacro(path: string[], absolute: boolean): SymMacro | undefined {
+    findMacro(path: string[], absolute: boolean): SymMacro & { seen: number } | undefined {
         const sym = this.findPath(path, absolute);
         if (sym !== undefined && sym.type == 'macro') {
             return sym;
@@ -1173,7 +1173,7 @@ class Assembler {
 
                 const argValues = args.map(e => this.evalExpr(e));
 
-                if (macroSym == undefined) {
+                if (macroSym == undefined || macroSym.seen < this.pass) {
                     this.addError(`Undefined macro '${formatSymbolPath(name)}'`, name.loc);
                     return;
                 }
