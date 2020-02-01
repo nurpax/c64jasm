@@ -405,9 +405,9 @@ class Assembler {
     }
 
     prg (): Buffer {
-      const startLo = this.initialPC & 255;
-      const startHi = (this.initialPC >> 8) & 255;
-      return Buffer.from([startLo, startHi].concat(this.binary))
+        const startLo = this.initialPC & 255;
+        const startHi = (this.initialPC >> 8) & 255;
+        return Buffer.from([startLo, startHi].concat(this.binary))
     }
 
     parse (filename: string, loc: SourceLoc | undefined) {
@@ -427,9 +427,18 @@ class Assembler {
         }
         const sourceRelativePath = this.makeSourceRelativePath(fname);
         try {
-            const newPlugin = isRunningNodeJS
-              ? importFresh(path.resolve(sourceRelativePath))
-              : browserRequire(this.guardedReadFileSync(`${sourceRelativePath}.js`, loc));
+            let newPlugin = undefined;
+            if (isRunningNodeJS) {
+                newPlugin = importFresh(path.resolve(sourceRelativePath));
+            } else {
+                const source = this.guardedReadFileSync(`${sourceRelativePath}.js`, loc);
+                if (source !== undefined) {
+                    newPlugin = browserRequire(source);
+                }
+            }
+            if (newPlugin === undefined) {
+                return mkErrorValue(0);
+            }
             const m = mkEvalValue(newPlugin);
             this.pluginCache.set(fname, m);
             return m;
@@ -540,7 +549,11 @@ class Assembler {
         }
 
         const fname = this.makeSourceRelativePath(evalFname.value);
-        const buf: Buffer = this.guardedReadFileSync(fname, ast.loc);
+        const buf = this.guardedReadFileSync(fname, ast.loc);
+        if (buf === undefined) { // can happen if fname is not found
+            return;
+        }
+
         let numBytes = buf.byteLength;
         if (size) {
             numBytes = size.value;
@@ -924,12 +937,12 @@ class Assembler {
         }
     }
 
-    guardedReadFileSync(fname: string, loc: SourceLoc): Buffer {
+    guardedReadFileSync(fname: string, loc: SourceLoc): Buffer|undefined {
         try {
             return this.readFileSync(fname);
         } catch (err) {
             this.addError(`Couldn't open file '${fname}'`, loc);
-            return Buffer.from([]);
+            return undefined;
         }
     }
 
@@ -1397,7 +1410,11 @@ class Assembler {
     assemble (filename: string, loc: SourceLoc | undefined): void {
         try {
             const astLines = this.parse(filename, loc);
-            this.assembleLines(astLines);
+            // Undefined astLines can happen f.ex when the file to be
+            // parsed was missing.
+            if (astLines !== undefined) {
+                this.assembleLines(astLines);
+            }
         } catch(err) {
             if ('name' in err && err.name == 'SyntaxError') {
                 this.addError(`Syntax error: ${err.message}`, {

@@ -1,0 +1,1 @@
+test/errors/for_scope1.input.asm:26:1: error: Couldn't open file 'test/errors/inexistent_file.asm'
