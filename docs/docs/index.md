@@ -538,6 +538,10 @@ In this example, the `stack` array holds the state which can be manipulated by c
 
 ## Release notes
 
+c64jasm 0.8.1 (released on 2020-02-05):
+- Require macros to be declared before use.  Using a macro before declaration didn't trigger an error before, but could also lead to extremely weird downstream errors.
+- File not found errors related to `!include` and other file loading were sometimes not trigger an error due to parser caching.
+
 c64jasm 0.8.0 (released on 2019-11-11):
 - Add support for the star-operand (e.g., `jmp *`, `inc *-3`, etc.) that returns the current program position.
 - Support CRLF (\r\n) style line-ends.  Fixes [issue #61](https://github.com/nurpax/c64jasm/issues/61).
