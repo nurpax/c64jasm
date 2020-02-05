@@ -672,6 +672,11 @@ module.exports = loadJson;</code></pre>
 </p>
 <p>In this example, the <code>stack</code> array holds the state which can be manipulated by calls to <code>push(elt)</code>, <code>pop()</code>.</p>
 <h2 id="release-notes">Release notes</h2>
+<p>c64jasm 0.8.1 (released on 2020-02-05):</p>
+<ul>
+<li>Require macros to be declared before use. Using a macro before declaration didn't trigger an error before, but could also lead to extremely weird downstream errors.</li>
+<li>File not found errors related to <code>!include</code> and other file loading were sometimes not trigger an error due to parser caching.</li>
+</ul>
 <p>c64jasm 0.8.0 (released on 2019-11-11):</p>
 <ul>
 <li>Add support for the star-operand (e.g., <code>jmp *</code>, <code>inc *-3</code>, etc.) that returns the current program position.</li>
