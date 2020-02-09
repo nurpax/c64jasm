@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-import * as process from 'process'
-import { sprintf } from 'sprintf-js'
+import * as process from 'process';
+import * as fs from 'fs';
+import { sprintf } from 'sprintf-js';
 
 import * as net from 'net';
 import { writeFileSync } from 'fs';
@@ -74,11 +75,24 @@ function compile(args: any) {
         console.info('Compilation completed %d ms', Math.floor((deltaNS/1000000.0)*100)/100);
     }
 
-    if (args.dumpLabels) {
-        labels.forEach(({name, addr, size}) => {
-            const msg = sprintf("%s %4d %s", toHex16(addr), size, name);
-            console.log(msg);
-        })
+    if (args.dumpLabels || args.labelsFile) {
+        function printLabels(p: (n: string) => void) {
+            labels.forEach(({name, addr, size}) => {
+                const msg = sprintf("%s %4d %s", toHex16(addr), size, name);
+                p(msg);
+            })
+        }
+        if (args.labelsFile) {
+            let fd: number;
+            try {
+                fd = fs.openSync(args.labelsFile, 'w');
+                printLabels(msg => fs.writeSync(fd, `${msg}\n`));
+            } catch(err) {
+                console.error(err);
+            }
+        } else {
+            printLabels(console.log);
+        }
     }
 
     if (args.disasm) {
@@ -105,7 +119,7 @@ parser.addArgument('--verbose', {
     constant:true
 });
 
-parser.addArgument('--out', { help: 'Output .prg filename' })
+parser.addArgument('--out', { required: true, help: 'Output .prg filename' })
 parser.addArgument('--watch', {
     action:'append',
     help: 'Watch directories/files and recompile on changes.  Add multiple --watch args if you want to watch for multiple dirs/files.'
@@ -123,6 +137,10 @@ parser.addArgument('--dump-labels', {
     dest: 'dumpLabels',
     help: 'Dump program address and size for all labels declared in the source files.'
 });
+parser.addArgument('--labels-file', {
+    dest: 'labelsFile',
+    help: 'Save program address and size for all labels declared in the source files into a file.'
+});
 parser.addArgument('--disasm', {
     action:'storeConst',
     constant: true,
@@ -132,11 +150,6 @@ parser.addArgument('--disasm', {
 parser.addArgument('source', {help: 'Input .asm file'})
 
 args = parser.parseArgs();
-
-if (args.out === null) {
-    console.log('Must specify output .prg filename');
-    process.exit(1);
-}
 
 const ok = compile(args);
 if (!ok && !args.watch) {

@@ -538,6 +538,10 @@ In this example, the `stack` array holds the state which can be manipulated by c
 
 ## Release notes
 
+c64jasm TBD (TBD):
+- Add `--labels-file=<OUTFILE>` command line argument that can be used to save symbol address mapping.
+- Fix labels output printing to use the same syntax for nested scope as is used in the assembler syntax.  This affects `--dump-labels` output.
+
 c64jasm 0.8.1 (released on 2020-02-05):
 - Require macros to be declared before use.  Using a macro before declaration didn't trigger an error before, but could also lead to extremely weird downstream errors.
 - File not found errors related to `!include` and other file loading were sometimes not trigger an error due to parser caching.

@@ -265,24 +265,29 @@ class Scopes {
         }, this.passCount)
     }
 
-    dumpLabels(codePC: number) {
-        type StackEntry = {prefix: string, sym: NamedScope<SymEntry>};
+    dumpLabels(codePC: number): {name: string, addr: number, size: number}[] {
+        type StackEntry = {path: string[], sym: NamedScope<SymEntry>};
         const stack: StackEntry[] = [];
-        const pushScope = (prefix: string, sym: NamedScope<SymEntry>) => {
-            stack.push({ prefix: `${prefix}/${sym.name}`, sym });
+        const pushScope = (path: string[]|undefined, sym: NamedScope<SymEntry>) => {
+            if (path !== undefined) {
+                const newPath = [...path, sym.name];
+                stack.push({ path: newPath, sym });
+            } else {
+                stack.push({ path: [], sym });
+            }
         }
-        pushScope('', this.root);
+        pushScope(undefined, this.root);
 
         const labels = [];
         while (stack.length > 0) {
             const s = stack.pop()!;
             for (let [k,lbl] of s.sym.syms) {
                 if (lbl.type == 'label') {
-                    labels.push({ name: `${s.prefix}/${k}`, addr: lbl.data.value.addr, size: 0 });
+                    labels.push({ path: [...s.path, k], addr: lbl.data.value.addr, size: 0 });
                 }
             }
             for (let [k, sym] of s.sym.children) {
-                pushScope(s.prefix, sym);
+                pushScope(s.path, sym);
             }
         }
 
@@ -298,7 +303,9 @@ class Scopes {
             const last = sortedLabels[numLabels-1];
             last.size = codePC - last.addr;
         }
-        return sortedLabels;
+        return sortedLabels.map(({ path, addr, size }) => {
+            return { name: path.join('::'), addr, size };
+        });
     }
 }
 
