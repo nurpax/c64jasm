@@ -95,13 +95,30 @@ function compile(args: any) {
         }
     }
 
-    if (args.disasm) {
-        const { isInstruction } = debugInfo!.info();
-        const disasm = disassemble(prg, { isInstruction });
-        for (const disasmLine of disasm) {
-            console.log(disasmLine);
+    if (args.disasm || args.disasmFile) {
+        let fd: number;
+        try{
+            console.log(`Generating ${args.disasmFile}`)
+            const { isInstruction } = debugInfo!.info();
+            const disasm = disassemble(prg, { isInstruction });
+
+            if (args.disasmFile) {
+                fd = fs.openSync(args.disasmFile, 'w');
+                for (const disasmLine of disasm) {
+                    fs.writeSync(fd, `${disasmLine}\n`);
+                }
+            } else {
+                for (const disasmLine of disasm) {
+                    console.log(disasmLine);   
+                }
+            }
+
+
+        } catch(err) {
+            console.error(err);
         }
     }
+
     return true;
 }
 
@@ -146,6 +163,10 @@ parser.addArgument('--disasm', {
     constant: true,
     dest: 'disasm',
     help: 'Disassemble the resulting binary on stdout.'
+});
+parser.addArgument('--disasm-file', {
+    dest: 'disasmFile',
+    help: 'Save the Disassembly in the give file.'
 });
 parser.addArgument('source', {help: 'Input .asm file'})
 
