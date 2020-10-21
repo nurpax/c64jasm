@@ -97,12 +97,12 @@ function compile(args: any) {
 
     if (args.disasm || args.disasmFile) {
         let fd: number;
-        try{
-            console.log(`Generating ${args.disasmFile}`)
+        try {
             const { isInstruction } = debugInfo!.info();
             const disasm = disassemble(prg, { isInstruction });
 
             if (args.disasmFile) {
+                console.log(`Generating ${args.disasmFile}`)
                 fd = fs.openSync(args.disasmFile, 'w');
                 for (const disasmLine of disasm) {
                     fs.writeSync(fd, `${disasmLine}\n`);
@@ -128,7 +128,7 @@ const parser = new ArgumentParser({
     version,
     addHelp: true,
     prog: 'c64jasm',
-    description: 'C64 macro assembler'
+    description: 'C64 macro assembler - fork by Shazz/TRSi'
 });
 
 parser.addArgument('--verbose', {
@@ -166,7 +166,7 @@ parser.addArgument('--disasm', {
 });
 parser.addArgument('--disasm-file', {
     dest: 'disasmFile',
-    help: 'Save the Disassembly in the give file.'
+    help: 'Save the disassembly in the given file.'
 });
 parser.addArgument('source', {help: 'Input .asm file'})
 
