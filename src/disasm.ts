@@ -4,7 +4,13 @@ import { readFileSync, writeFileSync } from 'fs'
 
 export interface DisasmOptions {
     isInstruction: (addr: number) => boolean
-};
+};  
+
+interface ILabel {
+    name: string, 
+    addr: number, 
+    size: number
+ }
 
 import opcodes from './opcodes'
 
@@ -50,16 +56,25 @@ class Disassembler {
     } = { startPC: 0, bytes: [] };
 
     private disasmOptions?: DisasmOptions;
+    private labels?: ILabel[];
+    private labels_dict: { [addr:number] : string} = {};
 
-    constructor (private buf: Buffer, disasmOptions?: DisasmOptions) {
+    constructor (private buf: Buffer, labels?: ILabel[], disasmOptions?: DisasmOptions) {
         this.output = [];
         this.curAddr = buf.readUInt8(0) + (buf.readUInt8(1)<<8);
         this.curOffs = 2;
         this.disasmOptions = disasmOptions;
+        this.labels = labels;
 
         if (this.disasmOptions && this.disasmOptions.isInstruction) {
             this.outputPadChars = '                    ';
             this.outputBytesPerLine = 8;
+        }
+
+        if (this.labels) {
+            this.labels.forEach(({name, addr, size}) => {
+                this.labels_dict[addr] = name
+            })
         }
 
         this.opToDecl = {}
@@ -92,89 +107,90 @@ class Disassembler {
         this.bytes.bytes = [];
     }
 
-    print = (addr: number, bytes: number[], decoded: string) => {
+    print = (addr: number, bytes: number[], decoded: string, label: string) => {
         this.flushBytes();
         const b0 = toHex8(bytes[0]);
         const b1 = bytes.length >= 2 ? toHex8(bytes[1]) : '  ';
         const b2 = bytes.length >= 3 ? toHex8(bytes[2]) : '  ';
-        this.output.push(`${toHex16(addr)}: ${b0} ${b1} ${b2}${this.outputPadChars}${decoded}`)
+        const padChars = this.outputPadChars.substring(0, this.outputPadChars.length - label.length);
+        this.output.push(`${toHex16(addr)}: ${b0} ${b1} ${b2} ${label} ${padChars}${decoded}`)
     }
 
-    disImm(mnemonic: string, op: number) {
+    disImm(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const imm = this.byte();
-        this.print(addr, [op, imm], `${mnemonic} #$${toHex8(imm)}`)
+        this.print(addr, [op, imm], `${mnemonic} #$${toHex8(imm)}`, label)
     }
 
-    disZp(mnemonic: string, op: number) {
+    disZp(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const zp = this.byte();
-        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)}`)
+        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)}`, label)
     }
 
-    disZpX(mnemonic: string, op: number) {
+    disZpX(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const zp = this.byte();
-        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)},X`)
+        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)},X`, label)
     }
 
-    disZpY(mnemonic: string, op: number) {
+    disZpY(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const zp = this.byte();
-        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)},Y`)
+        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)},Y`, label)
     }
 
-    disAbs(mnemonic: string, op: number) {
+    disAbs(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
-        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)}`)
+        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)}`, label)
     }
 
-    disAbsX(mnemonic: string, op: number) {
+    disAbsX(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
-        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)},X`)
+        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)},X`, label)
     }
 
-    disAbsY(mnemonic: string, op: number) {
+    disAbsY(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
-        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)},Y`)
+        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)},Y`, label)
     }
 
-    disInd(mnemonic: string, op: number) {
+    disInd(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
-        this.print(addr, [op, lo, hi], `${mnemonic} ($${toHex16(lo + hi*256)})`)
+        this.print(addr, [op, lo, hi], `${mnemonic} ($${toHex16(lo + hi*256)})`, label)
     }
 
-    disIndX(mnemonic: string, op: number) {
+    disIndX(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const lo = this.byte();
-        this.print(addr, [op, lo], `${mnemonic} ($${toHex8(lo)},X)`)
+        this.print(addr, [op, lo], `${mnemonic} ($${toHex8(lo)},X)`, label)
     }
 
-    disIndY (mnemonic: string, op: number) {
+    disIndY (mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const lo = this.byte();
-        this.print(addr, [op, lo], `${mnemonic} ($${toHex8(lo)}),Y`)
+        this.print(addr, [op, lo], `${mnemonic} ($${toHex8(lo)}),Y`, label)
     }
 
-    disSingle(mnemonic: string, op: number) {
+    disSingle(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
-        this.print(addr, [op], `${mnemonic}`)
+        this.print(addr, [op], `${mnemonic}`, label)
     }
 
-    disBranch(mnemonic: string, op: number) {
+    disBranch(mnemonic: string, op: number, label: string) {
         const addr = this.curAddr;
         const lo = this.byte();
         const bofs = lo >= 128 ? -(256-lo) : lo
         const tgt = addr + bofs + 2;
-        this.print(addr, [op, lo], `${mnemonic} $${toHex16(tgt)}`)
+        this.print(addr, [op, lo], `${mnemonic} $${toHex16(tgt)}`, label)
     }
 
     disUnknown(op: number) {
@@ -198,6 +214,10 @@ class Disassembler {
         let oldOffs = this.curOffs
         while (this.curOffs < len) {
             this.curAddr += this.curOffs - oldOffs;
+            var label = "";
+            if (this.curAddr in this.labels_dict) {
+                label = this.labels_dict[this.curAddr];
+            }
             oldOffs = this.curOffs;
 
             const op = this.byte()
@@ -206,51 +226,51 @@ class Disassembler {
             if (isInsn(this.curAddr) && decl !== undefined) {
                 const decoderIdx = decl.decode.indexOf(op);
                 if (decoderIdx === 0) {
-                    this.disImm(decl.mnemonic, op);
+                    this.disImm(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 1) {
-                    this.disZp(decl.mnemonic, op);
+                    this.disZp(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 2) {
-                    this.disZpX(decl.mnemonic, op);
+                    this.disZpX(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 3) {
-                    this.disZpY(decl.mnemonic, op);
+                    this.disZpY(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 4) {
-                    this.disAbs(decl.mnemonic, op);
+                    this.disAbs(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 5) {
-                    this.disAbsX(decl.mnemonic, op);
+                    this.disAbsX(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 6) {
-                    this.disAbsY(decl.mnemonic, op);
+                    this.disAbsY(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 7) {
-                    this.disInd(decl.mnemonic, op);
+                    this.disInd(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 8) {
-                    this.disIndX(decl.mnemonic, op);
+                    this.disIndX(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 9) {
-                    this.disIndY(decl.mnemonic, op);
+                    this.disIndY(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 10) {
-                    this.disSingle(decl.mnemonic, op);
+                    this.disSingle(decl.mnemonic, op, label);
                     continue;
                 }
                 if (decoderIdx === 11) {
-                    this.disBranch(decl.mnemonic, op);
+                    this.disBranch(decl.mnemonic, op, label);
                     continue;
                 }
             } else {
@@ -262,7 +282,7 @@ class Disassembler {
     }
 }
 
-export function disassemble(prg: Buffer, options?: DisasmOptions) {
-    let disasm = new Disassembler(prg, options);
+export function disassemble(prg: Buffer, labels?: ILabel[], options?: DisasmOptions) {
+    let disasm = new Disassembler(prg, labels, options);
     return disasm.disassemble();
 }
