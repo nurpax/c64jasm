@@ -168,6 +168,12 @@ directive =
   / PSEUDO_FILESCOPE name:identifier {
       return ast.mkFilescope(name, loc());
     }
+  / PSEUDO_SEGMENT name:identifier LPAR "start" __ EQU s:expr COMMA "end" __ EQU e:expr RPAR {
+      return ast.mkDeclareSegment(name, s, e, loc());
+    }
+  / PSEUDO_SEGMENT name:scopeQualifiedIdentifier  {
+      return ast.mkUseSegment(name, loc());
+    }
   / PSEUDO_STATEMENT s:execStatement {
       return s;
     }
@@ -490,6 +496,7 @@ PSEUDO_INCLUDE   = "!include" ws
 PSEUDO_FILL      = "!fill" ws
 PSEUDO_USE       = "!use" ws
 PSEUDO_FILESCOPE = "!filescope" ws
+PSEUDO_SEGMENT   = "!segment" ws
 PSEUDO_STATEMENT = "!!" ws
 
 LBRK      =  s:'['         ws { return s; }

@@ -1,1 +1,0 @@
-test/warnings/implicit_pc.input.asm:0:0: warning: Starting program counter not set with '* = addr'.  Defaulting to platform default $0801

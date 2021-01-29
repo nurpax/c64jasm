@@ -1,0 +1,1 @@
+test/errors/segment1.input.asm:5:1: error: Use of undeclared segment 'undefed_segname'

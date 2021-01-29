@@ -1,0 +1,1 @@
+test/errors/segment3_overflow.input.asm:6:5: error: Segment overflow at $0104.  Segment address range: $0100-$0103

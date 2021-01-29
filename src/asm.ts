@@ -7,6 +7,7 @@ import * as fs from 'fs'
 import { toHex16 } from './util'
 import * as ast from './ast'
 import { SourceLoc } from './ast'
+import { Segment, mergeSegments } from './segment';
 import ParseCache from './parseCache'
 import { DebugInfoTracker } from './debugInfo';
 
@@ -129,10 +130,9 @@ class NamedScope<T> {
             }
         }
     }
-
 }
 
-type SymEntry  = SymLabel | SymVar | SymMacro;
+type SymEntry  = SymLabel | SymVar | SymMacro | SymSegment;
 
 interface SymLabel {
     type: 'label';
@@ -142,6 +142,11 @@ interface SymLabel {
 interface SymVar {
     type: 'var';
     data: EvalValue<any>;
+}
+
+interface SymSegment {
+    type: 'segment';
+    data: Segment;
 }
 
 interface SymMacro {
@@ -247,6 +252,13 @@ class Scopes {
             data: val
         };
         this.curSymtab.updateSymbol(symbolName, newVar, this.passCount);
+    }
+
+    declareSegment(name: string, seg: Segment): void {
+        this.curSymtab.addSymbol(name, {
+            type: 'segment',
+            data: seg
+        }, this.passCount)
     }
 
     findMacro(path: string[], absolute: boolean): SymMacro & { seen: number } | undefined {
@@ -376,20 +388,17 @@ function browserRequire(code: Buffer) {
 }
 
 class Assembler {
-    // TODO this should be a resizable array instead
-    private binary: number[] = [];
-
     private parseCache = new ParseCache();
     private pluginCache = new Map();
 
     private includeStack: string[] = [];
 
-    private initialPC = 0;
-    private codePC = 0;
-    private codePCSet = false;
+    private lineLoc: SourceLoc;
+    private curSegment: Segment = new Segment(0, 0); // invalid, setup at start of pass
     private pass = 0;
     needPass = false;
     private scopes = new Scopes();
+    private segments: [string, Segment][] = [];
     private errorList: Error[] = [];
     private warningList: Error[] = [];
     outOfRangeBranches: BranchOffset[] = [];
@@ -412,9 +421,10 @@ class Assembler {
     }
 
     prg (): Buffer {
-        const startLo = this.initialPC & 255;
-        const startHi = (this.initialPC >> 8) & 255;
-        return Buffer.from([startLo, startHi].concat(this.binary))
+        const { startPC, binary } = mergeSegments(this.segments);
+        const startLo = startPC & 255;
+        const startHi = (startPC >> 8) & 255;
+        return Buffer.concat([Buffer.from([startLo, startHi]), binary]);
     }
 
     parse (filename: string, loc: SourceLoc | undefined) {
@@ -506,33 +516,44 @@ class Assembler {
     }
 
     startPass (pass: number): void {
-      this.codePC = this.platform.defaultStartPC;
-      this.codePCSet = false;
-      this.pass = pass;
-      this.needPass = false;
-      this.binary = [];
-      this.errorList = [];
-      this.scopes.startPass(pass);
-      this.outOfRangeBranches = [];
-      this.debugInfo = new DebugInfoTracker();
+        this.pass = pass;
+        this.needPass = false;
+        this.errorList = [];
+        this.scopes.startPass(pass);
+        this.outOfRangeBranches = [];
+        this.debugInfo = new DebugInfoTracker();
+
+        // Empty segments list and append default
+        this.segments = [];
+        this.curSegment = this.newSegment('default', this.platform.defaultStartPC);
+    }
+
+    newSegment(name: string, startAddr: number, endAddr?: number): Segment {
+        const segment = new Segment(startAddr, endAddr);
+        this.segments.push([name, segment]);
+        return segment;
+    }
+
+    getPC(): number {
+        return this.curSegment.currentPC();
     }
 
     emitBasicHeader () {
-      this.emit(0x0c);
-      this.emit(0x08);
-      this.emit(0x00);
-      this.emit(0x00);
-      this.emit(0x9e);
-      const addr = 0x80d
-      const dividers = [10000, 1000, 100, 10, 1]
-      dividers.forEach(div => {
-        if (addr >= div) {
-          this.emit(0x30 + (addr / div) % 10)
-        }
-      });
-      this.emit(0);
-      this.emit(0);
-      this.emit(0);
+        this.emit(0x0c);
+        this.emit(0x08);
+        this.emit(0x00);
+        this.emit(0x00);
+        this.emit(0x9e);
+        const addr = 0x80d;
+        const dividers = [10000, 1000, 100, 10, 1];
+        dividers.forEach((div) => {
+            if (addr >= div) {
+                this.emit(0x30 + ((addr / div) % 10));
+            }
+        });
+        this.emit(0);
+        this.emit(0);
+        this.emit(0);
     }
 
     emitBinary (ast: ast.StmtBinary): void {
@@ -814,7 +835,7 @@ class Assembler {
                 }
             }
             case 'getcurpc': {
-                return mkEvalValue(this.codePC);
+                return mkEvalValue(this.getPC());
             }
             default:
                 break;
@@ -823,27 +844,16 @@ class Assembler {
         return mkErrorValue(0); // TODO is this even reachable?
     }
 
-    setInitialPC (initPC: number) {
-        if (this.codePCSet) {
-            throw new Error('PC already set -- shouldn\'t happen');
-        }
-        this.codePC = initPC;
-        this.codePCSet = true;
-        this.initialPC = initPC;
-    }
-
     topLevelSourceLoc (): SourceLoc {
         const topFilename = this.includeStack[0];
         return makeCompileLoc(topFilename);
     }
 
     emit (byte: number): void {
-        if (!this.codePCSet) {
-            this.setInitialPC(this.platform.defaultStartPC);
-            this.addWarning(`Starting program counter not set with '* = addr'.  Defaulting to platform default $${toHex16(this.codePC)}`, this.topLevelSourceLoc());
+        const err = this.curSegment.emit(byte);
+        if (err !== undefined) {
+            this.addError(err, this.lineLoc); // Use closest line error loc for the error
         }
-        this.binary.push(byte);
-        this.codePC += 1
     }
 
     emit16 (word: number): void {
@@ -907,7 +917,7 @@ class Assembler {
             return true;
         }
         const { value: addr } = ev;
-        const addrDelta = addr - this.codePC - 2;
+        const addrDelta = addr - this.getPC() - 2;
         this.emit(opcode);
         if (addrDelta > 0x7f || addrDelta < -128) {
             // Defer reporting out of 8-bit range branch targets to the end of the
@@ -916,31 +926,16 @@ class Assembler {
         }
         this.emit(addrDelta & 0xff);
         return true;
-      }
+    }
 
-    setPC (valueExpr: ast.Expr): void {
+    handleSetPC (valueExpr: ast.Expr): void {
         const ev  = this.evalExprToInt(valueExpr, 'pc');
         if (!anyErrors(ev)) {
             const { value: v } = ev;
-
-            // If codePC has been set in this pass: emit zeros
-            // to close the gap between the current PC and the desired
-            // new PC.
-            //
-            // If it's not been set yet in this pass, set it to the
-            // desired value directly.  This is the case when the source
-            // file starts with something like "* = $801"
-            if (this.codePCSet) {
-                if (this.codePC > v) {
-                    // TODO this is not great.  Actually need to track which ranges of memory have something in them.
-                    this.addError(`Cannot set program counter to a smaller value than current (current: $${toHex16(this.codePC)}, trying to set $${toHex16(v)})`, valueExpr.loc)
-                }
-                while (this.codePC < v) {
-                  this.emit(0);
-                }
-            } else {
-                this.setInitialPC(v);
+            if (!this.curSegment.empty() && this.curSegment.currentPC() > v) {
+                this.addError(`Cannot set program counter to a smaller value than current (current: $${toHex16(this.curSegment.currentPC())}, trying to set $${toHex16(v)})`, valueExpr.loc);
             }
+            this.curSegment.setCurrentPC(v);
         }
     }
 
@@ -1001,7 +996,7 @@ class Assembler {
             this.addError(`Alignment must be a power of two, ${nb} given`, n.loc);
             return;
         }
-        while ((this.codePC & (nb-1)) != 0) {
+        while ((this.getPC() & (nb-1)) != 0) {
             this.emit(0);
         }
     }
@@ -1103,7 +1098,7 @@ class Assembler {
                 break;
             }
             case 'setpc': {
-                this.setPC(node.pc);
+                this.handleSetPC(node.pc);
                 break;
             }
             case 'binary': {
@@ -1251,6 +1246,45 @@ class Assembler {
                 this.addError(`The !filescope directive is only allowed as the first directive in a source file`, node.loc);
                 return;
             }
+            case 'declare-segment': {
+                const { name, startAddr, endAddr, loc } = node
+
+                const sym = this.scopes.findQualifiedSym([name.name], false);
+                // TODO most likely these need some type of extra eval flag
+                // that restricts that these values can only be evaluated from
+                // constant inputs, not based on labels.  I don't know for sure
+                // but quite likely setting segment start/end from labels
+                // will cause multi-pass compilation to not reach fixpoint.
+                const start = this.evalExpr(startAddr);
+                const end = this.evalExpr(endAddr);
+
+                if (sym !== undefined && this.scopes.symbolSeen(name.name)) {
+                    this.addError(`Segment '${name.name}' already defined`, node.loc);
+                    return;
+                }
+                if (anyErrors(start) || anyErrors(end)) {
+                    return;
+                }
+                // TODO assert expression types are numbers for both start/end
+                const segment = this.newSegment(name.name, start.value, end.value);
+                this.scopes.declareSegment(name.name, segment);
+                return;
+            }
+            case 'use-segment': {
+                const { name, loc } = node
+                const sym = this.scopes.findQualifiedSym(name.path, name.absolute);
+                if (sym === undefined) {
+                    this.addError(`Use of undeclared segment '${formatSymbolPath(name)}'`, loc);
+                    return;
+                }
+                if (sym.type !== 'segment') {
+                    this.addError(`Use of segment '${formatSymbolPath(name)}' that is not a declared segment.  Its type is '${sym.type}'`, loc);
+                    return;
+                }
+                // TODO should record segment source location and name for later error reporting
+                this.curSegment = sym.data;
+                break;
+            }
             default:
                 this.addError(`unknown directive ${node.type}`, node.loc);
                 return;
@@ -1267,9 +1301,9 @@ class Assembler {
 
         const assemble = (lines: ast.AsmLine[]) => {
             for (let i = 0; i < lines.length; i++) {
-                this.debugInfo.startLine(lines[i].loc, this.codePC);
+                this.debugInfo.startLine(lines[i].loc, this.getPC());
                 this.assembleLine(lines[i]);
-                this.debugInfo.endLine(this.codePC);
+                this.debugInfo.endLine(this.getPC());
             }
         }
 
@@ -1306,7 +1340,7 @@ class Assembler {
         if (this.scopes.symbolSeen(label.name)) {
             this.addError(`Symbol '${label.name}' already defined`, label.loc);
         } else {
-            const labelChanged = this.scopes.declareLabelSymbol(label, this.codePC);
+            const labelChanged = this.scopes.declareLabelSymbol(label, this.getPC());
             if (labelChanged) {
                 this.needPass = true;
             }
@@ -1314,6 +1348,7 @@ class Assembler {
     }
 
     assembleLine (line: ast.AsmLine): void {
+        this.lineLoc = line.loc;
         // Empty lines are no-ops
         if (line.label == null && line.stmt == null && line.scopedStmts == null) {
             return;
@@ -1351,9 +1386,9 @@ class Assembler {
         // containing machine code instructions.  This
         // is used for smarter disassembly.
         const withMarkAsInsn = (f: () => void) => {
-            const startPC = this.codePC;
+            const startPC = this.getPC();
             f();
-            const endPC = this.codePC;
+            const endPC = this.getPC();
             this.debugInfo.markAsInstruction(startPC, endPC);
         }
 
@@ -1494,7 +1529,7 @@ class Assembler {
     }
 
     dumpLabels () {
-        return this.scopes.dumpLabels(this.codePC);
+        return this.scopes.dumpLabels(this.getPC());
     }
 }
 

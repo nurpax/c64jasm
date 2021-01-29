@@ -155,6 +155,8 @@ export type Stmt =
   | StmtExpr
   | StmtLoadPlugin
   | StmtFilescope
+  | StmtDeclareSegment
+  | StmtUseSegment
 
 export type Insn = any
 
@@ -259,6 +261,18 @@ export interface StmtLoadPlugin extends Node {
 export interface StmtFilescope extends Node {
   type: 'filescope',
   name: Ident;
+}
+
+export interface StmtDeclareSegment extends Node {
+    type: 'declare-segment',
+    name: Ident;
+    startAddr: Expr;
+    endAddr: Expr;
+}
+
+export interface StmtUseSegment extends Node {
+    type: 'use-segment',
+    name: ScopeQualifiedIdent;
 }
 
 export interface AsmLine extends Node {
@@ -413,6 +427,24 @@ export function mkFilescope(name: Ident, loc: SourceLoc): StmtFilescope {
     name,
     loc
   }
+}
+
+export function mkDeclareSegment(name: Ident, startAddr: Expr, endAddr: Expr, loc: SourceLoc): StmtDeclareSegment {
+    return {
+        type: 'declare-segment',
+        name,
+        startAddr,
+        endAddr,
+        loc
+    }
+}
+
+export function mkUseSegment(name: ScopeQualifiedIdent, loc: SourceLoc): StmtUseSegment {
+    return {
+        type: 'use-segment',
+        name,
+        loc
+    }
 }
 
 export function mkAsmLine(

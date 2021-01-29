@@ -24,7 +24,7 @@ class TestReporter {
 
     constructor (tests: Test[], description: string) {
         this.tests = tests;
-        stdout.write(`Running ${description} tests\n`);
+        stdout.write(`Running ${description} tests (# of tests: ${tests.length})\n`);
     }
 
     runTests(run: (t: Test) => 'pass' | 'fail') {

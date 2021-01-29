@@ -1,0 +1,1 @@
+test/errors/segment2.input.asm:7:1: error: Use of segment 'fake' that is not a declared segment.  Its type is 'var'
