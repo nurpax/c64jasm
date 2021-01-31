@@ -99,7 +99,7 @@ function compile(args: any) {
         let fd: number;
         try {
             const { isInstruction } = debugInfo!.info();
-            const disasm = disassemble(prg, labels, { isInstruction });
+            const disasm = disassemble(prg, labels, { isInstruction, showLabels: args.disasmShowLabels, showCycles: args.disasmShowCycles });
 
             if (args.disasmFile) {
                 console.log(`Generating ${args.disasmFile}`)
@@ -128,22 +128,32 @@ const parser = new ArgumentParser({
     version,
     addHelp: true,
     prog: 'c64jasm',
-    description: 'C64 macro assembler - fork by Shazz/TRSi'
+    description: 'C64 macro assembler'
 });
 
 parser.addArgument('--verbose', {
-    action:'storeConst',
+    action: 'storeConst',
     constant:true
 });
 
+function parseBool(str: string) {
+    if (str === '0' || str === 'false' || str === 'no') {
+        return false;
+    }
+    if (str === '1' || str === 'true' || str === 'yes') {
+        return true;
+    }
+    throw new Error(`invalid boolean argument: ${str}`);
+}
+
 parser.addArgument('--out', { required: true, help: 'Output .prg filename' })
 parser.addArgument('--watch', {
-    action:'append',
+    action: 'append',
     help: 'Watch directories/files and recompile on changes.  Add multiple --watch args if you want to watch for multiple dirs/files.'
 });
 // Server for debuggers to connect to for program information
 parser.addArgument('--server', {
-    action:'storeConst',
+    action: 'storeConst',
     constant: true,
     dest: 'startServer',
     help: 'Start a debug info server that debuggers can call to ask for latest successful compile results.  Use with --watch'
@@ -159,7 +169,7 @@ parser.addArgument('--labels-file', {
     help: 'Save program address and size for all labels declared in the source files into a file.'
 });
 parser.addArgument('--disasm', {
-    action:'storeConst',
+    action: 'storeConst',
     constant: true,
     dest: 'disasm',
     help: 'Disassemble the resulting binary on stdout.'
@@ -168,8 +178,21 @@ parser.addArgument('--disasm-file', {
     dest: 'disasmFile',
     help: 'Save the disassembly in the given file.'
 });
-parser.addArgument('source', {help: 'Input .asm file'})
-
+parser.addArgument('--disasm-show-labels', {
+    constant: true,
+    defaultValue: true,
+    dest: 'disasmShowLabels',
+    type: parseBool,
+    help: 'Show labels in disassembly.'
+});
+parser.addArgument('--disasm-show-cycles', {
+    constant: true,
+    defaultValue: true,
+    dest: 'disasmShowCycles',
+    type: parseBool,
+    help: 'Show approximate cycle counts in disassembly.'
+});
+parser.addArgument('source', {help: 'Input .asm file'});
 args = parser.parseArgs();
 
 const ok = compile(args);
