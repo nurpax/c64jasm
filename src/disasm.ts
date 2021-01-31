@@ -1,7 +1,4 @@
 
-import * as process from 'process'
-import { readFileSync, writeFileSync } from 'fs'
-
 export interface DisasmOptions {
     showLabels: boolean;
     showCycles: boolean;
@@ -88,7 +85,7 @@ class Disassembler {
         this.disasmOptions = disasmOptions;
         this.labels = labels;
 
-        if (this.disasmOptions && this.disasmOptions.isInstruction) {
+        if (this.disasmOptions?.isInstruction) {
             this.outputPadChars = '                    ';
             this.outputBytesPerLine = 8;
         }
@@ -135,8 +132,8 @@ class Disassembler {
         const b1 = bytes.length >= 2 ? toHex8(bytes[1]) : '  ';
         const b2 = bytes.length >= 3 ? toHex8(bytes[2]) : '  ';
         const line = `${toHex16(addr)}: ${b0} ${b1} ${b2}${this.outputPadChars}${decoded}`
-        const showCycles = this.disasmOptions && this.disasmOptions.showCycles;
-        const showLabels = this.disasmOptions && this.disasmOptions.showLabels;
+        const showCycles = this.disasmOptions?.showCycles;
+        const showLabels = this.disasmOptions?.showLabels;
         if (showCycles || showLabels) {
             const elts = [];
             if (showCycles) {
