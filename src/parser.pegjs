@@ -168,8 +168,8 @@ directive =
   / PSEUDO_FILESCOPE name:identifier {
       return ast.mkFilescope(name, loc());
     }
-  / PSEUDO_SEGMENT name:identifier LPAR "start" __ EQU s:expr COMMA "end" __ EQU e:expr RPAR {
-      return ast.mkDeclareSegment(name, s, e, loc());
+  / PSEUDO_SEGMENT name:identifier LPAR args:kwargsList RPAR {
+      return ast.mkDeclareSegment(name, args, loc());
     }
   / PSEUDO_SEGMENT name:scopeQualifiedIdentifier  {
       return ast.mkUseSegment(name, loc());
@@ -197,6 +197,11 @@ macroName = name:ident { return ast.mkIdent(name, loc()); }
 macroArgNameList = head:macroArgName tail:(COMMA macroArgName)* { return buildList(head, tail, 1); }
 macroArgName =
   ident:identifier { return ast.mkMacroArg(ident); }
+
+/* foo=expr, bar=expr, ... */
+kwargsList = head:kwarg tail:(COMMA kwarg)* { return buildList(head, tail, 1); }
+
+kwarg = ident:identifier EQU value:expr { return ast.mkKwarg(ident, value, loc()); }
 
 exprList = head:expr tail:(COMMA expr)* { return buildList(head, tail, 1); }
 

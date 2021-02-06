@@ -1,0 +1,4 @@
+test/errors/kwargs1.input.asm:2:40: error: Unexpected keyword arg 'woot'
+test/errors/kwargs1.input.asm:3:1: error: Missing required keyword arg 'end'
+test/errors/kwargs1.input.asm:4:40: error: Duplicate keyword arg 'start'
+test/errors/kwargs1.input.asm:4:53: error: Duplicate keyword arg 'start'

@@ -35,6 +35,12 @@ export interface ScopeQualifiedIdent extends Node {
   absolute: boolean;
 }
 
+export interface Kwarg extends Node {
+  type: 'kwarg';
+  name: Ident;
+  value: Expr;
+}
+
 export interface Unary extends Node {
   type: 'unary';
   op: string;
@@ -85,6 +91,10 @@ export function mkScopeQualifiedIdent(path: string[], absolute: boolean, loc: So
 
 export function mkIdent(name: string, loc: SourceLoc): Ident {
   return { type: 'ident', name, loc };
+}
+
+export function mkKwarg(name: Ident, value: Expr, loc: SourceLoc): Kwarg {
+  return { type: 'kwarg', name, value, loc };
 }
 
 export function mkUnary(op: string, expr: Expr, loc: SourceLoc): Unary {
@@ -266,8 +276,7 @@ export interface StmtFilescope extends Node {
 export interface StmtDeclareSegment extends Node {
     type: 'declare-segment',
     name: Ident;
-    startAddr: Expr;
-    endAddr: Expr;
+    kwargs: Kwarg[];
 }
 
 export interface StmtUseSegment extends Node {
@@ -429,12 +438,11 @@ export function mkFilescope(name: Ident, loc: SourceLoc): StmtFilescope {
   }
 }
 
-export function mkDeclareSegment(name: Ident, startAddr: Expr, endAddr: Expr, loc: SourceLoc): StmtDeclareSegment {
+export function mkDeclareSegment(name: Ident, kwargs: Kwarg[], loc: SourceLoc): StmtDeclareSegment {
     return {
         type: 'declare-segment',
         name,
-        startAddr,
-        endAddr,
+        kwargs,
         loc
     }
 }

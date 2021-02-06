@@ -48,7 +48,7 @@ interface EvalValue<T> {
     completeFirstPass: boolean; // fully evaluated in first pass?
 }
 
-function mkErrorValue(v: number): EvalValue<number> {
+function mkErrorValue<T>(v: T): EvalValue<T> {
     return { value: v, errors: true, completeFirstPass: false };
 }
 
@@ -627,6 +627,43 @@ class Assembler {
         return res;
     }
 
+    evalKwargType<T>(kwargs: ast.Kwarg[], argName: string, ty: 'number'|'string'|'object', loc: SourceLoc): [SourceLoc, EvalValue<T>] {
+        for (const a of kwargs) {
+            if (a.name.name === argName) {
+                const ev = this.evalExprType<T>(a.value, ty, `keyword arg '${argName}'`);
+                return [a.loc, ev];
+            }
+        }
+        this.addError(`Missing required keyword arg '${argName}'`, loc);
+        return [loc, mkErrorValue<T>(0 as any)];
+    }
+
+    validateKwargs(kwargs: ast.Kwarg[], knownArgs: string[]): boolean {
+        let ok = true;
+        const argHisto: { [name: string]: number } = {};
+
+        for (const a of kwargs) {
+            const n = a.name.name;
+            if (argHisto[n] === undefined) {
+                argHisto[n] = 1;
+            } else {
+                argHisto[n] += 1;
+            }
+            if (argHisto[n] > 1) {
+                this.addError(`Duplicate keyword arg '${n}'`, a.loc);
+                ok = false;
+            }
+        }
+
+        for (const a of kwargs) {
+            if (knownArgs.indexOf(a.name.name) < 0) {
+                this.addError(`Unexpected keyword arg '${a.name.name}'`, a.loc);
+                ok = false;
+            }
+        }
+        return ok;
+    }
+
     // Type-error checking variant of evalExpr
     evalExprToInt(node: ast.Expr, msg: string): EvalValue<number> {
         return this.evalExprType(node, 'number', msg);
@@ -634,6 +671,11 @@ class Assembler {
 
     evalExprToString(node: ast.Expr, msg: string): EvalValue<string> {
         return this.evalExprType(node, 'string', msg);
+    }
+
+    // Type-error checking variant of evalExpr
+    evalKwargToInt(kwargs: ast.Kwarg[], argName: string, loc: SourceLoc): [SourceLoc, EvalValue<number>] {
+        return this.evalKwargType(kwargs, argName, 'number', loc);
     }
 
     evalExpr(node: ast.Expr): EvalValue<any> {
@@ -1279,7 +1321,7 @@ class Assembler {
                 return;
             }
             case 'declare-segment': {
-                const { name, startAddr, endAddr, loc } = node
+                const { name, kwargs, loc } = node
 
                 const sym = this.scopes.findQualifiedSym([name.name], false);
                 // TODO most likely these need some type of extra eval flag
@@ -1287,23 +1329,24 @@ class Assembler {
                 // constant inputs, not based on labels.  I don't know for sure
                 // but quite likely setting segment start/end from labels
                 // will cause multi-pass compilation to not reach fixpoint.
-                const start = this.evalExprToInt(startAddr, "!segment 'start'");
-                const end = this.evalExprToInt(endAddr, "!segment 'end'");
+                const [startLoc, start] = this.evalKwargToInt(kwargs, 'start', loc);
+                const [endLoc, end] = this.evalKwargToInt(kwargs, 'end', loc);
 
                 if (sym !== undefined && this.scopes.symbolSeen(name.name)) {
                     this.addError(`Segment '${name.name}' already defined`, node.loc);
                     return;
                 }
-                if (anyErrors(start) || anyErrors(end)) {
+                const knownArgsOK = this.validateKwargs(kwargs, ['start', 'end']);
+                if (anyErrors(start) || anyErrors(end) || !knownArgsOK) {
                     return;
                 }
                 let passErrors = false;
                 if (!start.completeFirstPass) {
-                    this.addError("!segment 'start' must evaluate to a value in the first pass", startAddr.loc);
+                    this.addError("!segment 'start' must evaluate to a value in the first pass", startLoc);
                     passErrors = true;
                 }
                 if (!end.completeFirstPass) {
-                    this.addError("!segment 'end' must evaluate to a value in the first pass", endAddr.loc);
+                    this.addError("!segment 'end' must evaluate to a value in the first pass", endLoc);
                     passErrors = true;
                 }
                 if (passErrors) {
