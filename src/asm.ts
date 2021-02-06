@@ -45,18 +45,26 @@ interface LabelAddr {
 interface EvalValue<T> {
     value: T;
     errors: boolean;
+    completeFirstPass: boolean; // fully evaluated in first pass?
 }
 
-function mkErrorValue(v: number) {
-    return { value: v, errors: true };
+function mkErrorValue(v: number): EvalValue<number> {
+    return { value: v, errors: true, completeFirstPass: false };
 }
 
-function mkEvalValue<T>(v: T) {
-    return { value: v, errors: false };
+function mkEvalValue<T>(v: T, complete: boolean): EvalValue<T> {
+    return { value: v, errors: false, completeFirstPass: complete };
 }
 
 function anyErrors(...args: (EvalValue<any> | undefined)[]) {
     return args.some(e => e !== undefined && e.errors);
+}
+
+// Compute "computeFirstPass" info for a multiple expression values
+// Any non-first pass value means the result expression is also
+// not evaluatable to a value in the first pass.
+function combineEvalPassInfo(...args: (EvalValue<any> | undefined)[]) {
+    return args.every(e => e !== undefined && e.completeFirstPass);
 }
 
 class NamedScope<T> {
@@ -207,10 +215,11 @@ class Scopes {
         // scopes for label declarations, we end up
         // mutating some unrelated, but same-named label names.
         const prevLabel = this.curSymtab.syms.get(name);
-        if (prevLabel == undefined) {
+        if (prevLabel === undefined) {
+            // TODO completeFirstPass maybe too strict here?
             const lblsym: SymLabel = {
                 type: 'label',
-                data: mkEvalValue({ addr: codePC, loc })
+                data: mkEvalValue({ addr: codePC, loc }, false)
             };
             this.curSymtab.addSymbol(name, lblsym, this.passCount);
             return false;
@@ -358,10 +367,11 @@ interface BranchOffset {
 
 const runBinop = (a: EvalValue<number>, b: EvalValue<number>, f: (a: number, b: number) => number | boolean): EvalValue<number> => {
     const res = f(a.value as number, b.value as number);
+    const firstPassComplete = combineEvalPassInfo(a, b);
     if (typeof res == 'boolean') {
-        return mkEvalValue(res ? 1 : 0);
+        return mkEvalValue(res ? 1 : 0, firstPassComplete);
     }
-    return mkEvalValue(res);
+    return mkEvalValue(res, firstPassComplete);
 }
 
 const runUnaryOp = (a: EvalValue<number>, f: (a: number) => number | boolean): EvalValue<number> => {
@@ -370,9 +380,9 @@ const runUnaryOp = (a: EvalValue<number>, f: (a: number) => number | boolean): E
     }
     const res = f(a.value as number);
     if (typeof res == 'boolean') {
-        return mkEvalValue(res ? 1 : 0);
+        return mkEvalValue(res ? 1 : 0, a.completeFirstPass);
     }
-    return mkEvalValue(res);
+    return mkEvalValue(res, a.completeFirstPass);
 }
 
 // true if running in Node.js
@@ -456,7 +466,7 @@ class Assembler {
             if (newPlugin === undefined) {
                 return mkErrorValue(0);
             }
-            const m = mkEvalValue(newPlugin);
+            const m = mkEvalValue(newPlugin, true);
             this.pluginCache.set(fname, m);
             return m;
         } catch(err) {
@@ -560,7 +570,7 @@ class Assembler {
         const { filename } = ast;
         const evalFname = this.evalExprToString(filename, "!binary filename");
 
-        let offset = mkEvalValue(0);
+        let offset = mkEvalValue(0, true);
         let size = undefined;
         if (ast.size !== null) {
             if (ast.offset !== null) {
@@ -574,6 +584,15 @@ class Assembler {
         // Don't try to load or emit anything if there was an error
         if (anyErrors(evalFname, offset, size)) {
             return;
+        }
+
+        // Require that !binary offset and size arguments
+        // evaluate to a value in the first pass.
+        if (ast.offset !== null && !offset.completeFirstPass) {
+            this.addError("!binary 'offset' must evaluate to a value in the first pass", ast.offset.loc);
+        }
+        if (ast.size !== null && !size?.completeFirstPass) {
+            this.addError("!binary 'size' must evaluate to a value in the first pass", ast.size.loc);
         }
 
         const fname = this.makeSourceRelativePath(evalFname.value);
@@ -596,11 +615,13 @@ class Assembler {
     // Type-error checking variant of evalExpr
     evalExprType<T>(node: ast.Expr, ty: 'number'|'string'|'object', msg: string): EvalValue<T> {
         const res = this.evalExpr(node);
-        const { errors, value } = res;
+        const { errors, value, completeFirstPass } = res;
         if (!errors && typeof value !== ty) {
             this.addError(`Expecting ${msg} to be '${ty}' type, got '${formatTypename(value)}'`, node.loc);
             return {
-                errors: true, value
+                errors: true,
+                completeFirstPass,
+                value
             }
         }
         return res;
@@ -676,13 +697,14 @@ class Assembler {
                 }
             }
             case 'literal': {
-                return mkEvalValue(node.lit);
+                return mkEvalValue(node.lit, true);
             }
             case 'array': {
                 const evals = node.list.map(v => this.evalExpr(v));
                 return {
                     value: evals.map(e => e.value),
-                    errors: anyErrors(...evals)
+                    errors: anyErrors(...evals),
+                    completeFirstPass: combineEvalPassInfo(...evals)
                 }
             }
             case 'object': {
@@ -692,7 +714,8 @@ class Assembler {
                 });
                 return {
                     value: kvs.reduce((o, [key, value]) => ({...o, [key]: value.value}), {}),
-                    errors: anyErrors(...kvs.map(([_, e]) => e))
+                    errors: anyErrors(...kvs.map(([_, e]) => e)),
+                    completeFirstPass: combineEvalPassInfo(...kvs.map(([_, e]) => e))
                 }
             }
             case 'ident': {
@@ -708,14 +731,16 @@ class Assembler {
                     }
                     // Return a placeholder that should be resolved in the next pass
                     this.needPass = true;
-                    return mkEvalValue(0);
+                    // Evaluated value is marked as "incomplete in first pass"
+                    return mkEvalValue(0, false);
                 }
 
                 switch (sym.type) {
                     case 'label':
                         return {
                             errors: sym.data.errors,
-                            value: sym.data.value.addr
+                            value: sym.data.value.addr,
+                            completeFirstPass: sym.seen == this.pass
                         }
                     case 'var':
                         if (sym.seen < this.pass) {
@@ -755,7 +780,7 @@ class Assembler {
                         this.addError(`${typeName} property must be a string, got ${formatTypename(node.property.type)}`, node.loc);
                     } else {
                         if (checkProp(node.property.name, node.property.loc)) {
-                            return mkEvalValue((object as any)[node.property.name])
+                            return mkEvalValue((object as any)[node.property.name], evaledObject.completeFirstPass);
                         }
                     }
                     return mkErrorValue(0);
@@ -765,7 +790,7 @@ class Assembler {
                     if (!node.computed) {
                         return evalProperty(node, 'Array');
                     }
-                    const { errors, value: idx } = this.evalExprToInt(node.property, 'array index');
+                    const { errors, value: idx, completeFirstPass } = this.evalExprToInt(node.property, 'array index');
                     if (errors) {
                         return mkErrorValue(0);
                     }
@@ -773,12 +798,12 @@ class Assembler {
                         this.addError(`Out of bounds array index ${idx}`, node.property.loc)
                         return mkErrorValue(0);
                     }
-                    return mkEvalValue(object[idx]);
+                    return mkEvalValue(object[idx], evaledObject.completeFirstPass && completeFirstPass);
                 }  else if (typeof object == 'object') {
                     if (!node.computed) {
                         return evalProperty(node, 'Object');
                     } else {
-                        let { errors, value: prop } = this.evalExpr(node.property);
+                        let { errors, value: prop, completeFirstPass } = this.evalExpr(node.property);
                         if (errors) {
                             return mkErrorValue(0);
                         }
@@ -787,7 +812,9 @@ class Assembler {
                             return mkErrorValue(0);
                         }
                         if (checkProp(prop, node.property.loc)) {
-                            return mkEvalValue(object[prop]);
+                            // TODO losing completeInFirstPass bit here because
+                            // it was not stored with expression value for objects?
+                            return mkEvalValue(object[prop], completeFirstPass && evaledObject.completeFirstPass);
                         }
                         return mkErrorValue(0);
                     }
@@ -806,7 +833,7 @@ class Assembler {
                     }
                     return mkErrorValue(0);
                 }
-                return mkEvalValue(0); // dummy value as we couldn't resolve in pass 0
+                return mkEvalValue(0, false); // dummy value as we couldn't resolve in pass 0
             }
             case 'callfunc': {
                 const callee = this.evalExpr(node.callee);
@@ -822,7 +849,8 @@ class Assembler {
                     return mkErrorValue(0);
                 }
                 try {
-                    return mkEvalValue(callee.value(...argValues.map(v => v.value)));
+                    const complete = callee.completeFirstPass && combineEvalPassInfo(...argValues);
+                    return mkEvalValue(callee.value(...argValues.map(v => v.value)), complete);
                 } catch(err) {
                     if (node.callee.type == 'qualified-ident') {
                         this.addError(`Call to '${formatSymbolPath(node.callee)}' failed with an error: ${err.message}`, node.loc);
@@ -835,7 +863,7 @@ class Assembler {
                 }
             }
             case 'getcurpc': {
-                return mkEvalValue(this.getPC());
+                return mkEvalValue(this.getPC(), true);
             }
             default:
                 break;
@@ -1053,7 +1081,7 @@ class Assembler {
     }
 
     bindFunction (name: ast.Ident, pluginModule: any, loc: SourceLoc) {
-        this.scopes.declareVar(name.name, mkEvalValue(this.makeFunction(pluginModule, loc)));
+        this.scopes.declareVar(name.name, mkEvalValue(this.makeFunction(pluginModule, loc), true));
     }
 
     bindPlugin (node: ast.StmtLoadPlugin, plugin: EvalValue<any>) {
@@ -1079,7 +1107,7 @@ class Assembler {
                     moduleObj[key] = val;
                 }
             }
-            this.scopes.declareVar(moduleName.name, mkEvalValue(moduleObj));
+            this.scopes.declareVar(moduleName.name, mkEvalValue(moduleObj, true));
         }
     }
 
@@ -1151,7 +1179,7 @@ class Assembler {
                         scopeName = `${localScopeName}__${i}`
                     }
                     this.withAnonScope(scopeName, () => {
-                        this.scopes.declareVar(index.name, mkEvalValue(lst[i]));
+                        this.scopes.declareVar(index.name, mkEvalValue(lst[i], lstVal.completeFirstPass));
                         return this.assembleLines(body);
                     });
                 }
@@ -1265,7 +1293,18 @@ class Assembler {
                 if (anyErrors(start) || anyErrors(end)) {
                     return;
                 }
-                // TODO assert expression types are numbers for both start/end
+                let passErrors = false;
+                if (!start.completeFirstPass) {
+                    this.addError("!segment 'start' must evaluate to a value in the first pass", startAddr.loc);
+                    passErrors = true;
+                }
+                if (!end.completeFirstPass) {
+                    this.addError("!segment 'end' must evaluate to a value in the first pass", endAddr.loc);
+                    passErrors = true;
+                }
+                if (passErrors) {
+                    return;
+                }
                 const segment = this.newSegment(name.name, start.value, end.value);
                 this.scopes.declareSegment(name.name, segment);
                 return;
@@ -1507,7 +1546,8 @@ class Assembler {
             return Array(end-start).fill(null).map((_,idx) => idx + start);
         };
         const addPlugin = (name: string, handler: any) => {
-            this.scopes.declareVar(name, mkEvalValue(handler));
+            // TODO what about values from plugin calls?? passinfo missing
+            this.scopes.declareVar(name, mkEvalValue(handler, false));
         }
         addPlugin('loadJson', json);
         addPlugin('range', range);

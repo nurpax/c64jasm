@@ -1,0 +1,2 @@
+test/errors/require_1stpass2.input.asm:5:21: error: !segment 'start' must evaluate to a value in the first pass
+test/errors/require_1stpass2.input.asm:6:31: error: !segment 'end' must evaluate to a value in the first pass
