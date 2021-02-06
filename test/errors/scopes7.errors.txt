@@ -1,0 +1,1 @@
+test/errors/scopes7.input.asm:3:8: error: Symbol 'var1' already defined

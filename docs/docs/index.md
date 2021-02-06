@@ -168,22 +168,20 @@ foo: {
 }
 ```
 
-It is not legal to declare symbols with the same name in the same scope.  Naturally this will fail:
+It is not legal to declare symbols with the same name in the same scope.  This will fail:
 
 ```c64
 !let var1 = 0
 !let var1 = 1 ; error: Variable 'var1' already defined
-```
 
-..but so will for example declaring a variable and a macro with the same name:
-
-```c64
-!let var1 = 0
-!macro var1() { ; error: Symbol 'var1' already defined
-	lda #0
+; but so will for example declaring a variable and a macro with the same name:
+!let xyz = 0
+!macro xyz() { ; error: Symbol 'xyz' already defined
+    nop
 }
-+var1()
++xyz()
 ```
+
 
 
 
