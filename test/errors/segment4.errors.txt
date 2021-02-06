@@ -1,0 +1,2 @@
+test/errors/segment4.input.asm:4:21: error: Expecting !segment 'start' to be 'number' type, got 'string'
+test/errors/segment4.input.asm:5:32: error: Expecting !segment 'end' to be 'number' type, got 'string'

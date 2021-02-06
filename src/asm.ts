@@ -1255,8 +1255,8 @@ class Assembler {
                 // constant inputs, not based on labels.  I don't know for sure
                 // but quite likely setting segment start/end from labels
                 // will cause multi-pass compilation to not reach fixpoint.
-                const start = this.evalExpr(startAddr);
-                const end = this.evalExpr(endAddr);
+                const start = this.evalExprToInt(startAddr, "!segment 'start'");
+                const end = this.evalExprToInt(endAddr, "!segment 'end'");
 
                 if (sym !== undefined && this.scopes.symbolSeen(name.name)) {
                     this.addError(`Segment '${name.name}' already defined`, node.loc);

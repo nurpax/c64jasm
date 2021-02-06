@@ -206,26 +206,27 @@ function testErrors(testcase: string) {
     const g = glob();
     let inputs = g.readdirSync('test/errors/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
 
-    const runTest = (fname: string) => {
+    const reporter = new TestReporter(inputs, 'error');
+    reporter.runTests((fname: string) => {
         const { errors } = assemble(fname)!;
         return validateErrors(errors, fname, 'error');
-    }
-
-    const reporter = new TestReporter(inputs, 'error');
-    reporter.runTests(runTest);
+    });
 }
 
 function testWarnings(testcase: string) {
     const g = glob();
-    let inputs = g.readdirSync('test/warnings/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
-
-    const runTest = (fname: string) => {
-        const { warnings } = assemble(fname)!;
-        return validateErrors(warnings, fname, 'warning');
+    let inputs: string[] = [];
+    try {
+        inputs = g.readdirSync('test/warnings/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
+    } catch(e) {
+        // no warnings tests
     }
 
     const reporter = new TestReporter(inputs, 'warning');
-    reporter.runTests(runTest);
+    reporter.runTests((fname: string) => {
+        const { warnings } = assemble(fname)!;
+        return validateErrors(warnings, fname, 'warning');
+    });
 }
 
 const parser = new ArgumentParser({
