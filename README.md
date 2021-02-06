@@ -6,4 +6,4 @@ C64 6502 assembler in TypeScript.
 
 ## Development
 
-See [DEVELOPMENT.md](/development.md)
+See [DEVELOPMENT.md](DEVELOPMENT.md)
