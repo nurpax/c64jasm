@@ -1245,10 +1245,10 @@ class Assembler {
             case 'macro': {
                 const { name, args, body } = node;
                 // TODO check for duplicate arg names!
-                const prevMacro = this.scopes.findMacro([name.name], false);
-                if (prevMacro !== undefined && this.scopes.symbolSeen(name.name)) {
+                const prevSym = this.scopes.findQualifiedSym([name.name], false);
+                if (prevSym !== undefined && this.scopes.symbolSeen(name.name)) {
                     // TODO previous declaration from prevMacro
-                    this.addError(`Macro '${name.name}' already defined`, name.loc);
+                    this.addError(`Symbol '${name.name}' already defined`, name.loc);
                     return;
                 }
                 this.scopes.declareMacro(name.name, node);
@@ -1257,7 +1257,6 @@ class Assembler {
             case 'callmacro': {
                 const { name, args } = node;
                 const macroSym = this.scopes.findMacro(name.path, name.absolute);
-
                 const argValues = args.map(e => this.evalExpr(e));
 
                 if (macroSym == undefined || macroSym.seen < this.pass) {

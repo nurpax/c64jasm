@@ -89,7 +89,7 @@ C64jasm has fairly extensive symbolic macro assembly support.  This includes mac
 
 Assembler pseudo directives start with a bang `!`.  Examples: `!let`, `!if`, `!include`.
 
-### Labels and nested label scopes
+### Labels and nested scopes
 
 ```c64
 ; Clear the screen RAM (all 1024 bytes)
@@ -152,7 +152,7 @@ Using `util.asm` from another file:
     +util::inc_border()
 ```
 
-Symbol references are relative to the current scope.  If you need to reference a symbol in the root scope, use `::foo::bar`:
+Label, variable and macro names all follow the same scoping rules.  Symbol references are relative to the current scope.  If you need to reference a symbol in the root scope, use `::foo::bar`:
 
 ```c64
 bar: {
@@ -167,6 +167,25 @@ foo: {
     lda #::bar::foo  ; evaluates to 20
 }
 ```
+
+It is not legal to declare symbols with the same name in the same scope.  Naturally this will fail:
+
+```c64
+!let var1 = 0
+!let var1 = 1 ; error: Variable 'var1' already defined
+```
+
+..but so will for example declaring a variable and a macro with the same name:
+
+```c64
+!let var1 = 0
+!macro var1() { ; error: Symbol 'var1' already defined
+	lda #0
+}
++var1()
+```
+
+
 
 ### Data directives
 
