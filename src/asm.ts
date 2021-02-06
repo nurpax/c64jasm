@@ -862,8 +862,6 @@ class Assembler {
                             return mkErrorValue(0);
                         }
                         if (checkProp(prop, node.property.loc)) {
-                            // TODO losing completeInFirstPass bit here because
-                            // it was not stored with expression value for objects?
                             return mkEvalValue(object[prop], completeFirstPass && evaledObject.completeFirstPass);
                         }
                         return mkErrorValue(0);
@@ -1114,9 +1112,14 @@ class Assembler {
             if (typeof e == 'number') {
                 this.emit8or16(e, bits);
             } else if (e instanceof Array) {
-                // TODO function 'assertType' that returns the value and errors otherwise
-                for (let bi in e) {
-                    this.emit8or16(e[bi], bits);
+                let firstErrorIdx = -1;
+                for (let i = 0; i < e.length; i++) {
+                    const byte = typeof e[i] === 'number' ? e[i] : 0;
+                    firstErrorIdx = typeof e[i] !== 'number' && firstErrorIdx === -1 ? i : firstErrorIdx;
+                    this.emit8or16(byte, bits);
+                }
+                if (firstErrorIdx != -1) {
+                    this.addError(`Cannot emit non-numeric values.  First non-number at index ${firstErrorIdx}`, exprList[i].loc);
                 }
             } else {
                 this.addError(`Only literal (int constants) or array types can be emitted.  Got ${formatTypename(e)}`, exprList[i].loc);

@@ -1,0 +1,1 @@
+test/errors/array3.input.asm:6:7: error: Cannot emit non-numeric values.  First non-number at index 1
