@@ -168,14 +168,6 @@ foo: {
 }
 ```
 
-The implicit `*` label always points to the current line's address.  You can use it to for example jump over the next instruction:
-
-```c64
-    bcc *+3
-    nop
-    ; bcc jumps here if carry clear
-```
-
 ### Data directives
 
 Emitting bytes/words:
@@ -198,12 +190,16 @@ Including other source files:
 Including binary data:
 
 ```c64
-!binary "file1.bin"       ; all of file1.bin
-!binary "file2.bin",256   ; first 256 bytes of file
-!binary "file2.bin",256,8 ; 256 bytes from offset 8
+; As of c64jasm you will use keyword args with !binary.
+!binary (file="file1.bin")                     ; all of file1.bin
+!binary (file="file2.bin", size=256)           ; first 256 bytes of file
+!binary (file="file2.bin", size=256, offset=8) ; 256 bytes from offset 8
+
+; Earlier syntax is still supported and will be kept around.
+!binary "file2.bin", 256, 8                    ; 256 bytes from offset 8
 ```
 
-### Variables
+### Variables and expressions
 
 You can declare a variable with `!let`.  You can use standard C operators like `+`, `-`, `*`, `/`, `<<`, `>>`, `&`, `|`, `~` with them.
 
@@ -243,6 +239,25 @@ Object literals:
 
     lda #3
     sta zp.sprite_idx
+```
+
+The implicit `*` label always points to the current line's address.  You can use it to for example jump over the next instruction:
+
+```c64
+    bcc *+3
+    nop
+    ; bcc jumps here if carry clear
+```
+
+You can access the lo/hi parts of a 16-bit value or a memory address with `<` and `>`.  To keep the parser simple, this syntax only works in immediate fields like `lda #<foo`.  To access lo/hi parts of any value within any expression context, use bitwise operations `&` and `>>` like in the below example:
+
+```c64
+    lda #<buf           ; take lo byte of 'buf' address
+    ldx #>buf           ; take hi byte of 'buf' address
+buf: !byte 0, 1, 2, 3
+
+!let lbl_lo = buf & 255 ; lo byte of 'buf' address
+!let lbl_hi = buf >> 8  ; hi byte of 'buf' address
 ```
 
 ### If...else
@@ -538,13 +553,19 @@ In this example, the `stack` array holds the state which can be manipulated by c
 
 ## Release notes
 
-c64jasm TBD (TBD):
+c64jasm 0.9.0 (not released yet - released on 2020-02-TBD):
+- Segments with `!segment` to easy memory layout.
+- New keyword args syntax for `!binary` file/size/offset arguments.
+- Show labels in disassembler output.  Thanks [@shazz](https://github.com/shazz)!
+- Show clock cycle estimates in disassembler output.  Thanks [@shazz](https://github.com/shazz)!
+- More robust error checking, esp. w.r.t. allowing only first-pass resolvable values in some contexts such as segment definition and binary includes.
 - Add `--labels-file=<OUTFILE>` command line argument that can be used to save symbol address mapping.
 - Fix labels output printing to use the same syntax for nested scope as is used in the assembler syntax.  This affects `--dump-labels` output.
 
 c64jasm 0.8.1 (released on 2020-02-05):
 - Require macros to be declared before use.  Using a macro before declaration didn't trigger an error before, but could also lead to extremely weird downstream errors.
 - File not found errors related to `!include` and other file loading were sometimes not trigger an error due to parser caching.
+- Bug fix prg loader in VSCode runtime.  Thanks [@leyyinad](https://github.com/leyyinad)!
 
 c64jasm 0.8.0 (released on 2019-11-11):
 - Add support for the star-operand (e.g., `jmp *`, `inc *-3`, etc.) that returns the current program position.
