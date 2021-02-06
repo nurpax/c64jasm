@@ -567,48 +567,39 @@ class Assembler {
     }
 
     emitBinary (ast: ast.StmtBinary): void {
-        const { filename } = ast;
-        const evalFname = this.evalExprToString(filename, "!binary filename");
+        const { kwargs } = ast;
+        const [evalFname, fnameLoc] = this.evalKwargToString(kwargs, 'file', ast.loc);
 
-        let offset = mkEvalValue(0, true);
-        let size = undefined;
-        if (ast.size !== null) {
-            if (ast.offset !== null) {
-                offset = this.evalExprToInt(ast.offset, "!binary offset");
-            }
-            if (ast.size !== null) {
-                size = this.evalExprToInt(ast.size, "!binary size");
-            }
-        }
-
+        let [sizeEv, sizeLoc] = this.evalKwargToIntMaybe(kwargs, 'size', ast.loc);
+        const [offsetEv, offsetLoc] = this.evalKwargToIntMaybe(kwargs, 'offset', ast.loc);
+        const size = sizeEv;
+        const offset = offsetEv ?? mkEvalValue(0, true);
+        const kwargsOK = this.validateKwargs(kwargs, ['file', 'size', 'offset']);
         // Don't try to load or emit anything if there was an error
-        if (anyErrors(evalFname, offset, size)) {
+        if (anyErrors(evalFname, offset, size ?? undefined) || !kwargsOK) {
             return;
         }
 
         // Require that !binary offset and size arguments
         // evaluate to a value in the first pass.
-        if (ast.offset !== null && !offset.completeFirstPass) {
-            this.addError("!binary 'offset' must evaluate to a value in the first pass", ast.offset.loc);
+        if (!offset.completeFirstPass) {
+            this.addError("!binary 'offset' must evaluate to a value in the first pass", offsetLoc);
         }
-        if (ast.size !== null && !size?.completeFirstPass) {
-            this.addError("!binary 'size' must evaluate to a value in the first pass", ast.size.loc);
+        if (size !== null && !size.completeFirstPass) {
+            this.addError("!binary 'size' must evaluate to a value in the first pass", sizeLoc);
         }
 
         const fname = this.makeSourceRelativePath(evalFname.value);
         const buf = this.guardedReadFileSync(fname, ast.loc);
-        if (buf === undefined) { // can happen if fname is not found
+        if (buf === undefined) { // can happen if file is not found
             return;
         }
-
-        let numBytes = buf.byteLength;
-        if (size) {
-            numBytes = size.value;
-        }
-
-        // TODO buffer overflow
-        for (let i = 0; i < numBytes; i++) {
-            this.emit(buf.readUInt8(i + offset.value));
+        const numBytes = size !== null ? size.value : buf.byteLength;
+        // size is truncated in case size+offset reaches beyond the
+        // end of the binary file.
+        const truncated = buf.slice(offset.value, offset.value + numBytes);
+        for (const b of truncated) {
+            this.emit(b);
         }
     }
 
@@ -627,15 +618,25 @@ class Assembler {
         return res;
     }
 
-    evalKwargType<T>(kwargs: ast.Kwarg[], argName: string, ty: 'number'|'string'|'object', loc: SourceLoc): [SourceLoc, EvalValue<T>] {
+    evalKwargType<T>(kwargs: ast.Kwarg[], argName: string, ty: 'number'|'string'|'object', loc: SourceLoc): [EvalValue<T>, SourceLoc] {
         for (const a of kwargs) {
             if (a.name.name === argName) {
                 const ev = this.evalExprType<T>(a.value, ty, `keyword arg '${argName}'`);
-                return [a.loc, ev];
+                return [ev, a.loc];
             }
         }
         this.addError(`Missing required keyword arg '${argName}'`, loc);
-        return [loc, mkErrorValue<T>(0 as any)];
+        return [mkErrorValue<T>(0 as any), loc];
+    }
+
+    evalKwargTypeMaybe<T>(kwargs: ast.Kwarg[], argName: string, ty: 'number'|'string'|'object', loc: SourceLoc): [EvalValue<T> | null, SourceLoc] {
+        for (const a of kwargs) {
+            if (a.name.name === argName) {
+                const ev = this.evalExprType<T>(a.value, ty, `keyword arg '${argName}'`);
+                return [ev, a.loc];
+            }
+        }
+        return [null, loc];
     }
 
     validateKwargs(kwargs: ast.Kwarg[], knownArgs: string[]): boolean {
@@ -673,9 +674,16 @@ class Assembler {
         return this.evalExprType(node, 'string', msg);
     }
 
-    // Type-error checking variant of evalExpr
-    evalKwargToInt(kwargs: ast.Kwarg[], argName: string, loc: SourceLoc): [SourceLoc, EvalValue<number>] {
+    evalKwargToInt(kwargs: ast.Kwarg[], argName: string, loc: SourceLoc): [EvalValue<number>, SourceLoc] {
         return this.evalKwargType(kwargs, argName, 'number', loc);
+    }
+
+    evalKwargToString(kwargs: ast.Kwarg[], argName: string, loc: SourceLoc): [EvalValue<string>, SourceLoc] {
+        return this.evalKwargType(kwargs, argName, 'string', loc);
+    }
+
+    evalKwargToIntMaybe(kwargs: ast.Kwarg[], argName: string, loc: SourceLoc): [EvalValue<number> | null, SourceLoc] {
+        return this.evalKwargTypeMaybe(kwargs, argName, 'number', loc);
     }
 
     evalExpr(node: ast.Expr): EvalValue<any> {
@@ -1329,8 +1337,8 @@ class Assembler {
                 // constant inputs, not based on labels.  I don't know for sure
                 // but quite likely setting segment start/end from labels
                 // will cause multi-pass compilation to not reach fixpoint.
-                const [startLoc, start] = this.evalKwargToInt(kwargs, 'start', loc);
-                const [endLoc, end] = this.evalKwargToInt(kwargs, 'end', loc);
+                const [start, startLoc] = this.evalKwargToInt(kwargs, 'start', loc);
+                const [end, endLoc] = this.evalKwargToInt(kwargs, 'end', loc);
 
                 if (sym !== undefined && this.scopes.symbolSeen(name.name)) {
                     this.addError(`Segment '${name.name}' already defined`, node.loc);

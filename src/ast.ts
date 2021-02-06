@@ -204,9 +204,7 @@ export interface StmtInclude extends Node {
 
 export interface StmtBinary extends Node {
   type: 'binary';
-  filename: Expr;
-  size: Expr;
-  offset: Expr;
+  kwargs: Kwarg[];
 }
 
 export interface StmtIfElse extends Node {
@@ -343,12 +341,10 @@ export function mkError(error: Literal, loc: SourceLoc): StmtError {
   }
 }
 
-export function mkBinary(filename: Expr, size: Expr, offset: Expr, loc: SourceLoc): StmtBinary {
+export function mkBinary(kwargs: Kwarg[], loc: SourceLoc): StmtBinary {
   return {
     type: 'binary',
-    filename,
-    size,
-    offset,
+    kwargs,
     loc
   }
 }

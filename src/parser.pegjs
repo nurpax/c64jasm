@@ -129,13 +129,20 @@ directive =
       return ast.mkInclude(filename, loc());
     }
   / PSEUDO_BINARY s:expr extra:(COMMA expr? COMMA expr)?  {
-      let size = null
-      let offset = null
-      if (extra !== null) {
-        size = extra[1]
-        offset = extra[3]
+      function kwarg(name, expr) {
+        return ast.mkKwarg(ast.mkIdent(name, expr.loc), expr, expr.loc);
       }
-      return ast.mkBinary(s, size, offset, loc());
+      let size = null;
+      let offset = null;
+      if (extra !== null) {
+        size = extra[1];
+        offset = extra[3];
+        return ast.mkBinary([kwarg('file', s), kwarg('size', size), kwarg('offset', offset)], loc());
+      }
+      return ast.mkBinary([kwarg('file', s)], loc());
+    }
+  / PSEUDO_BINARY LPAR kwargs:kwargsList RPAR  {
+      return ast.mkBinary(kwargs, loc());
     }
   / PSEUDO_IF LPAR condition:expr RPAR LWING trueBranch:statements RWING
     elifs:elif*
