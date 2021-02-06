@@ -7,14 +7,17 @@ type Block = { start: number, binary: number[] };
 class Segment {
     start: number;
     end?: number;
+    inferStart: boolean; // allow 'start' to be set lazily (so the platform default can be overridden)
+    initialStart: number;
     curBlock: Block;
     blocks: Block[];
 
-    constructor(start: number, end?: number) {
+    constructor(start: number, end: number | undefined, inferStart: boolean) {
         this.start = start;
         this.end = end;
+        this.inferStart = inferStart;
         this.blocks = [{
-            start: start,
+            start,
             binary: []
         }];
         this.curBlock = this.blocks[0];
@@ -22,13 +25,37 @@ class Segment {
 
     // Setting the current PC will start a new "memory block".  A segment
     // consists of multiple memory blocks.
-    setCurrentPC(pc: number) {
+    setCurrentPC(pc: number): string|undefined {
+        let err = undefined;
+        // Overriding default segment start for the 'default' segment?
+        if (this.inferStart && this.blocks.length === 1 && this.blocks[0].binary.length === 0) {
+            // This case is for the "default" segment where we just detect the
+            // first:
+            //
+            //   * = some values
+            //
+            // and make that the segment 'start' address.
+            this.start = pc;
+        } else {
+            const endstr = this.end !== undefined ? `$${toHex16(this.end)}` : '';
+            const range = `Segment address range: $${toHex16(this.start)}-${endstr}`;
+            if (pc < this.start) {
+                err = `${range}.  Cannot set program counter to a lower address $${toHex16(pc)}.`;
+            } else {
+                if (this.end !== undefined && pc > this.end) {
+                    err = `${range}.  Trying to set program counter to $${toHex16(pc)} -- it is past segment end ${endstr}.`;
+                } else {
+                    this.start = pc;
+                }
+            }
+        }
         const newBlock = {
             start: pc,
             binary: []
         };
         const idx = this.blocks.push(newBlock);
         this.curBlock = this.blocks[idx-1];
+        return err;
     }
 
     empty(): boolean {
@@ -40,8 +67,10 @@ class Segment {
     }
 
     emit(byte: number): string|undefined {
-        if (this.end !== undefined && this.currentPC() > this.end) {
-            return `Segment overflow at $${toHex16(this.currentPC())}.  Segment address range: $${toHex16(this.start)}-$${toHex16(this.end)}`;
+        if ((this.currentPC() < this.start) || (this.end !== undefined && this.currentPC() > this.end)) {
+            const endstr = this.end !== undefined ? `$${toHex16(this.end)}` : '';
+            const startstr = this.start !== undefined ? `$${toHex16(this.start)}` : '';
+            return `Segment overflow at $${toHex16(this.currentPC())}.  Segment address range: ${startstr}-${endstr}`;
         }
         this.curBlock.binary.push(byte);
         return undefined;
@@ -54,7 +83,7 @@ function compact(segments: [string, Segment][]): [string, Segment][] {
     for (const [name,seg] of segments) {
         const compactBlocks = seg.blocks.filter(b => b.binary.length !== 0);
         if (compactBlocks.length !== 0) {
-            const newSeg = new Segment(seg.start, seg.end);
+            const newSeg = new Segment(seg.start, seg.end, seg.inferStart);
             newSeg.blocks = compactBlocks;
             newSeg.curBlock = compactBlocks[compactBlocks.length-1];
             out.push([name, newSeg]);

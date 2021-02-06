@@ -1,0 +1,1 @@
+test/errors/segment6_overflow.input.asm:5:5: error: Segment address range: $1000-$11ff.  Trying to set program counter to $2000 -- it is past segment end $11ff.

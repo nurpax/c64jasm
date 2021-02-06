@@ -404,7 +404,7 @@ class Assembler {
     private includeStack: string[] = [];
 
     private lineLoc: SourceLoc;
-    private curSegment: Segment = new Segment(0, 0); // invalid, setup at start of pass
+    private curSegment: Segment = new Segment(0, 0, false); // invalid, setup at start of pass
     private pass = 0;
     needPass = false;
     private scopes = new Scopes();
@@ -535,11 +535,11 @@ class Assembler {
 
         // Empty segments list and append default
         this.segments = [];
-        this.curSegment = this.newSegment('default', this.platform.defaultStartPC);
+        this.curSegment = this.newSegment('default', this.platform.defaultStartPC, undefined, true);
     }
 
-    newSegment(name: string, startAddr: number, endAddr?: number): Segment {
-        const segment = new Segment(startAddr, endAddr);
+    newSegment(name: string, startAddr: number, endAddr: number | undefined, inferStart: boolean): Segment {
+        const segment = new Segment(startAddr, endAddr, inferStart);
         this.segments.push([name, segment]);
         return segment;
     }
@@ -1015,7 +1015,10 @@ class Assembler {
             if (!this.curSegment.empty() && this.curSegment.currentPC() > v) {
                 this.addError(`Cannot set program counter to a smaller value than current (current: $${toHex16(this.curSegment.currentPC())}, trying to set $${toHex16(v)})`, valueExpr.loc);
             }
-            this.curSegment.setCurrentPC(v);
+            const err = this.curSegment.setCurrentPC(v);
+            if (err !== undefined) {
+                this.addError(err, valueExpr.loc);
+            }
         }
     }
 
@@ -1362,7 +1365,7 @@ class Assembler {
                 if (passErrors) {
                     return;
                 }
-                const segment = this.newSegment(name.name, start.value, end.value);
+                const segment = this.newSegment(name.name, start.value, end.value, false);
                 this.scopes.declareSegment(name.name, segment);
                 return;
             }
