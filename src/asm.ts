@@ -959,7 +959,11 @@ class Assembler {
     handleSetPC (valueExpr: ast.Expr): void {
         const ev  = this.evalExprToInt(valueExpr, 'pc');
         if (!anyErrors(ev)) {
-            const { value: v } = ev;
+            const { value: v, completeFirstPass } = ev;
+            if (!completeFirstPass) {
+                this.addError('Value for new program counter must evaluate to a value in the first pass', valueExpr.loc);
+                return;
+            }
             if (!this.curSegment.empty() && this.curSegment.currentPC() > v) {
                 this.addError(`Cannot set program counter to a smaller value than current (current: $${toHex16(this.curSegment.currentPC())}, trying to set $${toHex16(v)})`, valueExpr.loc);
             }
