@@ -533,9 +533,10 @@ class Assembler {
         this.outOfRangeBranches = [];
         this.debugInfo = new DebugInfoTracker();
 
-        // Empty segments list and append default
+        // Empty segments list and register the 'default' segment
         this.segments = [];
         this.curSegment = this.newSegment('default', this.platform.defaultStartPC, undefined, true);
+        this.scopes.declareSegment('default', this.curSegment);
     }
 
     newSegment(name: string, startAddr: number, endAddr: number | undefined, inferStart: boolean): Segment {
