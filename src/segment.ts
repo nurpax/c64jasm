@@ -45,7 +45,9 @@ class Segment {
                 if (this.end !== undefined && pc > this.end) {
                     err = `${range}.  Trying to set program counter to $${toHex16(pc)} -- it is past segment end ${endstr}.`;
                 } else {
-                    this.start = pc;
+                    if (this.blocks.length === 1 && this.blocks[0].binary.length === 0) {
+                        this.start = pc;
+                    }
                 }
             }
         }
