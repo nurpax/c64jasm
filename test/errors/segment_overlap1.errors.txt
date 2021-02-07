@@ -1,0 +1,1 @@
+test/errors/segment_overlap1.input.asm:3:1: error: Segment 'data' (range: $1150-$2000 overlaps with an earlier segment 'code' (range: $1000-$11ff)

@@ -1,5 +1,5 @@
 
-!segment code(start=$80a, end=$81a)
+!segment code(start=$80a, end=$819)
 !segment data(start=$81a, end=$830)
 
 * = $801

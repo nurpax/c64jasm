@@ -540,6 +540,16 @@ class Assembler {
 
     newSegment(name: string, startAddr: number, endAddr: number | undefined, inferStart: boolean): Segment {
         const segment = new Segment(startAddr, endAddr, inferStart);
+
+        // TODO This does not check overlaps with the "default" segment.  It's not
+        // (?) doable here because the default segment grows.  So need another
+        // overlap pass when making the final output binary.
+        for (let i = 1; i < this.segments.length; i++) {
+            const [n, s] =  this.segments[i];
+            if (this.segments[i][1].overlaps(segment)) {
+                this.addError(`Segment '${name}' (range: ${segment.formatRange()} overlaps with an earlier segment '${n}' (range: ${s.formatRange()})`, this.lineLoc);
+            }
+        }
         this.segments.push([name, segment]);
         return segment;
     }

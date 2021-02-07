@@ -77,6 +77,24 @@ class Segment {
         this.curBlock.binary.push(byte);
         return undefined;
     }
+
+    formatRange() {
+        const endstr = this.end !== undefined ? `$${toHex16(this.end)}` : '';
+        const startstr = this.start !== undefined ? `$${toHex16(this.start)}` : '';
+        return `${startstr}-${endstr}`;
+    }
+
+    overlaps(another: Segment): boolean {
+        const startA = this.start;
+        const startB = another.start;
+        const endA = this.end !== undefined ? this.end : this.currentPC();
+        const endB = another.end !== undefined ? another.end : another.currentPC();
+
+        if (startA < startB) {
+            return startB <= endA;
+        }
+        return endB >= startA;
+    }
 }
 
 // Remove empty segments
