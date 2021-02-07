@@ -405,6 +405,45 @@ Functions: `Math.abs(x)`, `Math.acos(x)`, `Math.asin(x)`, `Math.atan(x)`, `Math.
 
 `Math.random()` is not allowed as using a non-deterministic random would lead to non-reproducible builds.  If you need a pseudo random number generator (PRNG), write a deterministic PRNG in JavaScript and use that instead.
 
+### Segments
+
+Segments offer extra flexibility over code and data mamory layout.  They allow decoupling memory order from source code order.
+
+By default, everything is compiled into a segment called `default`.
+
+**Declare a new segment** with `!segment <name>(start=<addr>, end=<addr>)` (`start` and `end` both inclusive).
+
+**Activate a segment** with `!segment <name>`.  Activating a segment means any code or data emitted by the compiler will now go into the active segment.
+
+An example to illustrate.  The disassembly in comments shows where code and data gets placed in the output.
+
+```c64
+!segment code(start=$2000, end=$2100)
+!segment gfx(start=$3000, end=$3100)
+
+* = $801
+    lda #0          ; 0801: A9 00      LDA #$00
+    jsr start_part  ; 0803: 20 00 20   JSR $2000
+
+; switch to code segment, any emitted code or data will be stored at
+; address $2000 or above
+!segment code
+start_part:         ; 2000: 60         RTS
+    rts
+
+; switch to data.  any emitted code or data will be stored at
+; address $3000 or above
+!segment gfx
+!byte 0,1,2,3       ; 3000: 00 01 02 03
+
+!segment default
+; switch back to default segment, resume at address $806
+    lda #1          ; 0806: A9 01      LDA #$01
+    jsr start_part  ; 0808: 20 00 20   JSR $2000
+```
+
+As of c64jasm v0.9.0, all segments are output into the prg output defined by the `--out <out.prg>` argument.  Future versions of c64jasm will support specifying a PRG or a binary output file for each segment.
+
 ## C64jasm <span style='color:red'>❤</span> JavaScript
 
 Extending the assembler with JavaScript was the primary reason why C64jasm was built.  This is a powerful mechanism for implementing lookup table generators, graphics format converters, etc.
@@ -575,6 +614,7 @@ c64jasm 0.9.0 (not released yet - released on 2020-02-TBD):
 - New keyword args syntax for `!binary` file/size/offset arguments.
 - Show labels in disassembler output.  Thanks [@shazz](https://github.com/shazz)!
 - Show clock cycle estimates in disassembler output.  Thanks [@shazz](https://github.com/shazz)!
+- Add support for 6502 undocumented opcodes.  Thanks [@shazz](https://github.com/shazz)!
 - More robust error checking, esp. w.r.t. allowing only first-pass resolvable values in some contexts such as segment definition and binary includes.
 - Add `--labels-file=<OUTFILE>` command line argument that can be used to save symbol address mapping.
 - Fix labels output printing to use the same syntax for nested scope as is used in the assembler syntax.  This affects `--dump-labels` output.
