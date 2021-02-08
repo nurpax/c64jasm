@@ -2,7 +2,7 @@
 export interface DisasmOptions {
     showLabels: boolean;
     showCycles: boolean;
-    isInstruction: (addr: number) => boolean;
+    isInstruction?: (addr: number) => boolean;
 };
 
 interface Label {
@@ -44,30 +44,10 @@ export function chunkArray<T>(myArray: T[], chunk_size: number){
 class Disassembler {
     private curAddr: number;
     private curOffs: number;
-    private opToDecl: {[index: number]: { mnemonic: string, decode: (number|null)[] }};
+    private opToDecl: {[index: number]: { mnemonic: string, decode: (number|null)[], cycles: number }};
     private output: string[];
     private outputPadChars = '     ';
     private outputBytesPerLine = 1;
-
-    private cycleCounts = [
-    //  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-        7, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6, // 0
-        2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7, // 1
-        6, 6, 2, 8, 3, 3, 5, 5, 4, 2, 2, 2, 4, 4, 6, 6, // 2
-        2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7, // 3
-        6, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 3, 4, 6, 6, // 4
-        2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7, // 5
-        6, 6, 2, 8, 3, 3, 5, 5, 4, 2, 2, 2, 5, 4, 6, 6, // 6
-        2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7, // 7
-        2, 6, 2, 6, 3, 3, 3, 3, 2, 2, 2, 2, 4, 4, 4, 4, // 8
-        2, 6, 2, 6, 4, 4, 4, 4, 2, 5, 2, 5, 5, 5, 5, 5, // 9
-        2, 6, 2, 6, 3, 3, 3, 3, 2, 2, 2, 2, 4, 4, 4, 4, // A
-        2, 5, 2, 5, 4, 4, 4, 4, 2, 4, 2, 4, 4, 4, 4, 4, // B
-        2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6, // C
-        2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7, // D
-        2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6, // E
-        2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7  // F
-    ];
 
     private bytes: {
         startPC: number,
@@ -102,7 +82,8 @@ class Disassembler {
             for (let i = 0; i < decl.length; i++) {
                 const d = decl[i];
                 if (d !== null) {
-                    this.opToDecl[d] = { mnemonic: key, decode: decl };
+                    const decode = decl.map(e => e !== null ? e & 255 : null);
+                    this.opToDecl[d & 255] = { mnemonic: key, decode, cycles: d >> 8 };
                 }
             }
         })
@@ -126,7 +107,7 @@ class Disassembler {
         this.bytes.bytes = [];
     }
 
-    print = (addr: number, bytes: number[], decoded: string, label: string, nbCycle: number) => {
+    print = (addr: number, bytes: number[], decoded: string, label: string, cycle: string) => {
         this.flushBytes();
         const b0 = toHex8(bytes[0]);
         const b1 = bytes.length >= 2 ? toHex8(bytes[1]) : '  ';
@@ -137,7 +118,7 @@ class Disassembler {
         if (showCycles || showLabels) {
             const elts = [];
             if (showCycles) {
-                elts.push(`#${nbCycle}`);
+                elts.push(cycle);
             }
             if (showLabels) {
                 elts.push(label);
@@ -148,81 +129,81 @@ class Disassembler {
         }
     }
 
-    disImm(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disImm(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const imm = this.byte();
-        this.print(addr, [op, imm], `${mnemonic} #$${toHex8(imm)}`, label, nbCycle)
+        this.print(addr, [op, imm], `${mnemonic} #$${toHex8(imm)}`, label, cycle)
     }
 
-    disZp(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disZp(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const zp = this.byte();
-        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)}`, label, nbCycle)
+        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)}`, label, cycle)
     }
 
-    disZpX(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disZpX(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const zp = this.byte();
-        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)},X`, label, nbCycle)
+        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)},X`, label, cycle)
     }
 
-    disZpY(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disZpY(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const zp = this.byte();
-        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)},Y`, label, nbCycle)
+        this.print(addr, [op, zp], `${mnemonic} $${toHex8(zp)},Y`, label, cycle)
     }
 
-    disAbs(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disAbs(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
-        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)}`, label, nbCycle)
+        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)}`, label, cycle)
     }
 
-    disAbsX(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disAbsX(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
-        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)},X`, label, nbCycle)
+        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)},X`, label, cycle)
     }
 
-    disAbsY(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disAbsY(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
-        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)},Y`, label, nbCycle)
+        this.print(addr, [op, lo, hi], `${mnemonic} $${toHex16(lo + hi*256)},Y`, label, cycle)
     }
 
-    disInd(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disInd(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const lo = this.byte();
         const hi = this.byte();
-        this.print(addr, [op, lo, hi], `${mnemonic} ($${toHex16(lo + hi*256)})`, label, nbCycle)
+        this.print(addr, [op, lo, hi], `${mnemonic} ($${toHex16(lo + hi*256)})`, label, cycle)
     }
 
-    disIndX(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disIndX(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const lo = this.byte();
-        this.print(addr, [op, lo], `${mnemonic} ($${toHex8(lo)},X)`, label, nbCycle)
+        this.print(addr, [op, lo], `${mnemonic} ($${toHex8(lo)},X)`, label, cycle)
     }
 
-    disIndY (mnemonic: string, op: number, label: string, nbCycle: number) {
+    disIndY (mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const lo = this.byte();
-        this.print(addr, [op, lo], `${mnemonic} ($${toHex8(lo)}),Y`, label, nbCycle)
+        this.print(addr, [op, lo], `${mnemonic} ($${toHex8(lo)}),Y`, label, cycle)
     }
 
-    disSingle(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disSingle(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
-        this.print(addr, [op], `${mnemonic}`, label, nbCycle)
+        this.print(addr, [op], `${mnemonic}`, label, cycle)
     }
 
-    disBranch(mnemonic: string, op: number, label: string, nbCycle: number) {
+    disBranch(mnemonic: string, op: number, label: string, cycle: string) {
         const addr = this.curAddr;
         const lo = this.byte();
         const bofs = lo >= 128 ? -(256-lo) : lo
         const tgt = addr + bofs + 2;
-        this.print(addr, [op, lo], `${mnemonic} $${toHex16(tgt)}`, label, nbCycle)
+        this.print(addr, [op, lo], `${mnemonic} $${toHex16(tgt)}`, label, cycle)
     }
 
     disUnknown(op: number) {
@@ -254,56 +235,72 @@ class Disassembler {
 
             const op = this.byte()
             const decl = this.opToDecl[op];
-            const nbCycle = this.cycleCounts[op];
+
+            let cycle = '';
+            if (decl !== undefined) {
+                const cycles = decl.cycles & 63;
+                const cycleMods = decl.cycles >> 6;
+                if (cycleMods === 1) {        // cross page
+                    cycle = `${cycles}/${cycles+1}`;
+                } else if (cycleMods === 2) { // branch taken
+                    cycle = `${cycles}/${cycles+1}`;
+                } else if (cycleMods === 3) { // cross page + branch taken
+                    cycle = `${cycles}/${cycles+2}`;
+                }  else {
+                    cycle = `${cycles}`;
+                }
+            }
+
+            // TODO page crossing can be statically determined for branches!
 
             if (isInsn(this.curAddr) && decl !== undefined) {
                 const decoderIdx = decl.decode.indexOf(op);
                 if (decoderIdx === 0) {
-                    this.disImm(decl.mnemonic, op, label, nbCycle);
+                    this.disImm(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 1) {
-                    this.disZp(decl.mnemonic, op, label, nbCycle);
+                    this.disZp(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 2) {
-                    this.disZpX(decl.mnemonic, op, label, nbCycle);
+                    this.disZpX(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 3) {
-                    this.disZpY(decl.mnemonic, op, label, nbCycle);
+                    this.disZpY(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 4) {
-                    this.disAbs(decl.mnemonic, op, label, nbCycle);
+                    this.disAbs(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 5) {
-                    this.disAbsX(decl.mnemonic, op, label, nbCycle);
+                    this.disAbsX(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 6) {
-                    this.disAbsY(decl.mnemonic, op, label, nbCycle);
+                    this.disAbsY(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 7) {
-                    this.disInd(decl.mnemonic, op, label, nbCycle);
+                    this.disInd(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 8) {
-                    this.disIndX(decl.mnemonic, op, label, nbCycle);
+                    this.disIndX(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 9) {
-                    this.disIndY(decl.mnemonic, op, label, nbCycle);
+                    this.disIndY(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 10) {
-                    this.disSingle(decl.mnemonic, op, label, nbCycle);
+                    this.disSingle(decl.mnemonic, op, label, cycle);
                     continue;
                 }
                 if (decoderIdx === 11) {
-                    this.disBranch(decl.mnemonic, op, label, nbCycle);
+                    this.disBranch(decl.mnemonic, op, label, cycle);
                     continue;
                 }
             } else {

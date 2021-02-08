@@ -9,7 +9,7 @@ import { ArgumentParser } from 'argparse'
 
 import { assemble, Diagnostic } from '../src/asm'
 import * as ast  from '../src/ast'
-import { disassemble } from '../src/disasm'
+import { DisasmOptions, disassemble } from '../src/disasm'
 import { fail } from 'assert';
 
 let verbose = false;
@@ -84,6 +84,20 @@ function outputTest(testcase: string) {
     let inputs = g.readdirSync('test/cases/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
 
     const runTest = (fname: string) => {
+        const lines = fs.readFileSync(fname).toString().split('\n');
+        const disasmOptions: DisasmOptions = {
+            showLabels: false,
+            showCycles: false,
+        };
+
+        if (lines.length > 0) {
+            const match = /;\s+disasm:\s+(.*)/.exec(lines[0]);
+            if (match !== null) {
+                const opts = match[1].split(' ');
+                disasmOptions.showCycles = opts.includes('cycles');
+            }
+        }
+
         const { prg, errors } = assemble(fname)!;
 
         if (errors.length > 0) {
@@ -91,7 +105,7 @@ function outputTest(testcase: string) {
             return 'fail';
         }
 
-        const disasmLines = disassemble(prg).concat('');
+        const disasmLines = disassemble(prg, undefined, disasmOptions).concat('');
         const expectedFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'expected.asm');
         const actualFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + 'actual.asm');
 
