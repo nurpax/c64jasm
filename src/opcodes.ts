@@ -67,7 +67,7 @@ const opcodes: {[index: string]: (number | null)[]} = {
   'RTI': [null,         null,        null,         null,          null,        null,        null,        null,        null,         null,        o__(0x40,6), null],
   'RTS': [null,         null,        null,         null,          null,        null,        null,        null,        null,         null,        o__(0x60,6), null],
   'SBC': [o__(0xe9,2),  o__(0xe5,3), o__(0xf5,4),  null,          o__(0xed,4), oc_(0xfd,4), oc_(0xf9,4), null,        o__(0xe1,6),  oc_(0xf1,5), null,        null],
-  'STA': [null,         o__(0x85,3), o__(0x95,4),  null,          o__(0x8d,4), oc_(0x9d,4), oc_(0x99,4), null,        o__(0x81,6),  oc_(0x91,5), null,        null],
+  'STA': [null,         o__(0x85,3), o__(0x95,4),  null,          o__(0x8d,4), o__(0x9d,5), o__(0x99,5), null,        o__(0x81,6),  o__(0x91,6), null,        null],
   'TXS': [null,         null,        null,         null,          null,        null,        null,        null,        null,         null,        o__(0x9a,2), null],
   'TSX': [null,         null,        null,         null,          null,        null,        null,        null,        null,         null,        o__(0xba,2), null],
   'PHA': [null,         null,        null,         null,          null,        null,        null,        null,        null,         null,        o__(0x48,3), null],
