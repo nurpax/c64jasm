@@ -216,7 +216,6 @@ class Scopes {
         // mutating some unrelated, but same-named label names.
         const prevLabel = this.curSymtab.syms.get(name);
         if (prevLabel === undefined) {
-            // TODO completeFirstPass maybe too strict here?
             const lblsym: SymLabel = {
                 type: 'label',
                 data: mkEvalValue({ addr: codePC, loc }, false)
@@ -948,7 +947,6 @@ class Assembler {
         this.emit((word>>8) & 0xff);
     }
 
-    // TODO shouldn't have any for opcode
     checkSingle (opcode: number | null): boolean {
         if (opcode === null) {
             return false;
@@ -957,7 +955,7 @@ class Assembler {
         return true;
     }
 
-    checkImm (param: any, opcode: number | null): boolean {
+    checkImm (param: ast.Expr, opcode: number | null): boolean {
         if (opcode === null || param === null) {
             return false;
         }
@@ -969,7 +967,7 @@ class Assembler {
         return true;
     }
 
-    checkAbs (param: any, opcode: number | null, bits: number): boolean {
+    checkAbs (param: ast.Expr, opcode: number | null, bits: number): boolean {
         if (opcode === null || param === null) {
             return false;
         }
@@ -991,7 +989,7 @@ class Assembler {
         return true
     }
 
-    checkBranch (param: any, opcode: number | null): boolean {
+    checkBranch (param: ast.Expr, opcode: number | null): boolean {
         if (opcode === null || param === null) {
             return false;
         }
@@ -1348,11 +1346,6 @@ class Assembler {
                 const { name, kwargs, loc } = node
 
                 const sym = this.scopes.findQualifiedSym([name.name], false);
-                // TODO most likely these need some type of extra eval flag
-                // that restricts that these values can only be evaluated from
-                // constant inputs, not based on labels.  I don't know for sure
-                // but quite likely setting segment start/end from labels
-                // will cause multi-pass compilation to not reach fixpoint.
                 const [start, startLoc] = this.evalKwargToInt(kwargs, 'start', loc);
                 const [end, endLoc] = this.evalKwargToInt(kwargs, 'end', loc);
 
