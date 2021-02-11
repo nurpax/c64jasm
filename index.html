@@ -245,14 +245,15 @@ Table of contents:
 <li><a href="#automatic-recompilation-watch-mode">Automatic recompilation (watch mode)</a></li>
 </ul></li>
 <li><a href="#macro-assembler">Macro assembler</a><ul>
-<li><a href="#labels-and-nested-label-scopes">Labels and nested label scopes</a></li>
+<li><a href="#labels-and-nested-scopes">Labels and nested scopes</a></li>
 <li><a href="#data-directives">Data directives</a></li>
-<li><a href="#variables">Variables</a></li>
+<li><a href="#variables-and-expressions">Variables and expressions</a></li>
 <li><a href="#ifelse">If...else</a></li>
 <li><a href="#for-loops">For-loops</a></li>
 <li><a href="#statements">Statements</a></li>
 <li><a href="#macros">Macros</a></li>
 <li><a href="#built-in-functions">Built-in functions</a></li>
+<li><a href="#segments">Segments</a></li>
 </ul></li>
 <li><a href="#c64jasm--javascript">C64jasm <span style='color:red'>❤</span> JavaScript</a><ul>
 <li><a href="#making-extensions">Making extensions</a></li>
@@ -313,7 +314,7 @@ x64 sprites.prg</code></pre>
 <h2 id="macro-assembler">Macro assembler</h2>
 <p>C64jasm has fairly extensive symbolic macro assembly support. This includes macros, compile-time variables, for-loops, if/else, and source and binary file inclusion.</p>
 <p>Assembler pseudo directives start with a bang <code>!</code>. Examples: <code>!let</code>, <code>!if</code>, <code>!include</code>.</p>
-<h3 id="labels-and-nested-label-scopes">Labels and nested label scopes</h3>
+<h3 id="labels-and-nested-scopes">Labels and nested scopes</h3>
 <p><pre class='asm-block'>
 <span class='asm-comment'>; Clear the screen RAM (all 1024 bytes)</span>
 <span class='asm-label'>clear_screen:</span> <span class='asm-other'>{</span>
@@ -372,7 +373,7 @@ x64 sprites.prg</code></pre>
     <span class='asm-other'>+</span><span class='asm-ident'>util</span><span class='asm-other'>::</span><span class='asm-ident'>inc_border</span><span class='asm-other'>(</span><span class='asm-other'>)</span>
 </pre>
 </p>
-<p>Symbol references are relative to the current scope. If you need to reference a symbol in the root scope, use <code>::foo::bar</code>:</p>
+<p>Label, variable and macro names all follow the same scoping rules. Symbol references are relative to the current scope. If you need to reference a symbol in the root scope, use <code>::foo::bar</code>:</p>
 <p><pre class='asm-block'>
 <span class='asm-label'>bar:</span> <span class='asm-other'>{</span>
     <span class='asm-pseudo'>!let</span> <span class='asm-ident'>foo</span> <span class='asm-other'>=</span> <span class='asm-num'>20</span>
@@ -387,11 +388,17 @@ x64 sprites.prg</code></pre>
 <span class='asm-other'>}</span>
 </pre>
 </p>
-<p>The implicit <code>*</code> label always points to the current line's address. You can use it to for example jump over the next instruction:</p>
+<p>It is not legal to declare symbols with the same name in the same scope. This will fail:</p>
 <p><pre class='asm-block'>
-    <span class='asm-mnemonic'>bcc</span> <span class='asm-other'>*</span><span class='asm-other'>+</span><span class='asm-num'>3</span>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>var1</span> <span class='asm-other'>=</span> <span class='asm-num'>0</span>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>var1</span> <span class='asm-other'>=</span> <span class='asm-num'>1</span> <span class='asm-comment'>; error: Variable 'var1' already defined</span>
+
+<span class='asm-comment'>; but so will for example declaring a variable and a macro with the same name:</span>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>xyz</span> <span class='asm-other'>=</span> <span class='asm-num'>0</span>
+<span class='asm-pseudo'>!macro</span> <span class='asm-ident'>xyz</span><span class='asm-other'>(</span><span class='asm-other'>)</span> <span class='asm-other'>{</span> <span class='asm-comment'>; error: Symbol 'xyz' already defined</span>
     <span class='asm-mnemonic'>nop</span>
-    <span class='asm-comment'>; bcc jumps here if carry clear</span>
+<span class='asm-other'>}</span>
+<span class='asm-other'>+</span><span class='asm-ident'>xyz</span><span class='asm-other'>(</span><span class='asm-other'>)</span>
 </pre>
 </p>
 <h3 id="data-directives">Data directives</h3>
@@ -412,12 +419,16 @@ x64 sprites.prg</code></pre>
 </p>
 <p>Including binary data:</p>
 <p><pre class='asm-block'>
-<span class='asm-pseudo'>!binary</span> <span class='asm-string'>"file1.bin"</span>       <span class='asm-comment'>; all of file1.bin</span>
-<span class='asm-pseudo'>!binary</span> <span class='asm-string'>"file2.bin"</span><span class='asm-other'>,</span><span class='asm-num'>256</span>   <span class='asm-comment'>; first 256 bytes of file</span>
-<span class='asm-pseudo'>!binary</span> <span class='asm-string'>"file2.bin"</span><span class='asm-other'>,</span><span class='asm-num'>256</span><span class='asm-other'>,</span><span class='asm-num'>8</span> <span class='asm-comment'>; 256 bytes from offset 8</span>
+<span class='asm-comment'>; As of c64jasm you will use keyword args with !binary.</span>
+<span class='asm-pseudo'>!binary</span> <span class='asm-other'>(</span><span class='asm-ident'>file</span><span class='asm-other'>=</span><span class='asm-string'>"file1.bin"</span><span class='asm-other'>)</span>                     <span class='asm-comment'>; all of file1.bin</span>
+<span class='asm-pseudo'>!binary</span> <span class='asm-other'>(</span><span class='asm-ident'>file</span><span class='asm-other'>=</span><span class='asm-string'>"file2.bin"</span><span class='asm-other'>,</span> <span class='asm-ident'>size</span><span class='asm-other'>=</span><span class='asm-num'>256</span><span class='asm-other'>)</span>           <span class='asm-comment'>; first 256 bytes of file</span>
+<span class='asm-pseudo'>!binary</span> <span class='asm-other'>(</span><span class='asm-ident'>file</span><span class='asm-other'>=</span><span class='asm-string'>"file2.bin"</span><span class='asm-other'>,</span> <span class='asm-ident'>size</span><span class='asm-other'>=</span><span class='asm-num'>256</span><span class='asm-other'>,</span> <span class='asm-ident'>offset</span><span class='asm-other'>=</span><span class='asm-num'>8</span><span class='asm-other'>)</span> <span class='asm-comment'>; 256 bytes from offset 8</span>
+
+<span class='asm-comment'>; Earlier syntax is still supported and will be kept around.</span>
+<span class='asm-pseudo'>!binary</span> <span class='asm-string'>"file2.bin"</span><span class='asm-other'>,</span> <span class='asm-num'>256</span><span class='asm-other'>,</span> <span class='asm-num'>8</span>                    <span class='asm-comment'>; 256 bytes from offset 8</span>
 </pre>
 </p>
-<h3 id="variables">Variables</h3>
+<h3 id="variables-and-expressions">Variables and expressions</h3>
 <p>You can declare a variable with <code>!let</code>. You can use standard C operators like <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>&lt;&lt;</code>, <code>&gt;&gt;</code>, <code>&amp;</code>, <code>|</code>, <code>~</code> with them.</p>
 <p><pre class='asm-block'>
 <span class='asm-pseudo'>!let</span> <span class='asm-ident'>num_sprites</span> <span class='asm-other'>=</span> <span class='asm-num'>4</span>
@@ -451,6 +462,23 @@ x64 sprites.prg</code></pre>
 
     <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-num'>3</span>
     <span class='asm-mnemonic'>sta</span> <span class='asm-ident'>zp</span><span class='asm-other'>.</span><span class='asm-ident'>sprite_idx</span>
+</pre>
+</p>
+<p>The implicit <code>*</code> label always points to the current line's address. You can use it to for example jump over the next instruction:</p>
+<p><pre class='asm-block'>
+    <span class='asm-mnemonic'>bcc</span> <span class='asm-other'>*</span><span class='asm-other'>+</span><span class='asm-num'>3</span>
+    <span class='asm-mnemonic'>nop</span>
+    <span class='asm-comment'>; bcc jumps here if carry clear</span>
+</pre>
+</p>
+<p>You can access the lo/hi parts of a 16-bit value or a memory address with <code>&lt;</code> and <code>&gt;</code>. To keep the parser simple, this syntax only works in immediate fields like <code>lda #&lt;foo</code>. To access lo/hi parts of any value within any expression context, use bitwise operations <code>&amp;</code> and <code>&gt;&gt;</code> like in the below example:</p>
+<p><pre class='asm-block'>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-other'><</span><span class='asm-ident'>buf</span>           <span class='asm-comment'>; take lo byte of 'buf' address</span>
+    <span class='asm-mnemonic'>ldx</span> <span class='asm-other'>#</span><span class='asm-other'>></span><span class='asm-ident'>buf</span>           <span class='asm-comment'>; take hi byte of 'buf' address</span>
+<span class='asm-label'>buf:</span> <span class='asm-pseudo'>!byte</span> <span class='asm-num'>0</span><span class='asm-other'>,</span> <span class='asm-num'>1</span><span class='asm-other'>,</span> <span class='asm-num'>2</span><span class='asm-other'>,</span> <span class='asm-num'>3</span>
+
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>lbl_lo</span> <span class='asm-other'>=</span> <span class='asm-ident'>buf</span> <span class='asm-other'>&</span> <span class='asm-num'>255</span> <span class='asm-comment'>; lo byte of 'buf' address</span>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>lbl_hi</span> <span class='asm-other'>=</span> <span class='asm-ident'>buf</span> <span class='asm-other'>></span><span class='asm-other'>></span> <span class='asm-num'>8</span>  <span class='asm-comment'>; hi byte of 'buf' address</span>
 </pre>
 </p>
 <h3 id="ifelse">If...else</h3>
@@ -563,6 +591,38 @@ x64 sprites.prg</code></pre>
 <p>Constants: <code>Math.E</code>, <code>Math.PI</code>, <code>Math.SQRT2</code>, <code>Math.SQRT1_2</code>, <code>Math.LN2</code>, <code>Math.LN10</code>, <code>Math.LOG2E</code>, <code>Math.LOG10E</code>.</p>
 <p>Functions: <code>Math.abs(x)</code>, <code>Math.acos(x)</code>, <code>Math.asin(x)</code>, <code>Math.atan(x)</code>, <code>Math.atan2(y, x)</code>, <code>Math.ceil(x)</code>, <code>Math.cos(x)</code>, <code>Math.exp(x)</code>, <code>Math.floor(x)</code>, <code>Math.log(x)</code>, <code>Math.max(x, y, z, ..., n)</code>, <code>Math.min(x, y, z, ..., n)</code>, <code>Math.pow(x, y)</code>, <code>Math.round(x)</code>, <code>Math.sin(x)</code>, <code>Math.sqrt(x)</code>, <code>Math.tan(x)</code>.</p>
 <p><code>Math.random()</code> is not allowed as using a non-deterministic random would lead to non-reproducible builds. If you need a pseudo random number generator (PRNG), write a deterministic PRNG in JavaScript and use that instead.</p>
+<h3 id="segments">Segments</h3>
+<p>Segments offer extra flexibility over code and data mamory layout. They allow decoupling memory order from source code order.</p>
+<p>By default, everything is compiled into a segment called <code>default</code>.</p>
+<p><strong>Declare a new segment</strong> with <code>!segment &lt;name&gt;(start=&lt;addr&gt;, end=&lt;addr&gt;)</code> (<code>start</code> and <code>end</code> both inclusive).</p>
+<p><strong>Activate a segment</strong> with <code>!segment &lt;name&gt;</code>. Activating a segment means any code or data emitted by the compiler will now go into the active segment.</p>
+<p>An example to illustrate. The disassembly in comments shows where code and data gets placed in the output.</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!segment</span> <span class='asm-ident'>code</span><span class='asm-other'>(</span><span class='asm-ident'>start</span><span class='asm-other'>=</span><span class='asm-num'>$2000</span><span class='asm-other'>,</span> <span class='asm-ident'>end</span><span class='asm-other'>=</span><span class='asm-num'>$2100</span><span class='asm-other'>)</span>
+<span class='asm-pseudo'>!segment</span> <span class='asm-ident'>gfx</span><span class='asm-other'>(</span><span class='asm-ident'>start</span><span class='asm-other'>=</span><span class='asm-num'>$3000</span><span class='asm-other'>,</span> <span class='asm-ident'>end</span><span class='asm-other'>=</span><span class='asm-num'>$3100</span><span class='asm-other'>)</span>
+
+<span class='asm-other'>*</span> <span class='asm-other'>=</span> <span class='asm-num'>$801</span>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-num'>0</span>          <span class='asm-comment'>; 0801: A9 00      LDA #$00</span>
+    <span class='asm-mnemonic'>jsr</span> <span class='asm-ident'>start_part</span>  <span class='asm-comment'>; 0803: 20 00 20   JSR $2000</span>
+
+<span class='asm-comment'>; switch to code segment, any emitted code or data will be stored at</span>
+<span class='asm-comment'>; address $2000 or above</span>
+<span class='asm-pseudo'>!segment</span> <span class='asm-ident'>code</span>
+<span class='asm-label'>start_part:</span>         <span class='asm-comment'>; 2000: 60         RTS</span>
+    <span class='asm-mnemonic'>rts</span>
+
+<span class='asm-comment'>; switch to data.  any emitted code or data will be stored at</span>
+<span class='asm-comment'>; address $3000 or above</span>
+<span class='asm-pseudo'>!segment</span> <span class='asm-ident'>gfx</span>
+<span class='asm-pseudo'>!byte</span> <span class='asm-num'>0</span><span class='asm-other'>,</span><span class='asm-num'>1</span><span class='asm-other'>,</span><span class='asm-num'>2</span><span class='asm-other'>,</span><span class='asm-num'>3</span>       <span class='asm-comment'>; 3000: 00 01 02 03</span>
+
+<span class='asm-pseudo'>!segment</span> <span class='asm-ident'>default</span>
+<span class='asm-comment'>; switch back to default segment, resume at address $806</span>
+    <span class='asm-mnemonic'>lda</span> <span class='asm-other'>#</span><span class='asm-num'>1</span>          <span class='asm-comment'>; 0806: A9 01      LDA #$01</span>
+    <span class='asm-mnemonic'>jsr</span> <span class='asm-ident'>start_part</span>  <span class='asm-comment'>; 0808: 20 00 20   JSR $2000</span>
+</pre>
+</p>
+<p>As of c64jasm v0.9.0, all segments are output into the prg output defined by the <code>--out &lt;out.prg&gt;</code> argument. Future versions of c64jasm will support specifying a PRG or a binary output file for each segment.</p>
 <h2 id="c64jasm--javascript">C64jasm <span style='color:red'>❤</span> JavaScript</h2>
 <p>Extending the assembler with JavaScript was the primary reason why C64jasm was built. This is a powerful mechanism for implementing lookup table generators, graphics format converters, etc.</p>
 <p>Learning resources on c64jasm extensions:</p>
@@ -672,10 +732,22 @@ module.exports = loadJson;</code></pre>
 </p>
 <p>In this example, the <code>stack</code> array holds the state which can be manipulated by calls to <code>push(elt)</code>, <code>pop()</code>.</p>
 <h2 id="release-notes">Release notes</h2>
+<p>c64jasm 0.9.0 (2020-02-12):</p>
+<ul>
+<li>Segments with <code>!segment</code> to easy memory layout.</li>
+<li>New keyword args syntax for <code>!binary</code> file/size/offset arguments. Old syntax still works and will be kept around.</li>
+<li>Show labels in disassembler output. Thanks <a href="https://github.com/shazz">@shazz</a>!</li>
+<li>Show clock cycle estimates in disassembler output. Thanks <a href="https://github.com/shazz">@shazz</a>!</li>
+<li>Add support for 6502 undocumented opcodes. Thanks <a href="https://github.com/shazz">@shazz</a>!</li>
+<li>More robust error checking, esp. w.r.t. allowing only first-pass resolvable values in some contexts such as segment definition and binary includes.</li>
+<li>Add <code>--labels-file=&lt;OUTFILE&gt;</code> command line argument that can be used to save symbol address mapping.</li>
+<li>Fix labels output printing to use the same syntax for nested scope as is used in the assembler syntax. This affects <code>--dump-labels</code> output.</li>
+</ul>
 <p>c64jasm 0.8.1 (released on 2020-02-05):</p>
 <ul>
 <li>Require macros to be declared before use. Using a macro before declaration didn't trigger an error before, but could also lead to extremely weird downstream errors.</li>
 <li>File not found errors related to <code>!include</code> and other file loading were sometimes not trigger an error due to parser caching.</li>
+<li>Bug fix prg loader in VSCode runtime. Thanks <a href="https://github.com/leyyinad">@leyyinad</a>!</li>
 </ul>
 <p>c64jasm 0.8.0 (released on 2019-11-11):</p>
 <ul>
