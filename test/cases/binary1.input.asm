@@ -1,3 +1,4 @@
+; disasm: debuginfo
 
 * = $801
 

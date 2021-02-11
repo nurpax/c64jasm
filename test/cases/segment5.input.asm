@@ -1,3 +1,4 @@
+; disasm: debuginfo
 
 !segment code(start=$810, end=$813)
 !segment data(start=$814, end=$817)

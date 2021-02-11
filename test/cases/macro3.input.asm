@@ -1,3 +1,5 @@
+; disasm: debuginfo
+
 !macro basic_start() {
 * = $801
     !byte $0c

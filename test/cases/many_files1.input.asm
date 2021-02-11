@@ -1,3 +1,4 @@
+; disasm: debuginfo
 
 !include "many_files_defs.inc"
 

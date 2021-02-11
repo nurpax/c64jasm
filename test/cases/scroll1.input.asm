@@ -1,3 +1,4 @@
+; disasm: debuginfo
 
 !macro basic_start(addr) {
 * = $801

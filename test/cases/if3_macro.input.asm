@@ -1,3 +1,5 @@
+; disasm: debuginfo
+
 !macro basic_start(xaddr) {
 * = $801
     !byte $0c

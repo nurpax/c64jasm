@@ -1,6 +1,3 @@
-; disasm: cycles
-
-;    .org $0801
 
     slo $20
     slo $20,x

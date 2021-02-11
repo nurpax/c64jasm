@@ -1,7 +1,7 @@
 
 var glob = require('glob-fs');
 
-import { argv, stdout } from 'process'
+import { argv, openStdin, stdout } from 'process'
 import * as path from 'path';
 import * as fs from 'fs';
 import * as colors from 'colors'
@@ -90,15 +90,18 @@ function outputTest(testcase: string) {
             showCycles: false,
         };
 
+        const { prg, errors, debugInfo } = assemble(fname)!;
+
         if (lines.length > 0) {
             const match = /;\s+disasm:\s+(.*)/.exec(lines[0]);
             if (match !== null) {
                 const opts = match[1].split(' ');
                 disasmOptions.showCycles = opts.includes('cycles');
+                if (opts.includes('debuginfo')) {
+                    disasmOptions.isInstruction = debugInfo!.info().isInstruction;
+                }
             }
         }
-
-        const { prg, errors } = assemble(fname)!;
 
         if (errors.length > 0) {
             console.error(errors);

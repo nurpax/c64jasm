@@ -1,3 +1,4 @@
+; disasm: debuginfo
 
 !let o = { s: $810, s2: $814 }
 !segment code(start=o.s, end=o.s + 3)

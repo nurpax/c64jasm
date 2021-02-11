@@ -1,3 +1,5 @@
+; disasm: debuginfo
+
 * = $801
 
 !macro clear_state(start, end) {

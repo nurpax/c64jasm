@@ -1,3 +1,5 @@
+; disasm: debuginfo
+
 * = $801
 
 entry: {
