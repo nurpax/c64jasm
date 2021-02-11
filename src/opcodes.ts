@@ -76,7 +76,26 @@ const opcodes: {[index: string]: (number | null)[]} = {
   'PLP': [null,         null,        null,         null,          null,        null,        null,        null,        null,         null,        o__(0x28,4), null],
   'STX': [null,         o__(0x86,3), null,         o__(0x96,4),   o__(0x8e,4), null,        null,        null,        null,         null,        null,        null],
   'STY': [null,         o__(0x84,3), o__(0x94,4),  null,          o__(0x8c,4), null,        null,        null,        null,         null,        null,        null],
+  'SLO': [null,         o__(0x07,5), o__(0x17,6),  null,          o__(0x0f,6), o__(0x1f,7), o__(0x1b,7), null,        o__(0x03,8),  o__(0x13,8), null,        null],
+  'ANC': [o__(0x0b,2),  null,        null,         null,          null,        null,        null,        null,        null,         null,        null,        null],
+  'RLA': [null,         o__(0x27,5), o__(0x37,6),  null,          o__(0x2f,6), o__(0x3f,7), o__(0x3b,7), null,        o__(0x23,8),  o__(0x33,8), null,        null],
+  'SRE': [null,         o__(0x47,5), o__(0x57,6),  null,          o__(0x4f,6), o__(0x5f,7), o__(0x5b,7), null,        o__(0x43,8),  o__(0x53,8), null,        null],
+  'RRA': [null,         o__(0x67,5), o__(0x77,6),  null,          o__(0x6f,6), o__(0x7f,7), o__(0x7b,7), null,        o__(0x63,8),  o__(0x73,8), null,        null],
+  'SAX': [null,         o__(0x87,3), null,         o__(0x97,4),   o__(0x8f,4), null,        null,        null,        o__(0x83,6),  null,        null,        null],
+  'AHX': [null,         null,        null,         null,          null,        null,        o__(0x9f,5), null,        null,         o__(0x93,6), null,        null],
+  'XAA': [o__(0x8b,2),  null,        null,         null,          null,        null,        null,        null,        null,         null,        null,        null],
+  'TAS': [null,         null,        null,         null,          null,        null,        o__(0x9b,5), null,        null,         null,        null,        null],
+  'SHY': [null,         null,        null,         null,          null,        o__(0x9c,5), null,        null,        null,         null,        null,        null],
+  'SHX': [null,         null,        null,         null,          null,        null,        o__(0x9e,5), null,        null,         null,        null,        null],
+  'LAX': [o__(0xab,2),  o__(0xa7,3), null,         o__(0xb7,4),   o__(0xaf,4), null,        o__(0xbf,4), null,        o__(0xa3,6),  o__(0xb3,5), null,        null],
+  'LAS': [null,         null,        null,         null,          null,        null,        o__(0xbb,4), null,        null,         null,        null,        null],
+  'DCP': [null,         o__(0xc7,5), o__(0xd7,6),  null,          o__(0xcf,6), o__(0xdf,7), o__(0xdb,7), null,        o__(0xc3,8),  o__(0xd3,8), null,        null],
+  'ISC': [null,         o__(0xe7,5), o__(0xf7,6),  null,          o__(0xef,6), o__(0xff,7), o__(0xfb,7), null,        o__(0xe3,8),  o__(0xf3,8), null,        null],
+  'ALR': [o__(0x4b,2),  null,        null,         null,          null,        null,        null,        null,        null,         null,        null,        null],
+  'AXS': [o__(0xcb,2),  null,        null,         null,          null,        null,        null,        null,        null,         null,        null,        null],
+  'ARR': [o__(0x6b,2),  null,        null,         null,          null,        null,        null,        null,        null,         null,        null,        null],
   '---': [null,         null,        null,         null,          null,        null,        null,        null,        null,         null,        null,        null]
 };
+  /* Name,Imm,          ZP,          ZPX,          ZPY,           ABS,         ABSX,        ABSY,        IND,         INDX,         INDY,        SNGL,        BRA */
 
 export default opcodes;

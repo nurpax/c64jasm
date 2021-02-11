@@ -104,7 +104,7 @@ code lines = ["<pre class='asm-block'>"] ++ lines ++ ["</pre>"]
 -- }
 
 isMnemonic :: T.Text -> Bool
-isMnemonic s = s `elem` ["adc", "and", "asl", "bcc", "bcs", "beq", "bit", "bmi", "bne", "bpl", "brk", "bvc", "bvs", "clc", "cld", "cli", "clv", "cmp", "cpx", "cpy", "dec", "dex", "dey", "eor", "inc", "inx", "iny", "jmp", "jsr", "lda", "ldx", "ldy", "lsr", "nop", "ora", "pha", "php", "pla", "plp", "rol", "ror", "rti", "rts", "sbc", "sec", "sed", "sei", "sta", "stx", "sty", "tax", "tay", "tsx", "txa", "txs", "tya"]
+isMnemonic s = s `elem` ["adc", "and", "asl", "bcc", "bcs", "beq", "bit", "bmi", "bne", "bpl", "brk", "bvc", "bvs", "clc", "cld", "cli", "clv", "cmp", "cpx", "cpy", "dec", "dex", "dey", "eor", "inc", "inx", "iny", "jmp", "jsr", "lda", "ldx", "ldy", "lsr", "nop", "ora", "pha", "php", "pla", "plp", "rol", "ror", "rti", "rts", "sbc", "sec", "sed", "sei", "sta", "stx", "sty", "tax", "tay", "tsx", "txa", "txs", "tya", "slo", "anc", "rla", "sre", "alr", "arr", "rra", "sax", "xaa", "ahx", "tas", "lax", "las", "dcp", "sbx", "isc"]
 
 hspan :: T.Text -> T.Text -> T.Text
 hspan className text = T.concat ["<span class='", className, "'>", text, "</span>"]
