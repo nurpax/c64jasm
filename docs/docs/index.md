@@ -609,9 +609,9 @@ In this example, the `stack` array holds the state which can be manipulated by c
 
 ## Release notes
 
-c64jasm 0.9.0 (not released yet - released on 2020-02-TBD):
+c64jasm 0.9.0 (2020-02-12):
 - Segments with `!segment` to easy memory layout.
-- New keyword args syntax for `!binary` file/size/offset arguments.
+- New keyword args syntax for `!binary` file/size/offset arguments.  Old syntax still works and will be kept around.
 - Show labels in disassembler output.  Thanks [@shazz](https://github.com/shazz)!
 - Show clock cycle estimates in disassembler output.  Thanks [@shazz](https://github.com/shazz)!
 - Add support for 6502 undocumented opcodes.  Thanks [@shazz](https://github.com/shazz)!
