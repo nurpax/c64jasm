@@ -1,5 +1,7 @@
 ; disasm: cycles
 
+    .org $0801
+
     slo $20
     slo $20,x
     slo $2000
@@ -51,12 +53,12 @@
 
     nop
 
-    ahx $2000,y
-    ahx ($44),y
+    ; ahx $2000,y
+    ; ahx ($44),y
 
     nop
 
-    xaa #0
+    ; xaa #0
 
     nop
 
