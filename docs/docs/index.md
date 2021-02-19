@@ -216,6 +216,13 @@ Including binary data:
 !binary "file2.bin", 256, 8                    ; 256 bytes from offset 8
 ```
 
+Text strings: C64jasm does not have built-in PETSCII or screencode emitting directives like `!text` or `!scr`.  You can, however, implement this yourself using an assembler plugin.  See [this gist](https://gist.github.com/nurpax/a55779dfaf9265b4470f74a3ea9896d8) for an example.  Armed with such a plugin, you can write code like this:
+
+```c64
+!use "./text" as text  ; see the above gist link for full code!
+!byte text("testing 123")
+```
+
 ### Variables and expressions
 
 You can declare a variable with `!let`.  You can use standard C operators like `+`, `-`, `*`, `/`, `<<`, `>>`, `&`, `|`, `~` with them.
