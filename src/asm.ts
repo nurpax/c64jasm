@@ -808,9 +808,10 @@ class Assembler {
                         }
                         return sym.data;
                     case 'macro':
-                        this.addError(`Must have a label or a variable identifier here, got macro name`, node.loc);
+                    case 'segment':
+                        this.addError(`Must have a label or a variable identifier here, got ${sym.type} name`, node.loc);
                         return mkErrorValue(0);
-                }
+                    }
                 break;
             }
             case 'member': {

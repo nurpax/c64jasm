@@ -1,0 +1,2 @@
+test/errors/segment7.input.asm:2:1: error: Variable 'music' already defined
+test/errors/segment7.input.asm:4:10: error: Must have a label or a variable identifier here, got segment name
