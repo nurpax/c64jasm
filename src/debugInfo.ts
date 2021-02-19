@@ -17,6 +17,7 @@ export class DebugInfoTracker {
     lineStack: LocPCEntry[] = [];
     pcToLocs: { [pc: number]: LineLoc[] } = {};
     insnBitset = new FastBitSet();
+    private breakpoints = new Set<number>();
 
     startLine(loc: SourceLoc, codePC: number) {
         const l = {
@@ -45,6 +46,10 @@ export class DebugInfoTracker {
         }
     }
 
+    markBreak(addr: number) {
+        this.breakpoints.add(addr);
+    }
+
     info() {
         const insnBitset = this.insnBitset.clone();
         const isInstruction = (addr: number) => {
@@ -53,6 +58,7 @@ export class DebugInfoTracker {
 
         return {
             pcToLocs: this.pcToLocs,
+            breakpoints: this.breakpoints.values(),
             isInstruction
         };
     }

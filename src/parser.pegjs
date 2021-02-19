@@ -181,6 +181,9 @@ directive =
   / PSEUDO_SEGMENT name:scopeQualifiedIdentifier  {
       return ast.mkUseSegment(name, loc());
     }
+  / PSEUDO_BREAK  {
+      return ast.mkBreak(loc());
+    }
   / PSEUDO_STATEMENT s:execStatement {
       return s;
     }
@@ -509,6 +512,7 @@ PSEUDO_FILL      = "!fill" ws
 PSEUDO_USE       = "!use" ws
 PSEUDO_FILESCOPE = "!filescope" ws
 PSEUDO_SEGMENT   = "!segment" ws
+PSEUDO_BREAK     = "!break" ws
 PSEUDO_STATEMENT = "!!" ws
 
 LBRK      =  s:'['         ws { return s; }

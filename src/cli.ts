@@ -10,6 +10,7 @@ import { assemble } from './asm';
 import { disassemble } from './disasm';
 import { ArgumentParser } from 'argparse';
 import { toHex16 } from './util';
+import { DebugInfoTracker } from './debugInfo';
 
 const chokidar = require('chokidar');
 
@@ -44,6 +45,17 @@ function startDebugInfoServer() {
         sock.on('close',  function () {
             console.log('connection from %s closed', remoteAddress);
         });
+    }
+}
+
+function exportViceMoncommands(fd: number, labels: { name: string, addr: number}[], debugInfo: DebugInfoTracker) {
+    for (const { name, addr } of labels) {
+        const msg = `al C:${toHex16(addr)} .${name}\n`;
+        fs.writeSync(fd, msg);
+    }
+    for (const addr of debugInfo.info().breakpoints) {
+        const msg = `break ${toHex16(addr)}\n`;
+        fs.writeSync(fd, msg);
     }
 }
 
@@ -83,15 +95,23 @@ function compile(args: any) {
             })
         }
         if (args.labelsFile) {
-            let fd: number;
             try {
-                fd = fs.openSync(args.labelsFile, 'w');
+                const fd = fs.openSync(args.labelsFile, 'w');
                 printLabels(msg => fs.writeSync(fd, `${msg}\n`));
             } catch(err) {
                 console.error(err);
             }
         } else {
             printLabels(console.log);
+        }
+    }
+
+    if (args.viceMonCommandsFile) {
+        try {
+            const fd = fs.openSync(args.viceMonCommandsFile, 'w');
+            exportViceMoncommands(fd, labels, debugInfo!);
+        } catch(err) {
+            console.error(err);
         }
     }
 
@@ -109,7 +129,7 @@ function compile(args: any) {
                 }
             } else {
                 for (const disasmLine of disasm) {
-                    console.log(disasmLine);   
+                    console.log(disasmLine);
                 }
             }
 
@@ -167,6 +187,10 @@ parser.addArgument('--dump-labels', {
 parser.addArgument('--labels-file', {
     dest: 'labelsFile',
     help: 'Save program address and size for all labels declared in the source files into a file.'
+});
+parser.addArgument('--vice-moncommands-file', {
+   dest: 'viceMonCommandsFile',
+   help: 'Save labels and breakpoint information into a VICE moncommands file for simple debugging.'
 });
 parser.addArgument('--disasm', {
     action: 'storeConst',

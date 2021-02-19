@@ -1389,6 +1389,10 @@ class Assembler {
                 this.curSegment = sym.data;
                 break;
             }
+            case 'break': {
+                this.debugInfo.markBreak(this.getPC());
+                break;
+            }
             default:
                 this.addError(`unknown directive ${node.type}`, node.loc);
                 return;

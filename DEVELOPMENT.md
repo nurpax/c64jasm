@@ -21,3 +21,21 @@ If you want to install it globally (so that you can just do `c64jasm` anywhere i
 ```
 npm install -g c64jasm-<version>.tgz
 ```
+
+## Building an publishing the VSCode extension
+
+Make a vsix file for local installation:
+
+```
+cd vscode
+npm run compile
+vsce package
+# install
+# code --install-extension <path>/c64jasm/vscode/c64jasm-<vscode-c64jasm-ver>.vsix
+```
+
+Once you have a build:
+
+```
+vsce publish --packagePath c64jasm-<ext-version>.vsix
+```

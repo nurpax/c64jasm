@@ -167,6 +167,7 @@ export type Stmt =
   | StmtFilescope
   | StmtDeclareSegment
   | StmtUseSegment
+  | StmtBreak
 
 export type Insn = any
 
@@ -280,6 +281,10 @@ export interface StmtDeclareSegment extends Node {
 export interface StmtUseSegment extends Node {
     type: 'use-segment',
     name: ScopeQualifiedIdent;
+}
+
+export interface StmtBreak extends Node {
+    type: 'break';
 }
 
 export interface AsmLine extends Node {
@@ -447,6 +452,13 @@ export function mkUseSegment(name: ScopeQualifiedIdent, loc: SourceLoc): StmtUse
     return {
         type: 'use-segment',
         name,
+        loc
+    }
+}
+
+export function mkBreak(loc: SourceLoc): StmtBreak {
+    return {
+        type: 'break',
         loc
     }
 }
