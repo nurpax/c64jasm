@@ -428,6 +428,12 @@ x64 sprites.prg</code></pre>
 <span class='asm-pseudo'>!binary</span> <span class='asm-string'>"file2.bin"</span><span class='asm-other'>,</span> <span class='asm-num'>256</span><span class='asm-other'>,</span> <span class='asm-num'>8</span>                    <span class='asm-comment'>; 256 bytes from offset 8</span>
 </pre>
 </p>
+<p>Text strings: C64jasm does not have built-in PETSCII or screencode emitting directives like <code>!text</code> or <code>!scr</code>. You can, however, implement this yourself using an assembler plugin. See <a href="https://gist.github.com/nurpax/a55779dfaf9265b4470f74a3ea9896d8">this gist</a> for an example. Armed with such a plugin, you can write code like this:</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!use</span> <span class='asm-string'>"./text"</span> <span class='asm-ident'>as</span> <span class='asm-ident'>text</span>  <span class='asm-comment'>; see the above gist link for full code!</span>
+<span class='asm-pseudo'>!byte</span> <span class='asm-ident'>text</span><span class='asm-other'>(</span><span class='asm-string'>"testing 123"</span><span class='asm-other'>)</span>
+</pre>
+</p>
 <h3 id="variables-and-expressions">Variables and expressions</h3>
 <p>You can declare a variable with <code>!let</code>. You can use standard C operators like <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>&lt;&lt;</code>, <code>&gt;&gt;</code>, <code>&amp;</code>, <code>|</code>, <code>~</code> with them.</p>
 <p><pre class='asm-block'>
