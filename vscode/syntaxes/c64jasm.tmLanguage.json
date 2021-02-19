@@ -45,7 +45,7 @@
 
 		{
 			"name": "meta.other.c64",
-			"match": "(?i)^[ \t]*(!if|!let|!align|!include|!binary|!for|!fill|!byte|!word|!use)[ \t]*",
+			"match": "(?i)^[ \t]*(!if|!let|!align|!include|!binary|!for|!fill|!byte|!word|!use|!filescope|!error|!segment|!break)[ \t]*",
 			"captures": {
 				"1": {
 					"name": "variable.other.pseudo.c64"
