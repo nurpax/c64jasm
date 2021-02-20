@@ -9,8 +9,8 @@ import { writeFileSync } from 'fs';
 import { assemble } from './asm';
 import { disassemble } from './disasm';
 import { ArgumentParser } from 'argparse';
-import { toHex16, exportViceMoncommands } from './util';
-import { DebugInfoTracker } from './debugInfo';
+import { toHex16 } from './util';
+import * as util from './util';
 
 const chokidar = require('chokidar');
 
@@ -56,7 +56,7 @@ function compile(args: any) {
     if (!result) {
         return;
     }
-    const { errors, prg, labels, debugInfo } = result;
+    const { errors, prg, labels, segments, debugInfo } = result;
 
     if (errors.length !== 0) {
         errors.forEach(err => {
@@ -99,7 +99,17 @@ function compile(args: any) {
         try {
             const fd = fs.openSync(args.viceMonCommandsFile, 'w');
             const writeSync = (msg: string) => fs.writeSync(fd, msg)
-            exportViceMoncommands(writeSync, labels, debugInfo!);
+            util.exportViceMoncommands(writeSync, labels, debugInfo!);
+        } catch(err) {
+            console.error(err);
+        }
+    }
+
+    if (args.c64debuggerSymbolsFile) {
+        try {
+            const fd = fs.openSync(args.c64debuggerSymbolsFile, 'w');
+            const writeSync = (msg: string) => fs.writeSync(fd, msg)
+            util.exportC64debuggerInfo(writeSync, labels, segments, debugInfo!);
         } catch(err) {
             console.error(err);
         }
@@ -181,6 +191,10 @@ parser.addArgument('--labels-file', {
 parser.addArgument('--vice-moncommands-file', {
    dest: 'viceMonCommandsFile',
    help: 'Save labels and breakpoint information into a VICE moncommands file for simple debugging.'
+});
+parser.addArgument('--c64debugger-symbols-file', {
+   dest: 'c64debuggerSymbolsFile',
+   help: 'Save C64debugger .dbg file.'
 });
 parser.addArgument('--disasm', {
     action: 'storeConst',

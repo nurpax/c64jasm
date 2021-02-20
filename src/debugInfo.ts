@@ -4,39 +4,55 @@ import * as path from 'path';
 const FastBitSet = require('fastbitset');
 
 import { SourceLoc } from './ast';
+import { Segment } from './segment';
 
 type LineLoc = {
     source: string;
     lineNo: number;
+    numBytes: number;
 };
 
-type LocPCEntry = { loc: LineLoc, pc: number };
+type LocPCEntry = { loc: LineLoc, pc: number, segmentId: number };
 
 // Track source locations and code memory placement
 export class DebugInfoTracker {
+    private sourceFileSet = new Set();
+    sourceFiles: string[] = [];
     lineStack: LocPCEntry[] = [];
     pcToLocs: { [pc: number]: LineLoc[] } = {};
     insnBitset = new FastBitSet();
-    private breakpoints = new Set<number>();
+    private breakpoints: {addr: number, segmentName: string}[] = [];
 
-    startLine(loc: SourceLoc, codePC: number) {
+    startLine(loc: SourceLoc, codePC: number, segment: Segment) {
+        const source = path.resolve(loc.source);
         const l = {
-            source: path.resolve(loc.source),
-            lineNo: loc.start.line
+            source,
+            lineNo: loc.start.line,
+            segmentId: segment.id,
+            numBytes: 0
         }
-        this.lineStack.push({loc: l, pc: codePC });
+        this.lineStack.push({loc: l, pc: codePC, segmentId: segment.id });
+        // Track what source files have been seen during compilation.
+        if (!this.sourceFileSet.has(source)) {
+            this.sourceFiles.push(source);
+            this.sourceFileSet.add(source);
+        }
     }
 
-    endLine(curPC: number) {
+    endLine(curPC: number, curSegment: Segment) {
         const entry = this.lineStack.pop();
         if (!entry) {
             throw new Error('internal compiler error, mismatching start/end lines in debugInfo')
         }
+
         const numBytesEmitted = curPC - entry.pc;
-        if (numBytesEmitted > 0) {
-            const locList = this.pcToLocs[entry.pc] || ([] as LineLoc[]);
-            locList.push(entry.loc);
-            this.pcToLocs[entry.pc] = locList;
+        if (numBytesEmitted > 0 && curSegment.id === entry.segmentId) {
+            const e = { ...entry.loc, numBytes: numBytesEmitted };
+            if (this.pcToLocs[entry.pc] === undefined) {
+                this.pcToLocs[entry.pc] = [e];
+            } else {
+                this.pcToLocs[entry.pc].push(e);
+            }
         }
     }
 
@@ -46,8 +62,8 @@ export class DebugInfoTracker {
         }
     }
 
-    markBreak(addr: number) {
-        this.breakpoints.add(addr);
+    markBreak(addr: number, segmentName: string) {
+        this.breakpoints.push({ addr, segmentName });
     }
 
     info() {
@@ -58,7 +74,8 @@ export class DebugInfoTracker {
 
         return {
             pcToLocs: this.pcToLocs,
-            breakpoints: this.breakpoints.values(),
+            breakpoints: this.breakpoints,
+            sourceFiles: this.sourceFiles,
             isInstruction
         };
     }

@@ -1,21 +1,28 @@
 
 import { toHex16 } from './util'
 
+export type SegmentInfo = {
+     name: string;
+     blocks: { start: number, end: number}[];
+};
+
 type Block = { start: number, binary: number[] };
 
 // { start: number, end: number, cur: number};
 class Segment {
     start: number;
     end?: number;
+    id: number;
     inferStart: boolean; // allow 'start' to be set lazily (so the platform default can be overridden)
     initialStart: number;
     curBlock: Block;
     blocks: Block[];
 
-    constructor(start: number, end: number | undefined, inferStart: boolean) {
+    constructor(start: number, end: number | undefined, inferStart: boolean, id: number) {
         this.start = start;
         this.end = end;
         this.inferStart = inferStart;
+        this.id = id;
         this.blocks = [{
             start,
             binary: []
@@ -97,13 +104,13 @@ class Segment {
     }
 }
 
-// Remove empty segments
+// Remove empty segments and sort blocks by start address
 function compact(segments: [string, Segment][]): [string, Segment][] {
     const out: [string, Segment][] = [];
     for (const [name,seg] of segments) {
-        const compactBlocks = seg.blocks.filter(b => b.binary.length !== 0);
+        const compactBlocks = seg.blocks.filter(b => b.binary.length !== 0).sort((a,b) => a.start - b.start);
         if (compactBlocks.length !== 0) {
-            const newSeg = new Segment(seg.start, seg.end, seg.inferStart);
+            const newSeg = new Segment(seg.start, seg.end, seg.inferStart, out.length-1);
             newSeg.blocks = compactBlocks;
             newSeg.curBlock = compactBlocks[compactBlocks.length-1];
             out.push([name, newSeg]);
@@ -151,4 +158,15 @@ function mergeSegments(segments_: [string, Segment][]): {
     }
 }
 
-export { Segment, mergeSegments };
+function collectSegmentInfo(segments_: [string, Segment][]): SegmentInfo[] {
+    // Sort segments and blocks.
+    const segments = compact(segments_).sort((a,b) => a[1].start - b[1].start);
+    return segments.map(([name,s]) => {
+        const blocks = s.blocks.map(b => {
+            return { start: b.start, end: b.start + b.binary.length - 1 };
+        });
+        return { name, blocks };
+    });
+}
+
+export { Segment, mergeSegments, collectSegmentInfo };

@@ -251,8 +251,7 @@ function testFunctional(testcase: string) {
         testByName[t.name] = t;
     }
     const tests  = functional.tests.filter(e => testcase ? e.name === testcase : true);
-
-    const reporter = new TestReporter(functional.tests.map(f => f.name), 'functional');
+    const reporter = new TestReporter(tests.map(f => f.name), 'functional');
     reporter.runTests((testname: string) => {
         return testByName[testname]();
     });
