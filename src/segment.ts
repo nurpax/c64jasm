@@ -7,15 +7,17 @@ type Block = { start: number, binary: number[] };
 class Segment {
     start: number;
     end?: number;
+    id: number;
     inferStart: boolean; // allow 'start' to be set lazily (so the platform default can be overridden)
     initialStart: number;
     curBlock: Block;
     blocks: Block[];
 
-    constructor(start: number, end: number | undefined, inferStart: boolean) {
+    constructor(start: number, end: number | undefined, inferStart: boolean, id: number) {
         this.start = start;
         this.end = end;
         this.inferStart = inferStart;
+        this.id = id;
         this.blocks = [{
             start,
             binary: []
@@ -103,7 +105,7 @@ function compact(segments: [string, Segment][]): [string, Segment][] {
     for (const [name,seg] of segments) {
         const compactBlocks = seg.blocks.filter(b => b.binary.length !== 0);
         if (compactBlocks.length !== 0) {
-            const newSeg = new Segment(seg.start, seg.end, seg.inferStart);
+            const newSeg = new Segment(seg.start, seg.end, seg.inferStart, out.length-1);
             newSeg.blocks = compactBlocks;
             newSeg.curBlock = compactBlocks[compactBlocks.length-1];
             out.push([name, newSeg]);

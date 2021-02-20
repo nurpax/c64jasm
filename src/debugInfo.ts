@@ -14,17 +14,25 @@ type LocPCEntry = { loc: LineLoc, pc: number };
 
 // Track source locations and code memory placement
 export class DebugInfoTracker {
+    private sourceFileSet = new Set();
+    sourceFiles: string[] = [];
     lineStack: LocPCEntry[] = [];
     pcToLocs: { [pc: number]: LineLoc[] } = {};
     insnBitset = new FastBitSet();
     private breakpoints = new Set<number>();
 
     startLine(loc: SourceLoc, codePC: number) {
+        const source = path.resolve(loc.source);
         const l = {
-            source: path.resolve(loc.source),
+            source,
             lineNo: loc.start.line
         }
         this.lineStack.push({loc: l, pc: codePC });
+        // Track what source files have been seen during compilation
+        if (!this.sourceFileSet.has(source)) {
+            this.sourceFiles.push(source);
+            this.sourceFileSet.add(source);
+        }
     }
 
     endLine(curPC: number) {
@@ -59,6 +67,7 @@ export class DebugInfoTracker {
         return {
             pcToLocs: this.pcToLocs,
             breakpoints: this.breakpoints.values(),
+            sourceFiles: this.sourceFiles,
             isInstruction
         };
     }

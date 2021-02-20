@@ -144,6 +144,7 @@ type SymEntry  = SymLabel | SymVar | SymMacro | SymSegment;
 
 interface SymLabel {
     type: 'label';
+    segment: Segment;
     data: EvalValue<LabelAddr>;
 }
 
@@ -154,6 +155,7 @@ interface SymVar {
 
 interface SymSegment {
     type: 'segment';
+    id: number;
     data: Segment;
 }
 
@@ -207,7 +209,7 @@ class Scopes {
         return false;
     }
 
-    declareLabelSymbol(symbol: ast.Label, codePC: number): boolean {
+    declareLabelSymbol(symbol: ast.Label, codePC: number, segment: Segment): boolean {
         const { name, loc } = symbol;
 
         // As we allow name shadowing, we must look up the name
@@ -218,6 +220,7 @@ class Scopes {
         if (prevLabel === undefined) {
             const lblsym: SymLabel = {
                 type: 'label',
+                segment,
                 data: mkEvalValue({ addr: codePC, loc }, false)
             };
             this.curSymtab.addSymbol(name, lblsym, this.passCount);
@@ -231,6 +234,7 @@ class Scopes {
         if (lbl.data.value.addr !== codePC) {
             const newSymValue: SymLabel = {
                 type: 'label',
+                segment,
                 data: {
                     ...prevLabel.data,
                     value: {
@@ -262,9 +266,10 @@ class Scopes {
         this.curSymtab.updateSymbol(symbolName, newVar, this.passCount);
     }
 
-    declareSegment(name: string, seg: Segment): void {
+    declareSegment(name: string, seg: Segment, id: number): void {
         this.curSymtab.addSymbol(name, {
             type: 'segment',
+            id,
             data: seg
         }, this.passCount)
     }
@@ -285,7 +290,11 @@ class Scopes {
         }, this.passCount)
     }
 
-    dumpLabels(codePC: number): {name: string, addr: number, size: number}[] {
+    dumpLabels(codePC: number, segments: [string, Segment][]): {name: string, addr: number, size: number, segmentName: string}[] {
+        const segmentToName: { [k: number]: string } = {};
+        for (const [n,s] of segments) {
+            segmentToName[s.id] = n;
+        }
         type StackEntry = {path: string[], sym: NamedScope<SymEntry>};
         const stack: StackEntry[] = [];
         const pushScope = (path: string[]|undefined, sym: NamedScope<SymEntry>) => {
@@ -303,7 +312,12 @@ class Scopes {
             const s = stack.pop()!;
             for (let [k,lbl] of s.sym.syms) {
                 if (lbl.type == 'label') {
-                    labels.push({ path: [...s.path, k], addr: lbl.data.value.addr, size: 0 });
+                    labels.push({
+                        path: [...s.path, k],
+                        addr: lbl.data.value.addr,
+                        size: 0,
+                        segmentName: segmentToName[lbl.segment.id]
+                    });
                 }
             }
             for (let [k, sym] of s.sym.children) {
@@ -323,8 +337,8 @@ class Scopes {
             const last = sortedLabels[numLabels-1];
             last.size = codePC - last.addr;
         }
-        return sortedLabels.map(({ path, addr, size }) => {
-            return { name: path.join('::'), addr, size };
+        return sortedLabels.map(({ path, addr, size, segmentName }) => {
+            return { name: path.join('::'), addr, size, segmentName };
         });
     }
 }
@@ -403,7 +417,7 @@ class Assembler {
     private includeStack: string[] = [];
 
     private lineLoc: SourceLoc;
-    private curSegment: Segment = new Segment(0, 0, false); // invalid, setup at start of pass
+    private curSegment: Segment = new Segment(0, 0, false, 0); // invalid, setup at start of pass
     private pass = 0;
     needPass = false;
     private scopes = new Scopes();
@@ -535,11 +549,11 @@ class Assembler {
         // Empty segments list and register the 'default' segment
         this.segments = [];
         this.curSegment = this.newSegment('default', this.platform.defaultStartPC, undefined, true);
-        this.scopes.declareSegment('default', this.curSegment);
+        this.scopes.declareSegment('default', this.curSegment, this.segments.length-1);
     }
 
     newSegment(name: string, startAddr: number, endAddr: number | undefined, inferStart: boolean): Segment {
-        const segment = new Segment(startAddr, endAddr, inferStart);
+        const segment = new Segment(startAddr, endAddr, inferStart, this.segments.length-1);
 
         // TODO This does not check overlaps with the "default" segment.  It's not
         // (?) doable here because the default segment grows.  So need another
@@ -1371,7 +1385,7 @@ class Assembler {
                     return;
                 }
                 const segment = this.newSegment(name.name, start.value, end.value, false);
-                this.scopes.declareSegment(name.name, segment);
+                this.scopes.declareSegment(name.name, segment, this.segments.length-1);
                 return;
             }
             case 'use-segment': {
@@ -1448,7 +1462,7 @@ class Assembler {
         if (this.scopes.symbolSeen(label.name)) {
             this.addError(`Symbol '${label.name}' already defined`, label.loc);
         } else {
-            const labelChanged = this.scopes.declareLabelSymbol(label, this.getPC());
+            const labelChanged = this.scopes.declareLabelSymbol(label, this.getPC(), this.curSegment);
             if (labelChanged) {
                 this.needPass = true;
             }
@@ -1638,7 +1652,7 @@ class Assembler {
     }
 
     dumpLabels () {
-        return this.scopes.dumpLabels(this.getPC());
+        return this.scopes.dumpLabels(this.getPC(), this.segments);
     }
 }
 
