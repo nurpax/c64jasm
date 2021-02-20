@@ -1,17 +1,16 @@
 
 var glob = require('glob-fs');
 
-import { argv, openStdin, stdout } from 'process'
+import { stdout } from 'process'
 import * as path from 'path';
 import * as fs from 'fs';
 import * as colors from 'colors'
 import { ArgumentParser } from 'argparse'
 
 import { assemble, Diagnostic } from '../src/asm'
-import * as ast  from '../src/ast'
 import { DisasmOptions, disassemble } from '../src/disasm'
-import { fail } from 'assert';
 
+import * as functional from './functional';
 let verbose = false;
 
 type Test = string;
@@ -246,6 +245,19 @@ function testWarnings(testcase: string) {
     });
 }
 
+function testFunctional(testcase: string) {
+    const testByName: { [index: string] : () => 'pass'|'fail'}  = {};
+    for (const t of functional.tests) {
+        testByName[t.name] = t;
+    }
+    const tests  = functional.tests.filter(e => testcase ? e.name === testcase : true);
+
+    const reporter = new TestReporter(functional.tests.map(f => f.name), 'functional');
+    reporter.runTests((testname: string) => {
+        return testByName[testname]();
+    });
+}
+
 const parser = new ArgumentParser({
     addHelp: true,
     description: 'Run c64jasm tests'
@@ -271,6 +283,7 @@ const hrstart = process.hrtime();
 outputTest(args.test);
 testErrors(args.test);
 testWarnings(args.test);
+testFunctional(args.test);
 
 if (verbose) {
     const NS_PER_SEC = 1e9;

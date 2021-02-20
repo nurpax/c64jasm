@@ -9,7 +9,7 @@ import { writeFileSync } from 'fs';
 import { assemble } from './asm';
 import { disassemble } from './disasm';
 import { ArgumentParser } from 'argparse';
-import { toHex16 } from './util';
+import { toHex16, exportViceMoncommands } from './util';
 import { DebugInfoTracker } from './debugInfo';
 
 const chokidar = require('chokidar');
@@ -45,17 +45,6 @@ function startDebugInfoServer() {
         sock.on('close',  function () {
             console.log('connection from %s closed', remoteAddress);
         });
-    }
-}
-
-function exportViceMoncommands(fd: number, labels: { name: string, addr: number}[], debugInfo: DebugInfoTracker) {
-    for (const { name, addr } of labels) {
-        const msg = `al C:${toHex16(addr)} .${name}\n`;
-        fs.writeSync(fd, msg);
-    }
-    for (const addr of debugInfo.info().breakpoints) {
-        const msg = `break ${toHex16(addr)}\n`;
-        fs.writeSync(fd, msg);
     }
 }
 
@@ -109,7 +98,8 @@ function compile(args: any) {
     if (args.viceMonCommandsFile) {
         try {
             const fd = fs.openSync(args.viceMonCommandsFile, 'w');
-            exportViceMoncommands(fd, labels, debugInfo!);
+            const writeSync = (msg: string) => fs.writeSync(fd, msg)
+            exportViceMoncommands(writeSync, labels, debugInfo!);
         } catch(err) {
             console.error(err);
         }
