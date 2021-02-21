@@ -66,7 +66,8 @@ export function exportC64debuggerInfo(writeSync: (msg: string) => void, labels: 
         sourceIdxByName[name] = i;
     }
 
-    // Process segments and map program locations to segment/source location
+    // Process segments and map program locations to segment/source location.
+    // TODO this is messy and probably buggy. :(
     const sortedPC = Object.keys(debugInfo.pcToLocs).map(Number).sort((a,b) => a-b);
     const segmentOut: SegmentOut[] = [{
         name: segmentInfos[0].name,

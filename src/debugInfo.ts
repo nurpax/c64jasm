@@ -30,7 +30,7 @@ export class DebugInfoTracker {
             numBytes: 0
         }
         this.lineStack.push({loc: l, pc: codePC });
-        // Track what source files have been seen during compilation
+        // Track what source files have been seen during compilation.
         if (!this.sourceFileSet.has(source)) {
             this.sourceFiles.push(source);
             this.sourceFileSet.add(source);
@@ -44,9 +44,12 @@ export class DebugInfoTracker {
         }
         const numBytesEmitted = curPC - entry.pc;
         if (numBytesEmitted > 0) {
-            const locList = this.pcToLocs[entry.pc] || ([] as LineLoc[]);
-            locList.push({ ...entry.loc, numBytes: numBytesEmitted });
-            this.pcToLocs[entry.pc] = locList;
+            const e = { ...entry.loc, numBytes: numBytesEmitted };
+            if (this.pcToLocs[entry.pc] === undefined) {
+                this.pcToLocs[entry.pc] = [e];
+            } else {
+                this.pcToLocs[entry.pc].push(e);
+            }
         }
     }
 
