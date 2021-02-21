@@ -134,7 +134,7 @@ pcloop:
     });
 
     const breakpoints = debugInfo.info().breakpoints.map(b => {
-        return `${b.segmentName},$${b.addr},`;
+        return `${b.segmentName},$${toHex16(b.addr)},`;
     });
 
     writeXml({
