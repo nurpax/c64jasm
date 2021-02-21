@@ -46,8 +46,8 @@ export function exportViceMoncommands(writeSync: (msg: string) => void, labels: 
         const msg = `al C:${toHex16(addr)} .${name}\n`;
         writeSync(msg);
     }
-    for (const addr of debugInfo.info().breakpoints) {
-        const msg = `break ${toHex16(addr)}\n`;
+    for (const brk of debugInfo.info().breakpoints) {
+        const msg = `break ${toHex16(brk.addr)}\n`;
         writeSync(msg);
     }
 }
@@ -133,6 +133,10 @@ pcloop:
         }
     });
 
+    const breakpoints = debugInfo.info().breakpoints.map(b => {
+        return `${b.segmentName},$${b.addr},`;
+    });
+
     writeXml({
         name: 'C64debugger',
         attributes: { version: '1.0' },
@@ -147,6 +151,11 @@ pcloop:
                 name: 'Labels',
                 attributes: { values: 'SEGMENT,ADDRESS,NAME' },
                 children: lbls
+            },
+            {
+                name: 'Breakpoints',
+                attributes: { values: 'SEGMENT,ADDRESS,ARGUMENT' },
+                children: breakpoints
             }
         ]
     },

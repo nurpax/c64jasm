@@ -417,6 +417,7 @@ class Assembler {
     private includeStack: string[] = [];
 
     private lineLoc: SourceLoc;
+    private curSegmentName = '';
     private curSegment: Segment = new Segment(0, 0, false, 0); // invalid, setup at start of pass
     private pass = 0;
     needPass = false;
@@ -548,8 +549,14 @@ class Assembler {
 
         // Empty segments list and register the 'default' segment
         this.segments = [];
-        this.curSegment = this.newSegment('default', this.platform.defaultStartPC, undefined, true);
+        const segment = this.newSegment('default', this.platform.defaultStartPC, undefined, true);
         this.scopes.declareSegment('default', this.curSegment, this.segments.length-1);
+        this.setCurrentSegment({ type: 'segment', id: 0, data: segment }, 'default');
+    }
+
+    setCurrentSegment(sym: SymSegment, segmentName: string) {
+        this.curSegmentName = segmentName;
+        this.curSegment = sym.data;
     }
 
     newSegment(name: string, startAddr: number, endAddr: number | undefined, inferStart: boolean): Segment {
@@ -1400,11 +1407,11 @@ class Assembler {
                     return;
                 }
                 // TODO should record segment source location and name for later error reporting
-                this.curSegment = sym.data;
+                this.setCurrentSegment(sym, formatSymbolPath(name));
                 break;
             }
             case 'break': {
-                this.debugInfo.markBreak(this.getPC());
+                this.debugInfo.markBreak(this.getPC(), this.curSegmentName);
                 break;
             }
             default:
