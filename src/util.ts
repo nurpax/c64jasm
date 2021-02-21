@@ -112,9 +112,9 @@ pcloop:
         }
         const entry = debugInfo.pcToLocs[pc];
         const outLines = segmentOut[blockIdx[0]].blocks[blockIdx[1]].text;
-        for (const ll of entry) {
-            outLines.push(`$${toHex16(pc)},${toHex16(pc+ll.numBytes-1)},${sourceIdxByName[ll.source]},${ll.lineNo},1,${ll.lineNo},1`);
-        }
+        // Note: entry[0] should be the innermost scope of expansion with macros.
+        const ll = entry[0];
+        outLines.push(`$${toHex16(pc)},$${toHex16(pc+ll.numBytes-1)},${sourceIdxByName[ll.source]},${ll.lineNo},1,${ll.lineNo},1`);
     }
 
     const lbls = labels.map(({ name, addr, segmentName }) => `${segmentName},$${toHex16(addr)},${name}`);

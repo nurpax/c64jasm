@@ -62,6 +62,74 @@ main: {
     return 'pass';
 }
 
-const tests = [testViceMoncommands];
+function runC64debuggerDbgTest(src: string, expectedDbg: string): 'pass'|'fail' {
+    const disasmOptions: DisasmOptions = {
+        showLabels: true,
+        showCycles: false,
+    };
+
+    const { prg, labels, segments, debugInfo, errors } = assemble('main.asm', { readFileSync: () => src })!;
+    if (errors.length !== 0) {
+        console.log(errors);
+        return 'fail';
+    }
+
+    //const disasmLines = disassemble(prg, labels, disasmOptions).concat('');
+    //console.log();
+    //console.log(disasmLines.join('\n'));
+
+    const debugLines: string[] = [];
+    const writeSync = (msg: string) => debugLines.push(rstrip(msg));
+    util.exportC64debuggerInfo(writeSync, labels, segments, debugInfo!);
+    //console.log(debugLines.join('\n'));
+    if (!matchExpectedOutput(debugLines, expectedDbg.split('\n'))) {
+        return 'fail';
+    }
+
+    return 'pass';
+}
+
+function testC64debugger1() {
+    const src =
+`!macro m1() {   ; line 1
+    lda #1       ; line 2
+    lda #2       ; line 3
+    !break       ; line 4
+}                ; line 5
+!macro m2() {    ; line 6
+    lda #0       ; line 7
+    +m1()        ; line 8
+    lda #3       ; line 9
+}                ; line 10
+    +m2()        ; line 11
+    +m1()        ; line 12
+    rts          ; line 13
+`;
+const expectedDbg = `<C64debugger version="1.0">
+  <Sources values="INDEX,FILE">
+    0,/home/janne/dev/c64jasm/main.asm
+  </Sources>
+  <Segment name="default" values="START,END,FILE_IDX,LINE1,COL1,LINE2,COL2">
+    <Block>
+      $0801,$0802,0,7,1,7,1
+      $0803,$0804,0,2,1,2,1
+      $0805,$0806,0,3,1,3,1
+      $0807,$0808,0,9,1,9,1
+      $0809,$080a,0,2,1,2,1
+      $080b,$080c,0,3,1,3,1
+      $080d,$080d,0,13,1,13,1
+    </Block>
+  </Segment>
+  <Labels values="SEGMENT,ADDRESS,NAME">
+  </Labels>
+  <Breakpoints values="SEGMENT,ADDRESS,ARGUMENT">
+    default,$0807,
+    default,$080d,
+  </Breakpoints>
+</C64debugger>`;
+    return runC64debuggerDbgTest(src, expectedDbg);
+}
+
+const tests = [testViceMoncommands, testC64debugger1];
 
 export { tests };
