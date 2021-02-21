@@ -550,8 +550,8 @@ class Assembler {
         // Empty segments list and register the 'default' segment
         this.segments = [];
         const segment = this.newSegment('default', this.platform.defaultStartPC, undefined, true);
-        this.scopes.declareSegment('default', this.curSegment, this.segments.length-1);
         this.setCurrentSegment({ type: 'segment', id: 0, data: segment }, 'default');
+        this.scopes.declareSegment('default', this.curSegment, this.segments.length-1);
     }
 
     setCurrentSegment(sym: SymSegment, segmentName: string) {
