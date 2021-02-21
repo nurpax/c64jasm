@@ -56,7 +56,7 @@ function compile(args: any) {
     if (!result) {
         return;
     }
-    const { errors, prg, labels, debugInfo } = result;
+    const { errors, prg, labels, segments, debugInfo } = result;
 
     if (errors.length !== 0) {
         errors.forEach(err => {
@@ -109,7 +109,7 @@ function compile(args: any) {
         try {
             const fd = fs.openSync(args.c64debuggerSymbolsFile, 'w');
             const writeSync = (msg: string) => fs.writeSync(fd, msg)
-            util.exportC64debuggerInfo(writeSync, labels, debugInfo!);
+            util.exportC64debuggerInfo(writeSync, labels, segments, debugInfo!);
         } catch(err) {
             console.error(err);
         }

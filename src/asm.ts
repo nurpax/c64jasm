@@ -7,7 +7,7 @@ import * as fs from 'fs'
 import { toHex16 } from './util'
 import * as ast from './ast'
 import { SourceLoc } from './ast'
-import { Segment, mergeSegments } from './segment';
+import { Segment, mergeSegments, collectSegmentInfo } from './segment';
 import ParseCache from './parseCache'
 import { DebugInfoTracker } from './debugInfo';
 
@@ -1651,8 +1651,12 @@ class Assembler {
         addPlugin('Math', math);
     }
 
-    dumpLabels () {
+    dumpLabels() {
         return this.scopes.dumpLabels(this.getPC(), this.segments);
+    }
+
+    collectSegmentInfo() {
+        return collectSegmentInfo(this.segments);
     }
 }
 
@@ -1674,6 +1678,7 @@ export function assemble(filename: string, options: AssemblerOptions = defaultOp
             return {
                 prg: Buffer.from([]),
                 labels: [],
+                segments: [],
                 debugInfo: undefined,
                 errors: asm.errors(),
                 warnings: asm.warnings()
@@ -1703,6 +1708,7 @@ export function assemble(filename: string, options: AssemblerOptions = defaultOp
         errors: asm.errors(),
         warnings: asm.warnings(),
         labels: asm.dumpLabels(),
+        segments: asm.collectSegmentInfo(),
         debugInfo: asm.debugInfo
     }
 }

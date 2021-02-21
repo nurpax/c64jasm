@@ -8,6 +8,7 @@ import { SourceLoc } from './ast';
 type LineLoc = {
     source: string;
     lineNo: number;
+    numBytes: number;
 };
 
 type LocPCEntry = { loc: LineLoc, pc: number };
@@ -25,7 +26,8 @@ export class DebugInfoTracker {
         const source = path.resolve(loc.source);
         const l = {
             source,
-            lineNo: loc.start.line
+            lineNo: loc.start.line,
+            numBytes: 0
         }
         this.lineStack.push({loc: l, pc: codePC });
         // Track what source files have been seen during compilation
@@ -43,7 +45,7 @@ export class DebugInfoTracker {
         const numBytesEmitted = curPC - entry.pc;
         if (numBytesEmitted > 0) {
             const locList = this.pcToLocs[entry.pc] || ([] as LineLoc[]);
-            locList.push(entry.loc);
+            locList.push({ ...entry.loc, numBytes: numBytesEmitted });
             this.pcToLocs[entry.pc] = locList;
         }
     }
