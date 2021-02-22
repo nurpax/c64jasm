@@ -313,7 +313,12 @@ x64 sprites.prg</code></pre>
 <p>A good project structure that makes it easy to work with watch mode is to place all your source files and assets under a single root directory, say <code>src</code>. This makes it easy to specify the watched directory with a single <code>--watch src</code> argument.</p>
 <p>Watch mode works well with VSCode. The <code>.vscode</code> configs for <a href="https://github.com/nurpax/c64jasm/tree/master/examples/">examples/</a> are setup to use watched compiles.</p>
 <h3 id="vice-and-c64debugger-debug-symbols">VICE and C64Debugger debug symbols</h3>
-<p>You can output debug symbols for VICE and C64Debugger with <code>--vice-moncommands</code> and <code>--c64debugger-symbols</code> options. Debug symbol files can be used for setting breakpoints and enables source level debugging in C64Debugger.</p>
+<p>You can output debug symbols for VICE and C64Debugger with the following options:</p>
+<ul>
+<li><code>--vice-moncommands</code> for VICE monitor</li>
+<li><code>--c64debugger-symbols</code> for C64Debugger debug info</li>
+</ul>
+<p>Debug symbol files can be used for setting breakpoints and enables source level debugging in C64Debugger.</p>
 <p>See my blog <a href="https://nurpax.github.io/posts/2021-02-22-c64jasm-debug-info.html">Debugging C64jasm projects with VICE and C64Debugger</a> for a short tutorial.</p>
 <h2 id="macro-assembler">Macro assembler</h2>
 <p>C64jasm has fairly extensive symbolic macro assembly support. This includes macros, compile-time variables, for-loops, if/else, and source and binary file inclusion.</p>
