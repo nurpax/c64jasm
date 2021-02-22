@@ -48,6 +48,20 @@ function startDebugInfoServer() {
     }
 }
 
+function withWriteFileOrStdout(filename: string, proc: (writeSync: (line: string) => void) => void) {
+    if (filename === '-') {
+        proc(msg => process.stdout.write(msg));
+    } else {
+        try {
+            const fd = fs.openSync(filename, 'w');
+            proc(msg => fs.writeSync(fd, msg));
+            fs.closeSync(fd);
+        } catch(err) {
+            console.error(err);
+        }
+    }
+}
+
 function compile(args: any) {
     console.log(`Compiling ${args.source}`)
     const hrstart = process.hrtime();
@@ -76,64 +90,41 @@ function compile(args: any) {
         console.info('Compilation completed %d ms', Math.floor((deltaNS/1000000.0)*100)/100);
     }
 
-    if (args.dumpLabels || args.labelsFile) {
+    if (args.labelsFile) {
         function printLabels(p: (n: string) => void) {
             labels.forEach(({name, addr, size}) => {
-                const msg = sprintf("%s %4d %s", toHex16(addr), size, name);
+                const msg = sprintf("%s %4d %s\n", toHex16(addr), size, name);
                 p(msg);
             })
         }
-        if (args.labelsFile) {
-            try {
-                const fd = fs.openSync(args.labelsFile, 'w');
-                printLabels(msg => fs.writeSync(fd, `${msg}\n`));
-            } catch(err) {
-                console.error(err);
-            }
-        } else {
-            printLabels(console.log);
-        }
+        withWriteFileOrStdout(args.labelsFile, printLabels);
     }
 
     if (args.viceMonCommandsFile) {
-        try {
-            const fd = fs.openSync(args.viceMonCommandsFile, 'w');
-            const writeSync = (msg: string) => fs.writeSync(fd, msg)
-            util.exportViceMoncommands(writeSync, labels, debugInfo!);
-        } catch(err) {
-            console.error(err);
+        function printViceMon(p: (n: string) => void) {
+            util.exportViceMoncommands(p, labels, debugInfo!);
         }
+        withWriteFileOrStdout(args.viceMonCommandsFile, printViceMon);
     }
 
     if (args.c64debuggerSymbolsFile) {
-        try {
-            const fd = fs.openSync(args.c64debuggerSymbolsFile, 'w');
-            const writeSync = (msg: string) => fs.writeSync(fd, msg)
-            util.exportC64debuggerInfo(writeSync, labels, segments, debugInfo!);
-        } catch(err) {
-            console.error(err);
+        function printC64debuggerSymbols(p: (n: string) => void) {
+            util.exportC64debuggerInfo(p, labels, segments, debugInfo!);
         }
+        withWriteFileOrStdout(args.c64debuggerSymbolsFile, printC64debuggerSymbols);
     }
 
-    if (args.disasm || args.disasmFile) {
+    if (args.disasmFile) {
         let fd: number;
         try {
             const { isInstruction } = debugInfo!.info();
             const disasm = disassemble(prg, labels, { isInstruction, showLabels: args.disasmShowLabels, showCycles: args.disasmShowCycles });
-
-            if (args.disasmFile) {
-                console.log(`Generating ${args.disasmFile}`)
-                fd = fs.openSync(args.disasmFile, 'w');
-                for (const disasmLine of disasm) {
-                    fs.writeSync(fd, `${disasmLine}\n`);
-                }
-            } else {
-                for (const disasmLine of disasm) {
-                    console.log(disasmLine);
+            function printLines(p: (n: string) => void) {
+                for (const line of disasm) {
+                    p(`${line}\n`);
                 }
             }
-
-
+            withWriteFileOrStdout(args.disasmFile, printLines);
         } catch(err) {
             console.error(err);
         }
@@ -179,32 +170,24 @@ parser.addArgument('--server', {
     help: 'Start a debug info server that debuggers can call to ask for latest successful compile results.  Use with --watch'
 });
 parser.addArgument('--dump-labels', {
-    action:'storeConst',
-    constant: true,
-    dest: 'dumpLabels',
-    help: 'Dump program address and size for all labels declared in the source files.'
-});
-parser.addArgument('--labels-file', {
     dest: 'labelsFile',
-    help: 'Save program address and size for all labels declared in the source files into a file.'
+    help: 'Dump program address and size for all labels declared in the source files to <FILE> (use \'-\' for stdout.)',
+    metavar: 'FILE'
 });
-parser.addArgument('--vice-moncommands-file', {
+parser.addArgument('--vice-moncommands', {
    dest: 'viceMonCommandsFile',
-   help: 'Save labels and breakpoint information into a VICE moncommands file for simple debugging.'
+   help: 'Save labels and breakpoint information into a VICE moncommands file to <FILE> (use \'-\' for stdout.)',
+   metavar: 'FILE'
 });
-parser.addArgument('--c64debugger-symbols-file', {
+parser.addArgument('--c64debugger-symbols', {
    dest: 'c64debuggerSymbolsFile',
-   help: 'Save C64debugger .dbg file.'
+   help: 'Save C64debugger .dbg file to <FILE> (use \'-\' for stdout.)',
+   metavar: 'FILE'
 });
 parser.addArgument('--disasm', {
-    action: 'storeConst',
-    constant: true,
-    dest: 'disasm',
-    help: 'Disassemble the resulting binary on stdout.'
-});
-parser.addArgument('--disasm-file', {
     dest: 'disasmFile',
-    help: 'Save the disassembly in the given file.'
+    help: 'Disassemble the resulting binary to <FILE> (use \'-\' for stdout.)',
+    metavar: 'FILE'
 });
 parser.addArgument('--disasm-show-labels', {
     constant: true,

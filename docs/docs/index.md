@@ -616,6 +616,11 @@ In this example, the `stack` array holds the state which can be manipulated by c
 
 ## Release notes
 
+c64jasm 0.9.1 (TBD):
+- Breaking command line interface changes:
+    - Merge `--disasm` and `--disasm-file=<FILE>` to just `--disasm=<FILE>` (use `-` to print to stdout.)
+    - Merge `--dump-labels` and `--labels-file` to just `--dump-labels=<FILE>` (again, use `-` for printing to stdout.)
+
 c64jasm 0.9.0 (2020-02-12):
 - Segments with `!segment` to easy memory layout.
 - New keyword args syntax for `!binary` file/size/offset arguments.  Old syntax still works and will be kept around.
