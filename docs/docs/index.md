@@ -85,9 +85,14 @@ Watch mode works well with VSCode.  The `.vscode` configs for [examples/](https:
 
 ### VICE and C64Debugger debug symbols
 
-You can output debug symbols for VICE and C64Debugger with `--vice-moncommands` and `--c64debugger-symbols` options.  Debug symbol files can be used for setting breakpoints and enables source level debugging in C64Debugger.
+You can output debug symbols for VICE and C64Debugger with the following options:
 
-See my blog [Debugging C64jasm projects with VICE and C64Debugger](http://nurpax.github.io/posts/2021-02-22-c64jasm-debug-info.html) for a short tutorial.
+- `--vice-moncommands` for VICE monitor
+- `--c64debugger-symbols` for C64Debugger debug info
+
+Debug symbol files can be used for setting breakpoints and enables source level debugging in C64Debugger.
+
+See my blog [Debugging C64jasm projects with VICE and C64Debugger](https://nurpax.github.io/posts/2021-02-22-c64jasm-debug-info.html) for a short tutorial.
 
 ## Macro assembler
 
