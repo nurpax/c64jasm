@@ -83,6 +83,12 @@ A good project structure that makes it easy to work with watch mode is to place 
 
 Watch mode works well with VSCode.  The `.vscode` configs for [examples/](https://github.com/nurpax/c64jasm/tree/master/examples/) are setup to use watched compiles.
 
+### VICE and C64Debugger debug symbols
+
+You can output debug symbols for VICE and C64Debugger with `--vice-moncommands` and `--c64debugger-symbols` options.  Debug symbol files can be used for setting breakpoints and enables source level debugging in C64Debugger.
+
+See my blog [Debugging C64jasm projects with VICE and C64Debugger](http://nurpax.github.io/posts/2021-02-22-c64jasm-debug-info.html) for a short tutorial.
+
 ## Macro assembler
 
 C64jasm has fairly extensive symbolic macro assembly support.  This includes macros, compile-time variables, for-loops, if/else, and source and binary file inclusion.
@@ -616,12 +622,14 @@ In this example, the `stack` array holds the state which can be manipulated by c
 
 ## Release notes
 
-c64jasm 0.9.1 (TBD):
+c64jasm 0.9.1 (2021-02-22):
+- Add VICE and C64Debugger debug symbol output (#84).  This can be used for setting breakpoints and enables source level debugging in C64Debugger.
 - Breaking command line interface changes:
     - Merge `--disasm` and `--disasm-file=<FILE>` to just `--disasm=<FILE>` (use `-` to print to stdout.)
     - Merge `--dump-labels` and `--labels-file` to just `--dump-labels=<FILE>` (again, use `-` for printing to stdout.)
+- Fix error handling bug related to duplicate symbols (#83).
 
-c64jasm 0.9.0 (2020-02-12):
+c64jasm 0.9.0 (2021-02-12):
 - Segments with `!segment` to easy memory layout.
 - New keyword args syntax for `!binary` file/size/offset arguments.  Old syntax still works and will be kept around.
 - Show labels in disassembler output.  Thanks [@shazz](https://github.com/shazz)!
