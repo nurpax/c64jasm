@@ -243,6 +243,7 @@ Table of contents:
 <li><a href="#getting-started">Getting started</a></li>
 <li><a href="#command-line-usage">Command line usage</a><ul>
 <li><a href="#automatic-recompilation-watch-mode">Automatic recompilation (watch mode)</a></li>
+<li><a href="#vice-and-c64debugger-debug-symbols">VICE and C64Debugger debug symbols</a></li>
 </ul></li>
 <li><a href="#macro-assembler">Macro assembler</a><ul>
 <li><a href="#labels-and-nested-scopes">Labels and nested scopes</a></li>
@@ -311,6 +312,9 @@ x64 sprites.prg</code></pre>
 <p>C64jasm will watch the directory specified with <code>--watch &lt;DIR&gt;</code> (and its subdirectories) for any changes and recompile when anything changed. Changes to all types of input files (.asm files, plugin .js files, files loaded by .js extensions, <code>!include/binary</code>'d files, etc.) are considered as rebuild triggers.</p>
 <p>A good project structure that makes it easy to work with watch mode is to place all your source files and assets under a single root directory, say <code>src</code>. This makes it easy to specify the watched directory with a single <code>--watch src</code> argument.</p>
 <p>Watch mode works well with VSCode. The <code>.vscode</code> configs for <a href="https://github.com/nurpax/c64jasm/tree/master/examples/">examples/</a> are setup to use watched compiles.</p>
+<h3 id="vice-and-c64debugger-debug-symbols">VICE and C64Debugger debug symbols</h3>
+<p>You can output debug symbols for VICE and C64Debugger with <code>--vice-moncommands</code> and <code>--c64debugger-symbols</code> options. Debug symbol files can be used for setting breakpoints and enables source level debugging in C64Debugger.</p>
+<p>See my blog <a href="https://nurpax.github.io/posts/2021-02-22-c64jasm-debug-info.html">Debugging C64jasm projects with VICE and C64Debugger</a> for a short tutorial.</p>
 <h2 id="macro-assembler">Macro assembler</h2>
 <p>C64jasm has fairly extensive symbolic macro assembly support. This includes macros, compile-time variables, for-loops, if/else, and source and binary file inclusion.</p>
 <p>Assembler pseudo directives start with a bang <code>!</code>. Examples: <code>!let</code>, <code>!if</code>, <code>!include</code>.</p>
@@ -738,7 +742,17 @@ module.exports = loadJson;</code></pre>
 </p>
 <p>In this example, the <code>stack</code> array holds the state which can be manipulated by calls to <code>push(elt)</code>, <code>pop()</code>.</p>
 <h2 id="release-notes">Release notes</h2>
-<p>c64jasm 0.9.0 (2020-02-12):</p>
+<p>c64jasm 0.9.1 (2021-02-22):</p>
+<ul>
+<li>Add VICE and C64Debugger debug symbol output (#84). This can be used for setting breakpoints and enables source level debugging in C64Debugger.</li>
+<li>Breaking command line interface changes:
+<ul>
+<li>Merge <code>--disasm</code> and <code>--disasm-file=&lt;FILE&gt;</code> to just <code>--disasm=&lt;FILE&gt;</code> (use <code>-</code> to print to stdout.)</li>
+<li>Merge <code>--dump-labels</code> and <code>--labels-file</code> to just <code>--dump-labels=&lt;FILE&gt;</code> (again, use <code>-</code> for printing to stdout.)</li>
+</ul></li>
+<li>Fix error handling bug related to duplicate symbols (#83).</li>
+</ul>
+<p>c64jasm 0.9.0 (2021-02-12):</p>
 <ul>
 <li>Segments with <code>!segment</code> to easy memory layout.</li>
 <li>New keyword args syntax for <code>!binary</code> file/size/offset arguments. Old syntax still works and will be kept around.</li>
