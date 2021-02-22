@@ -8,10 +8,26 @@ function rstrip(str: string) {
     return str.replace(/\s+$/g, '');
 }
 
+function fuzzyCompare(a: string, b: string) {
+    // Allow these two strings to match:
+    //
+    // 0,<abspath>/main.asm
+    // 0,<another_abs_path>/main.asm
+    const ma = /(\d+).*\/([a-z]+\.asm)$/.exec(a);
+    if (ma !== null) {
+        const mb = /(\d+).*\/([a-z]+\.asm)$/.exec(b);
+        if (mb === null) {
+            return false;
+        }
+        return ma[1] === mb[1] && ma[2] === mb[2];
+    }
+    return a === b;
+}
+
 function matchExpectedOutput(expected: string[], actual: string[]): boolean {
     for (let i = 0; i < expected.length; i++) {
         const expLine = expected[i];
-        if (actual[i] !== expLine) {
+        if (!fuzzyCompare(actual[i], expLine)) {
             console.log(`\n\nmismatching line ${i+1}\n\nexpected:  ${expLine}\ngot:       ${actual[i]}`);
             return false;
         }
@@ -86,7 +102,6 @@ function runC64debuggerDbgTest(src: string, expectedDbg: string): 'pass'|'fail' 
     if (!matchExpectedOutput(debugLines, expectedDbg.split('\n'))) {
         return 'fail';
     }
-
     return 'pass';
 }
 

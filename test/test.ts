@@ -18,6 +18,8 @@ type Test = string;
 const blacklist: Test[] = [
 ];
 
+type TestStats = { numTests: number, failedTests: number };
+
 class TestReporter {
     tests: string[];
 
@@ -26,7 +28,7 @@ class TestReporter {
         stdout.write(`Running ${description} tests (# of tests: ${tests.length})\n`);
     }
 
-    runTests(run: (t: Test) => 'pass' | 'fail') {
+    runTests(run: (t: Test) => 'pass' | 'fail'): TestStats {
         const numTests = this.tests.length;
         let failedTests = 0;
         let skippedTests = 0;
@@ -68,8 +70,8 @@ class TestReporter {
         } else {
             stdout.write(colors.green(`\nAll passed.\n`))
         }
-
         stdout.write(`\n`)
+        return { numTests, failedTests };
     }
 }
 
@@ -78,7 +80,7 @@ function readLines(fname: string) {
     return lines.map(line => line.trimRight());
 }
 
-function outputTest(testcase: string) {
+function outputTest(testcase: string): TestStats {
     const g = glob();
     let inputs = g.readdirSync('test/cases/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
 
@@ -149,7 +151,7 @@ cp ${actualFname} ${expectedFname}
     };
 
     const reporter = new TestReporter(inputs, 'assembly');
-    reporter.runTests(runTest);
+    return reporter.runTests(runTest);
 }
 
 function cleanSyntaxError(msg: string) {
@@ -161,7 +163,7 @@ function cleanSyntaxError(msg: string) {
     return fwdSlashesMsg;
 }
 
-function validateErrors(errors: Diagnostic[], fname: string, errType: 'error' | 'warning') {
+function validateErrors(errors: Diagnostic[], fname: string, errType: 'error' | 'warning')  {
     const errorMessages = errors.map(e => cleanSyntaxError(e.formatted));
     const errorsFname = path.join(path.dirname(fname), path.basename(fname, 'input.asm') + `${errType}s.txt`);
 
@@ -218,18 +220,18 @@ cp ${actualFname} ${errorsFname}
     }
 }
 
-function testErrors(testcase: string) {
+function testErrors(testcase: string): TestStats {
     const g = glob();
     let inputs = g.readdirSync('test/errors/*.input.asm').filter((t: string) => testcase ? t == testcase : true);
 
     const reporter = new TestReporter(inputs, 'error');
-    reporter.runTests((fname: string) => {
+    return reporter.runTests((fname: string) => {
         const { errors } = assemble(fname)!;
         return validateErrors(errors, fname, 'error');
     });
 }
 
-function testWarnings(testcase: string) {
+function testWarnings(testcase: string): TestStats {
     const g = glob();
     let inputs: string[] = [];
     try {
@@ -239,20 +241,20 @@ function testWarnings(testcase: string) {
     }
 
     const reporter = new TestReporter(inputs, 'warning');
-    reporter.runTests((fname: string) => {
+    return reporter.runTests((fname: string) => {
         const { warnings } = assemble(fname)!;
         return validateErrors(warnings, fname, 'warning');
     });
 }
 
-function testFunctional(testcase: string) {
+function testFunctional(testcase: string): TestStats {
     const testByName: { [index: string] : () => 'pass'|'fail'}  = {};
     for (const t of functional.tests) {
         testByName[t.name] = t;
     }
     const tests  = functional.tests.filter(e => testcase ? e.name === testcase : true);
     const reporter = new TestReporter(tests.map(f => f.name), 'functional');
-    reporter.runTests((testname: string) => {
+    return reporter.runTests((testname: string) => {
         return testByName[testname]();
     });
 }
@@ -279,14 +281,23 @@ if (args.verbose) {
 
 const hrstart = process.hrtime();
 
-outputTest(args.test);
-testErrors(args.test);
-testWarnings(args.test);
-testFunctional(args.test);
+const testCategories = [outputTest, testErrors, testWarnings, testFunctional];
+let anyFailures = false;
+for (const category of testCategories) {
+    const stats = category(args.test);
+    if (stats.failedTests !== 0) {
+        anyFailures = true;
+    }
+}
 
 if (verbose) {
     const NS_PER_SEC = 1e9;
     const diff = process.hrtime(hrstart);
     const deltaNS = diff[0] * NS_PER_SEC + diff[1];
     console.info('Tests completed in %d ms', Math.floor((deltaNS/1000000.0)*100)/100);
+}
+
+if (anyFailures) {
+    console.log('Tests failed.');
+    process.exit(1);
 }
