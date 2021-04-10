@@ -717,6 +717,23 @@ module.exports = loadJson;</code></pre>
 <h4 id="why-do-i-need-contextreadfilesync">Why do I need context.readFileSync?</h4>
 <p>You might be asking: why do I need <code>context.readFileSync</code> when I could just as well import Node's <code>readFileSync</code> and use that.</p>
 <p>Using the c64jasm provided I/O functions is necessary as it allows for c64jasm to know about your input files. For example, if you're running c64jasm in watch mode, it can cache all your input files if they didn't change since the previous compile.</p>
+<h4 id="error-handling-in-extensions">Error handling in extensions</h4>
+<p>Use <code>throw new Error</code> in your JavaScript extension to report errors back to the assembler. The assembler will turn these into assembler errors.</p>
+<p>plugin.js:</p>
+<pre><code>module.exports = ({}, arg0) =&gt; {
+    if (arg0 &lt; 5) {
+        return arg0;
+    }
+    throw new Error(&#39;arg0 must be less than 5&#39;);
+}</code></pre>
+<p>test.asm:</p>
+<p><pre class='asm-block'>
+<span class='asm-pseudo'>!use</span> <span class='asm-string'>"./plugin"</span> <span class='asm-ident'>as</span> <span class='asm-ident'>p</span>
+<span class='asm-pseudo'>!let</span> <span class='asm-ident'>b</span> <span class='asm-other'>=</span> <span class='asm-ident'>p</span><span class='asm-other'>(</span><span class='asm-num'>10</span><span class='asm-other'>)</span> <span class='asm-comment'>; reports an error like below</span>
+
+<span class='asm-comment'>; test/errors/js_errors3.js:5:11: error: Error: arg0 must be less than 5</span>
+</pre>
+</p>
 <h3 id="rules-of-authoring-extensions">Rules of authoring extensions</h3>
 <ul>
 <li>Use <code>context.readFileSync</code> to load files.</li>
