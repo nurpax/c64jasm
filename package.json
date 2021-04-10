@@ -1,6 +1,6 @@
 {
   "name": "c64jasm",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "A C64 macro assembler",
   "license": "MIT",
   "repository": {
@@ -30,7 +30,7 @@
     "asm": "node build/src/cli.js",
     "docs": "cd docs && stack exec docbuild build",
     "watch-docs": "cd docs && open-cli build/index.html && stack exec docbuild watch",
-    "docs-deploy": "yarn docs && gh-pages -d docs/build",
+    "docs-deploy": "npm run docs && gh-pages -d docs/build",
     "dist": "rm -rf dist && mkdir -p build/src dist/src && npm run gen && cp build/src/g_parser.js dist/src && tsc -p tsconfig.dist.json"
   },
   "dependencies": {
