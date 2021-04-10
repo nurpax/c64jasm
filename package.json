@@ -11,7 +11,8 @@
   "files": [
     "dist/**/*",
     "src/**/*",
-    "test/**/*"
+    "test/**/*",
+    "!.DS_Store"
   ],
   "homepage": "https://nurpax.github.io/c64jasm/",
   "author": {
