@@ -13,6 +13,14 @@ import { DebugInfoTracker } from './debugInfo';
 
 type ReadFileFunc = ((filename: string, encoding: string) => string) | ((filename: string, options?: null) => Buffer);
 
+interface JSCallError extends Error {
+    jsError?: boolean;
+};
+
+function isJsCallError(e: Error | JSCallError): e is JSCallError {
+    return (e as JSCallError).jsError !== undefined;
+}
+
 export interface PlatformOptions {
   name: string;
   defaultStartPC: number;
@@ -454,6 +462,56 @@ class Assembler {
         return this.parseCache.parse(filename, loc, ((fname, _loc) => this.guardedReadFileSync(fname, l)));
     }
 
+    addJSStackErrors(err: any, loc: SourceLoc) {
+        // Additional error information from JavaScript exception
+        if (err.stack) {
+            const lines = err.stack.split('\n');
+            if (lines.length > 0) {
+                const m = lines[0].match(/(.*):(\d+)/);
+                if (m) {
+                    const jsSource = m[1];
+                    const line = m[2];
+                    const rel = path.relative(path.dirname(loc.source), jsSource);
+                    const r = this.makeSourceRelativePath(rel);
+                    let err = null;
+                    for (let i = 1; i < lines.length; i++) {
+                        const m = lines[i].match(/^([a-zA-Z]*Error:.*)/);
+                        if (m) {
+                            err = m[1];
+                        }
+                    }
+                    const jsLoc: SourceLoc = {
+                        start: { offset: -1, line, column: 1 },
+                        end: { offset: -1, line, column: 2},
+                        source: r
+                    };
+                    this.addError(`${err ?? 'null'}`, jsLoc);
+                } else if (lines.length >= 2) {
+                    // Errors of below syntax:
+                    //
+                    // ReferenceError: arg1 is not defined
+                    //  at module.exports (/abs/path/test/errors/js_errors2.js:3:19)
+                    const m0 = lines[0].match(/^([a-zA-Z]*Error:.*)/);
+                    const m1 = lines[1].match(/^\s*at\s+.+\s+\((.+):(\d+):(\d+)\)/);
+                    if (m0 && m1) {
+                        const err = m0[1];
+                        const jsSource = m1[1];
+                        const line = m1[2];
+                        const col = m1[3];
+                        const rel = path.relative(path.dirname(loc.source), jsSource);
+                        const source = this.makeSourceRelativePath(rel);
+                        const jsLoc = {
+                            start: { offset: -1, line, column: col },
+                            end: { offset: -1, line, column: col },
+                            source
+                        }
+                        this.addError(`${err}`, jsLoc);
+                    }
+                }
+            }
+        }
+    }
+
     // Cache plugin require's so that we fresh require() them only in the first pass.
     // importFresh is somewhat slow because it blows through Node's cache
     // intentionally.  We don't want it completely cached because changes to plugin
@@ -483,6 +541,7 @@ class Assembler {
             return m;
         } catch(err) {
             this.addError(`Plugin load failed: ${sourceRelativePath}.js: ${err.message}`, loc);
+            this.addJSStackErrors(err, loc);
             return mkErrorValue(0);
         }
     }
@@ -937,6 +996,11 @@ class Assembler {
                         // expressions have lost their name once we get here.
                         this.addError(`Plugin call failed with an error: ${err.message}`, node.loc);
                     }
+                    // Convert JS call exception info into c64jasm errors that
+                    // refer to the errored .js file.
+                    if (isJsCallError(err)) {
+                        this.addJSStackErrors(err, node.loc);
+                    }
                     return mkErrorValue(0);
                 }
             }
@@ -1161,11 +1225,19 @@ class Assembler {
 
     makeFunction (pluginFunc: Function, loc: SourceLoc) {
         return (...args: any[]) => {
-            const res = pluginFunc.apply(null, [{
-                readFileSync: (fname: string) => this.readFileSync(fname),
-                resolveRelative: (fn: string) => this.makeSourceRelativePath(fn)
-            }, ...args]);
-            return res;
+            try {
+                const res = pluginFunc.apply(null, [{
+                    readFileSync: (fname: string) => this.readFileSync(fname),
+                    resolveRelative: (fn: string) => this.makeSourceRelativePath(fn)
+                }, ...args]);
+                return res;
+            } catch(err) {
+                // Mark this exception as a "JS plugin error" so that
+                // we know how to turn it into assembler error messages
+                // later.
+                (err as JSCallError).jsError = true;
+                throw err;
+            }
         }
     }
 

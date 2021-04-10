@@ -1,0 +1,2 @@
+test/errors/js_errors1.input.asm:3:1: error: Plugin load failed: test/errors/js_errors1.js: Unexpected identifier
+test/errors/js_errors1.js:2:1: error: SyntaxError: Unexpected identifier

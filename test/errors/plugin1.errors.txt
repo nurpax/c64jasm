@@ -1,1 +1,2 @@
 test/errors/plugin1.input.asm:5:10: error: Call to 'plug' failed with an error: this is an error
+test/errors/plugin-exception.js:3:11: error: Error: this is an error

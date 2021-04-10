@@ -1,0 +1,2 @@
+test/errors/js_errors2.input.asm:5:10: error: Call to 'p' failed with an error: arg1 is not defined
+test/errors/js_errors2.js:3:19: error: ReferenceError: arg1 is not defined

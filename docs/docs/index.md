@@ -590,6 +590,29 @@ You might be asking: why do I need `context.readFileSync` when I could just as w
 
 Using the c64jasm provided I/O functions is necessary as it allows for c64jasm to know about your input files.  For example, if you're running c64jasm in watch mode, it can cache all your input files if they didn't change since the previous compile.
 
+#### Error handling in extensions
+
+Use `throw new Error` in your JavaScript extension to report errors back to the assembler.  The assembler will turn these into assembler errors.
+
+plugin.js:
+```
+module.exports = ({}, arg0) => {
+    if (arg0 < 5) {
+        return arg0;
+    }
+    throw new Error('arg0 must be less than 5');
+}
+```
+
+test.asm:
+
+```c64
+!use "./plugin" as p
+!let b = p(10) ; reports an error like below
+
+; test/errors/js_errors3.js:5:11: error: Error: arg0 must be less than 5
+```
+
 ### Rules of authoring extensions
 
 - Use `context.readFileSync` to load files.

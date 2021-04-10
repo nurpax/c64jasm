@@ -1,1 +1,2 @@
 test/errors/plugin4.input.asm:5:10: error: Plugin call failed with an error: div by zero
+test/errors/plugin-multiple-exports.js:9:19: error: Error: div by zero

@@ -1,0 +1,2 @@
+test/errors/js_errors3.input.asm:6:10: error: Call to 'p' failed with an error: arg0 must be less than 5
+test/errors/js_errors3.js:6:11: error: Error: arg0 must be less than 5

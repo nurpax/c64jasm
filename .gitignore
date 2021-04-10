@@ -8,3 +8,4 @@ test/errors/*.actual_errors.txt
 /c64jasm-*.tgz
 /dist/
 /docs-src/build/
+/.vscode/
