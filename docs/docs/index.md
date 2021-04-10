@@ -650,6 +650,9 @@ In this example, the `stack` array holds the state which can be manipulated by c
 
 ## Release notes
 
+c64jasm 0.9.2 (2021-04-10):
+- Improved error reporting when things go wrong in .js assembler extensions.
+
 c64jasm 0.9.1 (2021-02-22):
 - Add VICE and C64Debugger debug symbol output (#84).  This can be used for setting breakpoints and enables source level debugging in C64Debugger.
 - Breaking command line interface changes:
